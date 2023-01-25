@@ -1,0 +1,6 @@
+torq_it_store_syndicator_homepage:
+  path: /store_syndicator
+  defaults:
+    {
+      _controller: StoreSyndicatorBundle\Controller\DefaultController:indexAction,
+    }
