@@ -16,6 +16,11 @@ services:
     public: true
     tags: ["controller.service_arguments"]
 
+  TorqIT\StoreSyndicatorBundle\Services\:
+    resource: "../../Services"
+    public: true
+    tags: ["sync.service_arguments"]
+
   # The migration installer needs the bundle it is operating on upon construction to be able to build its migration configuration.
   # As bundles can't be directly used as service argument, we need to make use of the expression language to fetch the bundle
   # from the kernel upon construction.

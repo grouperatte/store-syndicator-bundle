@@ -36,7 +36,8 @@ class StoreSyndicatorBundle extends AbstractPimcoreBundle implements DependentBu
     {
         return [
             '/bundles/storesyndicator/js/pimcore/startup.js',
-            '/bundles/storesyndicator/js/pimcore/adapter/storeExporterDataObject.js'
+            '/bundles/storesyndicator/js/pimcore/adapter/storeExporterDataObject.js',
+            '/bundles/storesyndicator/js/pimcore/configuration/configItemDataObject.js'
         ];
     }
 
