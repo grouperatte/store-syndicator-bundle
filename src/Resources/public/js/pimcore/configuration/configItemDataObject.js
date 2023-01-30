@@ -2,7 +2,8 @@ pimcore.registerNS('pimcore.plugin.storeExporterDataObject.configuration.configI
 pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Class.create(pimcore.plugin.datahub.configuration.graphql.configItem, {
 
     config: {
-        attributeStore: null
+        attributeStore: null,
+        productsStore: null
     },
 
     urlSave: Routing.generate('pimcore_storesyndicator_configdataobject_save'),
@@ -10,6 +11,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
     getPanels: function () {
         return [
             this.buildGeneralTab(),
+            this.buildProductsTab(),
             this.buildAttributeMappingTab(),
             this.buildAccessTab()
         ];
@@ -123,6 +125,21 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             ]
         });
         return this.generalForm;
+    },
+    buildProductsTab: function() {
+        this.productsTab = Ext.create('Ext.form.FormPanel', {
+            bodyStyle: "padding:10px;",
+            autoScroll: true,
+            defaults: {
+                labelWidth: 200,
+                width: 600
+            },
+            border: false,
+            title: t('plugin_pimcore_datahub_configpanel_item_products'),
+            items: [
+            ]
+        });
+        return this.productsTab;
     },
     buildAttributeMappingTab: function() {
         if(!this.attributeStore){
