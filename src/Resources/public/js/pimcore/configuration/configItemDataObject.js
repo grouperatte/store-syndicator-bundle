@@ -3,7 +3,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
 
     config: {
         attributeStore: null,
-        productsStore: null
+        productsStore: null,
+        configName: null,
     },
 
     urlSave: Routing.generate('pimcore_storesyndicator_configdataobject_save'),
@@ -127,6 +128,20 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         return this.generalForm;
     },
     buildProductsTab: function() {
+        if(!this.classStore){
+            this.classStore = Ext.create('Ext.data.Store', {
+                fields: ['name'],
+                proxy: {
+                    method: 'GET',
+                    url: Routing.generate('pimcore_storesyndicator_product_choice_get_classes'),
+                    noCache: false,
+                    type: 'ajax',
+                    root: 'result',
+                    totalProperty: 'total',
+                },
+                autoLoad: true
+            });
+        }
         this.productsTab = Ext.create('Ext.form.FormPanel', {
             bodyStyle: "padding:10px;",
             autoScroll: true,
@@ -137,8 +152,18 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             border: false,
             title: t('plugin_pimcore_datahub_configpanel_item_products'),
             items: [
+                {
+                    xtype: "combobox",
+                    fieldLabel: t("BaseClass"),
+                    name: "class",
+                    value: this.data.products.class ?? '',
+                    store: this.classStore,
+                    valueField: 'name',
+                    displayField: 'name',
+                }
             ]
         });
+        this.objectTree = new pimcore.plugin.storeExporterDataObject.helpers.objectTree(this.productsTab, this.data.general.name)
         return this.productsTab;
     },
     buildAttributeMappingTab: function() {
@@ -329,6 +354,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         saveData['general'] = this.generalForm.getValues();
         saveData['attributeMap'] = gridData;
         saveData['APIAccess'] = this.accessForm.getValues();
+        saveData['products'] = this.productsTab.getValues();
         return saveData;
     },
     saveOnComplete: function () {

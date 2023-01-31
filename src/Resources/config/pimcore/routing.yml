@@ -9,3 +9,9 @@ _store_syndicator_attributes_admin:
   type: annotation
   options:
     expose: true
+
+_store_syndicator_classes_admin:
+  resource: "@StoreSyndicatorBundle/Controller/ProductChoiceController.php"
+  type: annotation
+  options:
+    expose: true
