@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyAttributesService;
+use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 
 /**
  * @Route("/admin/storesyndicator/attributes", name="pimcore_storesyndicator_attributes")
@@ -24,19 +24,16 @@ class AttributeController extends FrontendController
      *
      * @return JsonResponse|null
      */
-    public function getLocalAttributes(Request $request): JsonResponse
+    public function getLocalAttributes(Request $request, AttributesService $attributesService): JsonResponse
     {
         $name = $request->get("name");
         $config = Configuration::getByName($name);
-        $config = $config->getConfiguration();
 
-        $class = $config["products"]["class"];
-        $class = ClassDefinition::getByName($class);
+        $fields = $attributesService->getLocalFields($config);
 
-        $fields = $class->getFieldDefinitions();
         $data = [];
         foreach ($fields as $field) {
-            $data[] = ['name' => $field->getName()];
+            $data[] = ['name' => $field];
         }
         $result = $this->json($data);
         return $result;
@@ -49,12 +46,12 @@ class AttributeController extends FrontendController
      *
      * @return JsonResponse|null
      */
-    public function getRemoteAttributes(Request $request, ShopifyAttributesService $shopifyAttributesService): JsonResponse
+    public function getRemoteAttributes(Request $request, AttributesService $attributesService): JsonResponse
     {
         $name = $request->get("name");
         $config = Configuration::getByName($name);
 
-        $fields = $shopifyAttributesService->getRemoteFields($config);
+        $fields = $attributesService->getRemoteFields($config);
 
         $data = [];
         foreach ($fields as $field) {
