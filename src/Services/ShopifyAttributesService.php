@@ -11,6 +11,24 @@ use Pimcore\Bundle\DataHubBundle\Configuration;
 
 class ShopifyAttributesService
 {
+    static array $baseFields = [
+        "description",
+        "price",
+        "compare at price",
+        "tax code",
+        "cost per item",
+        "SKU",
+        "Barcode",
+        "Inventory policy",
+        "Available",
+        "Incoming",
+        "Committed",
+        "This is a physical product",
+        "Weight",
+        "Country/Region of origin",
+        "HS code",
+        "Fulfillment service",
+    ];
     public function getRemoteFields(Configuration $config): array
     {
         $config = $config->getConfiguration();
@@ -46,6 +64,7 @@ class ShopifyAttributesService
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
             $data[] = $node["node"]["namespace"] .  "." . $node["node"]["key"];
         }
+        $data = array_merge($data, self::$baseFields);
         return $data;
     }
 }
