@@ -1,5 +1,6 @@
 plugin_pimcore_datahub_type_storeExporterDataObject: Store Exporter
 plugin_pimcore_datahub_configpanel_item_attribute_mapping: Map Attributes
+plugin_pimcore_datahub_configpanel_item_remote_header_tip: Choose the remote attribute or type to create a custom option
 plugin_pimcore_datahub_configpanel_item_access: API Access
 plugin_pimcore_datahub_configpanel_item_shopify_host: Shopify Host URL
 plugin_pimcore_datahub_configpanel_item_shopify_token: API Access Token

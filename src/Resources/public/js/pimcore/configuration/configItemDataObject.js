@@ -244,6 +244,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     text: 'remote field',
                     dataIndex: 'remote field',
                     width: 200,
+                    tooltip: t('plugin_pimcore_datahub_configpanel_item_remote_header_tip'),
                     editor: {
                         xtype: 'combobox',
                         queryMode: 'local',
