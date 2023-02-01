@@ -46,6 +46,7 @@ class ConfigurationPreparationService
         $config = array_merge([
             'APIAccess' => [],
             'attributeMap' => [],
+            'products' => [],
         ], $config);
 
         return $config;

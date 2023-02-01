@@ -2,7 +2,9 @@ pimcore.registerNS('pimcore.plugin.storeExporterDataObject.configuration.configI
 pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Class.create(pimcore.plugin.datahub.configuration.graphql.configItem, {
 
     config: {
-        attributeStore: null
+        attributeStore: null,
+        objectTree: null,
+        configName: null,
     },
 
     urlSave: Routing.generate('pimcore_storesyndicator_configdataobject_save'),
@@ -10,6 +12,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
     getPanels: function () {
         return [
             this.buildGeneralTab(),
+            this.buildProductsTab(),
             this.buildAttributeMappingTab(),
             this.buildAccessTab()
         ];
@@ -123,6 +126,45 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             ]
         });
         return this.generalForm;
+    },
+    buildProductsTab: function() {
+        if(!this.classStore){
+            this.classStore = Ext.create('Ext.data.Store', {
+                fields: ['name'],
+                proxy: {
+                    method: 'GET',
+                    url: Routing.generate('pimcore_storesyndicator_product_choice_get_classes'),
+                    noCache: false,
+                    type: 'ajax',
+                    root: 'result',
+                    totalProperty: 'total',
+                },
+                autoLoad: true
+            });
+        }
+        this.productsTab = Ext.create('Ext.form.FormPanel', {
+            bodyStyle: "padding:10px;",
+            autoScroll: true,
+            defaults: {
+                labelWidth: 200,
+                width: 600
+            },
+            border: false,
+            title: t('plugin_pimcore_datahub_configpanel_item_products'),
+            items: [
+                {
+                    xtype: "combobox",
+                    fieldLabel: t("BaseClass"),
+                    name: "class",
+                    value: this.data.products.class ?? '',
+                    store: this.classStore,
+                    valueField: 'name',
+                    displayField: 'name',
+                }
+            ]
+        });
+        this.objectTree = new pimcore.plugin.storeExporterDataObject.helpers.objectTree(this.productsTab, this.data.general.name)
+        return this.productsTab;
     },
     buildAttributeMappingTab: function() {
         if(!this.attributeStore){
@@ -308,10 +350,24 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         store.each(function(r) {
             gridData.push(r.getData());
         });
+        saveData['attributeMap'] = gridData;
+
+        let productsData = {};
+        store = this.objectTree.getTree().getStore();
+        gridData = [];
+        store.each(function(r) {
+            console.log("here");
+            data = r.getData()
+            if(data["checked"]){
+                gridData.push(data["id"]);
+            }
+        });
+        productsData['products'] = gridData;
+        productsData['class'] = this.productsTab.getValues().class
 
         saveData['general'] = this.generalForm.getValues();
-        saveData['attributeMap'] = gridData;
         saveData['APIAccess'] = this.accessForm.getValues();
+        saveData['products'] = productsData;
         return saveData;
     },
     saveOnComplete: function () {
