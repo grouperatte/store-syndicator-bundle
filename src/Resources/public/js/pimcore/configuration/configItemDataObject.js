@@ -14,7 +14,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             this.buildGeneralTab(),
             this.buildProductsTab(),
             this.buildAttributeMappingTab(),
-            this.buildAccessTab()
+            this.buildAccessTab(),
+            this.buildExecutionTab()
         ];
     },
 
@@ -316,6 +317,35 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             ]
         });
         return this.accessForm;
+    },
+    buildExecutionTab: function() {
+        let manualExecute = Ext.create('Ext.Button', {
+            text: t('plugin_pimcore_datahub_configpanel_item_manual_execute'),
+            handler: function() {
+                let url = Routing.generate('pimcore_storesyndicator_execution_execute');
+                Ext.Ajax.request({
+                    url: url,
+                    method: 'POST',
+                    params: {
+                        name: this.configName
+                    }
+                })
+            }
+        })
+        this.executionForm = Ext.create('Ext.form.FormPanel', {
+            bodyStyle: "padding:10px;",
+            autoScroll: true,
+            defaults: {
+                labelWidth: 200,
+                width: 600
+            },
+            border: false,
+            title: t('plugin_pimcore_datahub_configpanel_item_execution'),
+            items: [
+                manualExecute
+            ]
+        });
+        return this.executionForm;
     },
     save: function(){
         var saveData = this.getSaveData();
