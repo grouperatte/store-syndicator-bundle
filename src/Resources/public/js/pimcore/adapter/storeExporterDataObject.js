@@ -13,7 +13,7 @@ pimcore.plugin.datahub.adapter.storeExporterDataObject = Class.create(pimcore.pl
         }
 
         Ext.Ajax.request({
-            url: Routing.generate('pimcore_storeexporter_configdataobject_get'),
+            url: Routing.generate('pimcore_storesyndicator_configdataobject_get'),
             params: {
                 name: id
             },

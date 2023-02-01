@@ -1,6 +1,23 @@
-torq_it_store_syndicator_homepage:
-  path: /store_syndicator
-  defaults:
-    {
-      _controller: StoreSyndicatorBundle\Controller\DefaultController:indexAction,
-    }
+_data_hub_store_syndicator_data_object_admin:
+  resource: "@StoreSyndicatorBundle/Controller/ConfigDataObjectController.php"
+  type: annotation
+  options:
+    expose: true
+
+_store_syndicator_attributes_admin:
+  resource: "@StoreSyndicatorBundle/Controller/AttributeController.php"
+  type: annotation
+  options:
+    expose: true
+
+_store_syndicator_classes_admin:
+  resource: "@StoreSyndicatorBundle/Controller/ProductChoiceController.php"
+  type: annotation
+  options:
+    expose: true
+
+_store_syndicator_execution_admin:
+  resource: "@StoreSyndicatorBundle/Controller/ExecutionController.php"
+  type: annotation
+  options:
+    expose: true
