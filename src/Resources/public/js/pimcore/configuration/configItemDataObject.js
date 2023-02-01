@@ -5,6 +5,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         attributeStore: null,
         objectTree: null,
         configName: null,
+        classStore: null,
     },
 
     urlSave: Routing.generate('pimcore_storesyndicator_configdataobject_save'),
@@ -184,6 +185,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     type: 'ajax',
                     root: 'result',
                     totalProperty: 'total',
+                    extraParams: {'name': this.data.general.name}
                 },
                 autoLoad: true
             });
@@ -197,6 +199,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     type: 'ajax',
                     root: 'result',
                     totalProperty: 'total',
+                    extraParams: {'name': this.data.general.name}//change to something about what kind of export this is
                 },
                 autoLoad: true
             });
