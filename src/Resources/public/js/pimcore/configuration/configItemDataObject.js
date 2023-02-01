@@ -3,7 +3,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
 
     config: {
         attributeStore: null,
-        productsStore: null,
+        objectTree: null,
         configName: null,
     },
 
@@ -350,11 +350,24 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         store.each(function(r) {
             gridData.push(r.getData());
         });
+        saveData['attributeMap'] = gridData;
+
+        let productsData = {};
+        store = this.objectTree.getTree().getStore();
+        gridData = [];
+        store.each(function(r) {
+            console.log("here");
+            data = r.getData()
+            if(data["checked"]){
+                gridData.push(data["id"]);
+            }
+        });
+        productsData['products'] = gridData;
+        productsData['class'] = this.productsTab.getValues().class
 
         saveData['general'] = this.generalForm.getValues();
-        saveData['attributeMap'] = gridData;
         saveData['APIAccess'] = this.accessForm.getValues();
-        saveData['products'] = this.productsTab.getValues();
+        saveData['products'] = productsData;
         return saveData;
     },
     saveOnComplete: function () {

@@ -1,6 +1,7 @@
 pimcore.registerNS("pimcore.plugin.storeExporterDataObject.helpers.objectTree");
 pimcore.plugin.storeExporterDataObject.helpers.objectTree = Class.create(pimcore.object.tree, {
 
+    tree: null, 
     initialize: function ($super, parent, name) {
         this.name = name;
         initConfig = {
@@ -13,6 +14,10 @@ pimcore.plugin.storeExporterDataObject.helpers.objectTree = Class.create(pimcore
                 parentPanel: parent
             }
         $super(initConfig);
+    },
+
+    getTree: function (){
+        return this.tree;
     },
 
     //overriding this function as we dont want any object opening or modifying here
