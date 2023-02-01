@@ -15,3 +15,9 @@ _store_syndicator_classes_admin:
   type: annotation
   options:
     expose: true
+
+_store_syndicator_execution_admin:
+  resource: "@StoreSyndicatorBundle/Controller/ExecutionController.php"
+  type: annotation
+  options:
+    expose: true
