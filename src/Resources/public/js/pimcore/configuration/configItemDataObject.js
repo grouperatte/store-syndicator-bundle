@@ -390,7 +390,6 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         store = this.objectTree.getTree().getStore();
         gridData = [];
         store.each(function(r) {
-            console.log("here");
             data = r.getData()
             if(data["checked"]){
                 gridData.push(data["id"]);
