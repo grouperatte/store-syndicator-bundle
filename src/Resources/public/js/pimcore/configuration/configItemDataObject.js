@@ -5,6 +5,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         attributeStore: null,
         objectTree: null,
         configName: null,
+        classStore: null,
     },
 
     urlSave: Routing.generate('pimcore_storesyndicator_configdataobject_save'),
@@ -184,6 +185,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     type: 'ajax',
                     root: 'result',
                     totalProperty: 'total',
+                    extraParams: {'name': this.data.general.name}
                 },
                 autoLoad: true
             });
@@ -197,6 +199,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     type: 'ajax',
                     root: 'result',
                     totalProperty: 'total',
+                    extraParams: {'name': this.data.general.name}//change to something about what kind of export this is
                 },
                 autoLoad: true
             });
@@ -241,6 +244,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     text: 'remote field',
                     dataIndex: 'remote field',
                     width: 200,
+                    tooltip: t('plugin_pimcore_datahub_configpanel_item_remote_header_tip'),
                     editor: {
                         xtype: 'combobox',
                         queryMode: 'local',
@@ -386,7 +390,6 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         store = this.objectTree.getTree().getStore();
         gridData = [];
         store.each(function(r) {
-            console.log("here");
             data = r.getData()
             if(data["checked"]){
                 gridData.push(data["id"]);
