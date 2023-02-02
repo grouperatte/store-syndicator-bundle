@@ -8,9 +8,10 @@ use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
 use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\ClassDefinition;
+use Pimcore\Model\DataObject\Classificationstore;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Fieldcollections;
-use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore;
+use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
 use Pimcore\Model\DataObject\Objectbrick\Definition as ObjectbrickDefinition;
 use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefinition;
 
@@ -104,11 +105,24 @@ class AttributesService
                     $allowedTypeClass = FieldcollectionDefinition::getByKey($allowedType);
                     $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . ".");
                 }
+            } elseif ($field instanceof ClassificationStoreDefinition) {
+                $fields = $this->getStoreKeys($field->getStoreId());
+                foreach ($fields as $field) {
+                    $attributes[] = $prefix . $field->getName();
+                }
             } else {
                 $attributes[] = $prefix . $field->getName();
             }
-            if (method_exists($field, "getAllowedTypes") && $allowedTypes = $field->getAllowedTypes()) {
-            }
         }
+    }
+
+    private function getStoreKeys($storeId)
+    {
+        $db = \Pimcore\Db::get();
+
+        $condition = '(storeId = ' . $db->quote($storeId) . ')';
+        $list = new Classificationstore\KeyConfig\Listing();
+        $list->setCondition($condition);
+        return $list->load();
     }
 }
