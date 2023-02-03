@@ -130,6 +130,9 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         return this.generalForm;
     },
     buildProductsTab: function() {
+        if(!this.objectWorkspace){
+            this.objectWorkspace = new pimcore.plugin.datahub.workspace.object(this);
+        }
         if(!this.classStore){
             this.classStore = Ext.create('Ext.data.Store', {
                 fields: ['name'],
@@ -159,13 +162,14 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     fieldLabel: t("BaseClass"),
                     name: "class",
                     value: this.data.products.class ?? '',
-                    store: this.classStore,
+                    store: this.classStore, 
                     valueField: 'name',
                     displayField: 'name',
-                }
+                },
+                this.objectWorkspace.getPanel()
             ]
         });
-        this.objectTree = new pimcore.plugin.storeExporterDataObject.helpers.objectTree(this.productsTab, this.data.general.name)
+        //this.objectTree = new pimcore.plugin.storeExporterDataObject.helpers.objectTree(this.productsTab, this.data.general.name)
         return this.productsTab;
     },
     buildAttributeMappingTab: function() {
@@ -387,15 +391,17 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         saveData['attributeMap'] = gridData;
 
         let productsData = {};
-        store = this.objectTree.getTree().getStore();
-        gridData = [];
-        store.each(function(r) {
-            data = r.getData()
-            if(data["checked"]){
-                gridData.push(data["id"]);
-            }
-        });
-        productsData['products'] = gridData;
+        // old product picker
+        // store = this.objectTree.getTree().getStore();
+        // gridData = [];
+        // store.each(function(r) {
+        //     data = r.getData()
+        //     if(data["checked"]){
+        //         gridData.push(data["id"]);
+        //     }
+        // });
+        let pickedDataobjects = this.objectWorkspace.getValues();
+        productsData['products'] = pickedDataobjects;
         productsData['class'] = this.productsTab.getValues().class
 
         saveData['general'] = this.generalForm.getValues();
