@@ -345,6 +345,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             },
             border: false,
             title: t('plugin_pimcore_datahub_configpanel_item_execution'),
+            //add some config for cron
             items: [
                 manualExecute
             ]
