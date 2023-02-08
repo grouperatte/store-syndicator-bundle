@@ -131,7 +131,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
     },
     buildProductsTab: function() {
         if(!this.objectWorkspace){
-            this.objectWorkspace = new pimcore.plugin.datahub.workspace.object(this);
+            this.objectWorkspace = new pimcore.plugin.storeExporterDataObject.helpers.workspace.object(this);
         }
         if(!this.classStore){
             this.classStore = Ext.create('Ext.data.Store', {
