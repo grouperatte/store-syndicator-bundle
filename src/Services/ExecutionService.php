@@ -43,17 +43,8 @@ class ExecutionService
     {
         if (!($object instanceof Concrete)) return;
 
-        $remoteId = $this->getStoreProductId($object);
+        $remoteId = $this->storeInterface->getStoreProductId($object);
 
         $this->storeInterface->createOrUpdateProduct($object, $remoteId);
-    }
-
-    private function getStoreProductId(Concrete $object): ?string
-    {
-        return "";
-    }
-
-    private function setStoreProductId(Concrete $object, $id)
-    {
     }
 }

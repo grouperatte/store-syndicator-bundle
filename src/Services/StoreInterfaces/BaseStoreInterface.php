@@ -8,11 +8,21 @@ use Pimcore\Model\DataObject\Data\ElementMetadata;
 
 abstract class BaseStoreInterface
 {
+    protected const PROPERTTYNAME = "Default";
     protected array $config;
-    abstract public function __construct(array $config);
+    abstract public function __construct();
+    abstract public function setup(array $config);
     abstract public function getAllProducts();
     abstract public function getProduct(string $id);
     abstract public function createOrUpdateProduct(Concrete $object, ?string $remoteId, array $params = []);
+    public function getStoreProductId(Concrete $object): string
+    {
+        return $object->getProperty(static::PROPERTTYNAME);
+    }
+    function setStoreProductId(Concrete $object, string $id)
+    {
+        $object->setProperty(static::PROPERTTYNAME, "text", $id);
+    }
     /**
      * call to perform an final actions between the app and the store
      * one mandatory asction is to update the webstore's product -> remoteId mapping if the remote store uses one

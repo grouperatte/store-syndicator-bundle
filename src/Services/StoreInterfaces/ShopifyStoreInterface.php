@@ -13,12 +13,17 @@ use Shopify\Exception\RestResourceRequestException;
 
 class ShopifyStoreInterface extends BaseStoreInterface
 {
+    const PROPERTTYNAME = "ShopifyProductId"; //override parent value
     private $graphQLStrings;
     private Session $session;
     private GraphQl $client;
     private array $productMetafieldsMapping;
 
-    public function __construct(array $config)
+    public function __construct()
+    {
+    }
+
+    public function setup(array $config)
     {
         $this->config = $config;
 
