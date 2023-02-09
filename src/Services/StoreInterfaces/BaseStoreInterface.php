@@ -14,15 +14,7 @@ abstract class BaseStoreInterface
     abstract public function setup(array $config);
     abstract public function getAllProducts();
     abstract public function getProduct(string $id);
-    abstract public function createOrUpdateProduct(Concrete $object, ?string $remoteId, array $params = []);
-    public function getStoreProductId(Concrete $object): string
-    {
-        return $object->getProperty(static::PROPERTTYNAME);
-    }
-    function setStoreProductId(Concrete $object, string $id)
-    {
-        $object->setProperty(static::PROPERTTYNAME, "text", $id);
-    }
+    abstract public function createOrUpdateProduct(Concrete $object, array $params = []);
     /**
      * call to perform an final actions between the app and the store
      * one mandatory asction is to update the webstore's product -> remoteId mapping if the remote store uses one
@@ -30,6 +22,16 @@ abstract class BaseStoreInterface
      * @param Webstore $webstore to webstore with the product mapping
      **/
     abstract public function commit();
+
+    public function getStoreProductId(Concrete $object): string|null
+    {
+        return $object->getProperty(static::PROPERTTYNAME);
+    }
+    function setStoreProductId(Concrete $object, string $id)
+    {
+        $object->setProperty(static::PROPERTTYNAME, "text", $id);
+        $object->save();
+    }
 
     public function getAttributes(Concrete $object): array
     {
@@ -40,11 +42,20 @@ abstract class BaseStoreInterface
             $remoteAttribute = $row['remote field'];
             //getting local value of field
             $localFieldPath = explode(".", $localAttribute);
+            $remoteFieldPath = explode(".", $remoteAttribute);
             $currentField = $object;
             foreach ($localFieldPath as $field) {
-                $currentField = $currentField->getValueForFieldName($field);
+                $currentField = strval($currentField->getValueForFieldName($field));
             }
-            $returnMap[$remoteAttribute] = $currentField;
+            if (count($remoteFieldPath) > 1) { //metafields have paths
+                $returnMap["metafields"][] = [
+                    'namespace' => $remoteFieldPath[0],
+                    'fieldName' => $remoteFieldPath[1],
+                    'value' => $currentField
+                ];
+            } else {
+                $returnMap[$remoteAttribute] = $currentField;
+            }
         }
         return $returnMap;
     }

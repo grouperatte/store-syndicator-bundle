@@ -51,7 +51,7 @@ class AttributeController extends FrontendController
         $name = $request->get("name");
         $config = Configuration::getByName($name);
 
-        $fields = $attributesService->getRemoteFields($config);
+        $fields = $attributesService->getRemoteFields($config->getConfiguration()["APIAccess"]);
 
         $data = [];
         foreach ($fields as $field) {

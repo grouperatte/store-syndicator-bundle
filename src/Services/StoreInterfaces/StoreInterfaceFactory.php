@@ -13,6 +13,8 @@ class StoreInterfaceFactory
         //very temporary until users can choose the store type
         $storetype = StoreType::Shopify;
         $storetype = $storetype->getInterface();
-        return new $storetype($config);
+        $store = new $storetype();
+        $store->setup($config);
+        return $store;
     }
 }

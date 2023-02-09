@@ -15,6 +15,8 @@ class ShopifyStoreInterface extends BaseStoreInterface
 {
     const PROPERTTYNAME = "ShopifyProductId"; //override parent value
     private $graphQLStrings;
+    private $createGreaphQLStrings;
+    private array $createObjs;
     private Session $session;
     private GraphQl $client;
     private array $productMetafieldsMapping;
@@ -101,33 +103,63 @@ class ShopifyStoreInterface extends BaseStoreInterface
         }
     }
 
-    public function createOrUpdateProduct(Concrete $object, ?string $remoteId, array $params = [])
+    public function createOrUpdateProduct(Concrete $object, array $params = [])
+    {
+        $fields = $this->getAttributes($object);
+
+        if ($remoteId = $this->getStoreProductId($object)) {
+            $this->updateProduct($object, $remoteId, $fields);
+        } else {
+            $this->createProduct($object, $fields);
+        }
+        // $graphQLInputString["options"] = $fields["options"];
+        // $graphQLInputString["variants"] = $this->createVariantsField($this->getVariantsOptions($object, $fields["options"]));
+    }
+
+    private function updateProduct(Concrete $object, $remoteId, $fields)
     {
         $graphQLInputString = [];
-        if ($remoteId) {
-            $graphQLInputString["id"] = $remoteId;
-        }
         $graphQLInputString["title"] = $object->getKey();
-        $fields = $this->getAttributes($object);
         foreach ($fields['metafields'] as $attribute) {
-            //$graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->productMetafieldsMapping[$remoteId]);
+            if (array_key_exists($remoteId, $this->productMetafieldsMapping))
+                $graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->productMetafieldsMapping[$remoteId]);
         }
-        $graphQLInputString["options"] = $fields["options"];
-        $graphQLInputString["variants"] = $this->createVariantsField($this->getVariantsOptions($object, $fields["options"]));
-
+        unset($fields['metafields']);
+        foreach ($fields as $field => $value) {
+            $graphQLInputString[$field] = $value;
+        }
+        $graphQLInputString["id"] = $remoteId;
         $this->graphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
+    }
+
+    private function createProduct(Concrete $object, $fields)
+    {
+        $graphQLInputString = [];
+        $graphQLInputString["title"] = $object->getKey();
+        foreach ($fields['metafields'] as $attribute) {
+            $graphQLInputString["metafields"][] = [
+                "key" => $attribute["fieldName"],
+                "value" => $attribute["value"],
+                "namespace" => $attribute["namespace"],
+            ];
+        }
+        unset($fields['metafields']);
+        foreach ($fields as $field => $value) {
+            $graphQLInputString[$field] = $value;
+        }
+        $this->createGreaphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
+        $this->createObjs[] = $object;
     }
 
     private function createMetafield($attribute, $mapping)
     {
         $tmpMetafield = [
-            "key" => $attribute["key"],
+            "key" => $attribute["fieldName"],
             "value" => $attribute["value"],
-            "namespace" => 'custom',
+            "namespace" => $attribute["namespace"],
         ];
-        if (array_key_exists($attribute["key"], $mapping["metafields"])) {
-            $tmpMetafield["id"] = $mapping["metafields"][$attribute["key"]]["id"];
-            $tmpMetafield["namespace"] = $mapping["metafields"][$attribute["key"]]["namespace"];
+        if (array_key_exists($attribute["fieldName"], $mapping["metafields"])) {
+            $tmpMetafield["id"] = $mapping["metafields"][$attribute["fieldName"]]["id"];
         }
         return $tmpMetafield;
     }
@@ -147,63 +179,86 @@ class ShopifyStoreInterface extends BaseStoreInterface
 
     public function commit()
     {
+        if ($this->createGreaphQLStrings) {
+            //create unmade products
+            $remoteFileKey = $this->uploadProductFile($this->createGreaphQLStrings);
 
-
-        $remoteFileKey = $this->uploadProductFile($this->graphQLStrings);
-
-        //actually tell spotify to run a command using the file\
-
-        // metafields(first:10) {
-        //     edges {
-        //         node {
-        //             id
-        //             key
-        //             value
-        //             namespace
-        //         }
-        //     }
-        // }
-        $product_update_query =
-            'mutation {
+            //will return array of ids to link to our products
+            $product_create_query =
+                'mutation {
                 bulkOperationRunMutation(
-                mutation: "mutation call($input: ProductInput!) { productUpdate(input: $input) {
+                mutation: "mutation call($input: ProductInput!) { productCreate(input: $input) {
                     product {
-                        title
                         id
-                        options {
-                            name
-                        }
-                        variants(first: 10) {
-                            edges {
-                                node {
-                                    selectedOptions {
-                                        name
-                                        value
-                                    }
-                                }
-                            }
-                        }
                     } userErrors { message field } } }",
                 stagedUploadPath: "' . $remoteFileKey . '") {
                 bulkOperation {
-                id
-                url
-                status
+                    id
+                    url
+                    status
                 }
                 userErrors {
-                message
-                field
+                    message
+                    field
                 }
             }
-        }';
-        $product_update_response = $this->client->query(["query" => $product_update_query])->getDecodedBody();
+            }';
 
-        while (!$resultFileURL = $this->queryFinished()) {
+            $this->client->query(["query" => $product_create_query])->getDecodedBody();
+
+            while (!$resultFileURL = $this->queryFinished()) {
+            }
+            //map created products
+            $result = file_get_contents($resultFileURL);
+            $result = '[' . str_replace(PHP_EOL, ',', $result);
+            $result = substr($result, 0, strlen($result) - 1) . "]";
+            $result = json_decode($result, true);
+            foreach ($result as $ind => $createdProduct) {
+                $this->setStoreProductId($this->createObjs[$ind], $createdProduct["data"]["productCreate"]["product"]["id"]);
+            }
         }
 
-        $tmp = '';
-        //commit new product mapping
+        if ($this->graphQLStrings) {
+            $remoteFileKey = $this->uploadProductFile($this->graphQLStrings);
 
+            $product_update_query =
+                'mutation {
+                    bulkOperationRunMutation(
+                    mutation: "mutation call($input: ProductInput!) { productUpdate(input: $input) {
+                        product {
+                            title
+                            id
+                            options {
+                                name
+                            }
+                            variants(first: 10) {
+                                edges {
+                                    node {
+                                        selectedOptions {
+                                            name
+                                            value
+                                        }
+                                    }
+                                }
+                            }
+                        } userErrors { message field } } }",
+                    stagedUploadPath: "' . $remoteFileKey . '") {
+                    bulkOperation {
+                    id
+                    url
+                    status
+                    }
+                    userErrors {
+                    message
+                    field
+                }
+            }
+            }';
+            $result = $this->client->query(["query" => $product_update_query])->getDecodedBody();
+
+            while (!$resultFileURL = $this->queryFinished()) {
+            }
+        }
     }
 
     private function uploadProductFile(string $productString)
@@ -299,7 +354,7 @@ class ShopifyStoreInterface extends BaseStoreInterface
         }
         QUERY;
         $response = $this->client->query(["query" => $query])->getDecodedBody();
-        if ($response['data']["currentBulkOperation"]["completedAt"]) {
+        if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
             return $response['data']["currentBulkOperation"]["url"];
         } else {
             return false;

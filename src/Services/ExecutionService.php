@@ -15,6 +15,7 @@ use TorqIT\StoreSyndicatorBundle\Services\StoreInterfaces\StoreInterfaceFactory;
 class ExecutionService
 {
     private array $config;
+    private string $classType;
     private BaseStoreInterface $storeInterface;
 
     public function __construct()
@@ -27,24 +28,34 @@ class ExecutionService
         $this->config = $config;
         $this->storeInterface = StoreInterfaceFactory::getExportUtil($this->config);
 
-        $productIds = json_decode($this->config["products"]["products"]);
-        $classType = $this->config["products"]["class"];
-        /** @var DataObject $class */
-        $class = "DataObject\\" . $classType;
-        foreach ($productIds as $productId) {
-            $object = $class::getById($productId);
-            if ($object) {
-                $this->push($object);
+        $productPaths = $this->config["products"]["products"];
+        $this->classType = $this->config["products"]["class"];
+
+        $this->classType = "Pimcore\\Model\\DataObject\\" . $this->classType;
+        foreach ($productPaths as $pathArray) {
+            $path = $pathArray["cpath"];
+            $products = DataObject::getByPath($path);
+            $products = $products->getChildren();
+            foreach ($products as $product) {
+                $this->recursiveExport($product);
             }
+        }
+        $this->storeInterface->commit();
+    }
+
+    private function recursiveExport($dataObject)
+    {
+        $this->push($dataObject);
+        $products = $dataObject->getChildren();
+        foreach ($products as $product) {
+            $this->recursiveExport($product);
         }
     }
 
     private function push($object)
     {
-        if (!($object instanceof Concrete)) return;
+        if (!(is_a($object, $this->classType))) return;
 
-        $remoteId = $this->storeInterface->getStoreProductId($object);
-
-        $this->storeInterface->createOrUpdateProduct($object, $remoteId);
+        $this->storeInterface->createOrUpdateProduct($object);
     }
 }

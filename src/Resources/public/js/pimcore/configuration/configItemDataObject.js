@@ -335,10 +335,10 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     url: url,
                     method: 'POST',
                     params: {
-                        name: this.configName
+                        name: this.data.general.name
                     }
                 })
-            }
+            }.bind(this)
         })
         this.executionForm = Ext.create('Ext.form.FormPanel', {
             bodyStyle: "padding:10px;",

@@ -18,7 +18,7 @@ use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefini
 class AttributesService
 {
     static array $baseFields = [
-        "description",
+        "descriptionHtml",
         "price",
         "compare at price",
         "tax code",
@@ -35,24 +35,21 @@ class AttributesService
         "HS code",
         "Fulfillment service",
     ];
-    public function getRemoteFields(Configuration $config): array
+    public function getRemoteFields($apiAccess): array
     {
-        $config = $config->getConfiguration();
-        $config = $config["APIAccess"];
-
         Context::initialize(
-            $config["key"],
-            $config["secret"],
+            $apiAccess["key"],
+            $apiAccess["secret"],
             ["read_products", "write_products"],
-            $config["host"],
+            $apiAccess["host"],
             new FileSessionStorage('/tmp/php_sessions')
         );
-        $host = $config["host"];
+        $host = $apiAccess["host"];
         $offlineSession = new Session("offline_$host", $host, false, 'state');
         $offlineSession->setScope(Context::$SCOPES->toString());
-        $offlineSession->setAccessToken($config["token"]);
+        $offlineSession->setAccessToken($apiAccess["token"]);
 
-        $client = new Graphql($config["host"], $config["token"]);
+        $client = new Graphql($apiAccess["host"], $apiAccess["token"]);
         $query = <<<QUERY
         query {
             metafieldDefinitions(first: 250, ownerType: PRODUCT) {
