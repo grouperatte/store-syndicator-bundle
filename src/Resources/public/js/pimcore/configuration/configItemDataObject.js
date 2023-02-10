@@ -335,10 +335,10 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     url: url,
                     method: 'POST',
                     params: {
-                        name: this.configName
+                        name: this.data.general.name
                     }
                 })
-            }
+            }.bind(this)
         })
         this.executionForm = Ext.create('Ext.form.FormPanel', {
             bodyStyle: "padding:10px;",
@@ -349,6 +349,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             },
             border: false,
             title: t('plugin_pimcore_datahub_configpanel_item_execution'),
+            //add some config for cron
             items: [
                 manualExecute
             ]

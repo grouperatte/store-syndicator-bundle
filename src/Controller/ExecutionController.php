@@ -2,15 +2,12 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Controller;
 
-use Pimcore\Model\DataObject;
 use Pimcore\Controller\FrontendController;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
-use Pimcore\Bundle\AdminBundle\Controller\Admin\DataObject\DataObjectController;
+use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
 
 /**
  * @Route("/admin/storesyndicator/execution", name="pimcore_storesyndicator_execution")
@@ -24,9 +21,14 @@ class ExecutionController extends FrontendController
      *
      * @return JsonResponse|null
      */
-    public function executeAction(Request $request)
+    public function executeAction(Request $request, ExecutionService $executionService)
     {
         # figure out organization here
+        $name = $request->get("name");
+        $config = Configuration::getByName($name);
+
+        $executionService->export($config->getConfiguration());
+
         return $this->json([]);
     }
 }
