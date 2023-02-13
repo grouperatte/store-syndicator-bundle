@@ -45,16 +45,22 @@ abstract class BaseStoreInterface
             $remoteFieldPath = explode(".", $remoteAttribute);
             $currentField = $object;
             foreach ($localFieldPath as $field) {
-                $currentField = strval($currentField->getValueForFieldName($field));
+                $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
+                if ($currentField && method_exists($currentField, $getter)) {
+                    $currentField = $currentField->$getter();
+                } else {
+                    $currentField = null;
+                    break;
+                }
             }
             if (count($remoteFieldPath) > 1) { //metafields have paths
                 $returnMap["metafields"][] = [
                     'namespace' => $remoteFieldPath[0],
                     'fieldName' => $remoteFieldPath[1],
-                    'value' => $currentField
+                    'value' => strval($currentField)
                 ];
             } else {
-                $returnMap[$remoteAttribute] = $currentField;
+                $returnMap[$remoteAttribute] = strval($currentField);
             }
         }
         return $returnMap;
