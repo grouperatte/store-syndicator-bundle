@@ -4,19 +4,20 @@ namespace Services;
 
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
-use Pimcore\Model\DataObject\Concrete;
-use Pimcore\Model\DataObject\Data\ElementMetadata;
 use Pimcore\Model\DataObject;
-use Symfony\Component\HttpKernel\HttpCache\StoreInterface;
-use TorqIT\StoreSyndicatorBundle\Services\StoreInterfaces\BaseStoreInterface;
-use TorqIT\StoreSyndicatorBundle\Services\StoreInterfaces\StoreInterfaceFactory;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
+/*
+    Gets the correct StoreInterface from the config file.
 
+    It then gets all the paths from the config, and calls export on the paths.
+*/
 class ExecutionService
 {
     private array $config;
     private string $classType;
-    private BaseStoreInterface $storeInterface;
+    private StoreInterface $storeInterface;
 
     public function __construct()
     {
@@ -26,7 +27,7 @@ class ExecutionService
     public function export(array $config)
     {
         $this->config = $config;
-        $this->storeInterface = StoreInterfaceFactory::getExportUtil($this->config);
+        $this->storeInterface = StoreFactory::getStore($this->config);
 
         $productPaths = $this->config["products"]["products"];
         $this->classType = $this->config["products"]["class"];
@@ -40,22 +41,25 @@ class ExecutionService
                 $this->recursiveExport($product);
             }
         }
+
         $this->storeInterface->commit();
     }
 
     private function recursiveExport($dataObject)
     {
-        $this->push($dataObject);
+        if (is_a($dataObject, $this->classType)){
+            if(!$this->storeInterface->existsInStore($dataObject)){
+                $this->storeInterface->createProduct($dataObject);
+            }
+            else{
+                $this->storeInterface->updateProduct($dataObject);
+            }
+        }
+
         $products = $dataObject->getChildren();
+
         foreach ($products as $product) {
             $this->recursiveExport($product);
         }
-    }
-
-    private function push($object)
-    {
-        if (!(is_a($object, $this->classType))) return;
-
-        $this->storeInterface->createOrUpdateProduct($object);
     }
 }

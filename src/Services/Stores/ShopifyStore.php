@@ -1,21 +1,20 @@
 <?php
 
-namespace TorqIT\StoreSyndicatorBundle\Services\StoreInterfaces;
+namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
-use TorqIT\StoreSyndicatorBundle\Services\StoreInterfaces\BaseStoreInterface;
 use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Concrete;
 use Shopify\Rest\Admin2023_01\Product;
 use Shopify\Exception\RestResourceRequestException;
 
-class ShopifyStoreInterface extends BaseStoreInterface
+class ShopifyStore extends BaseStore
 {
     const PROPERTTYNAME = "ShopifyProductId"; //override parent value
-    private $graphQLStrings;
-    private $createGreaphQLStrings;
+    private $updateGraphQLStrings;
+    private $createGraphQLStrings;
     private array $createObjs;
     private Session $session;
     private GraphQl $client;
@@ -47,6 +46,9 @@ class ShopifyStoreInterface extends BaseStoreInterface
         $this->productMetafieldsMapping = $this->getAllProducts();
     }
 
+    /*
+       Not currently used. 
+    */
     public function getAllProducts()
     {
         $query = <<<QUERY
@@ -94,6 +96,9 @@ class ShopifyStoreInterface extends BaseStoreInterface
         return $products;
     }
 
+    /*
+        Not currently used
+    */
     public function getProduct(string $id)
     {
         try {
@@ -103,21 +108,20 @@ class ShopifyStoreInterface extends BaseStoreInterface
         }
     }
 
-    public function createOrUpdateProduct(Concrete $object, array $params = [])
+    /*
+        Checks if our local object has a remote id property. 
+        If the object has a remote id we queue it for update. 
+        Otherwise, we queue the product for create.
+
+
+    */
+
+
+    public function updateProduct(Concrete $object): void
     {
         $fields = $this->getAttributes($object);
+        $remoteId = $this->getStoreProductId($object);
 
-        if ($remoteId = $this->getStoreProductId($object)) {
-            $this->updateProduct($object, $remoteId, $fields);
-        } else {
-            $this->createProduct($object, $fields);
-        }
-        // $graphQLInputString["options"] = $fields["options"];
-        // $graphQLInputString["variants"] = $this->createVariantsField($this->getVariantsOptions($object, $fields["options"]));
-    }
-
-    private function updateProduct(Concrete $object, $remoteId, $fields)
-    {
         $graphQLInputString = [];
         $graphQLInputString["title"] = $object->getKey();
         foreach ($fields['metafields'] as $attribute) {
@@ -129,11 +133,13 @@ class ShopifyStoreInterface extends BaseStoreInterface
             $graphQLInputString[$field] = $value;
         }
         $graphQLInputString["id"] = $remoteId;
-        $this->graphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
+        $this->updateGraphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
     }
 
-    private function createProduct(Concrete $object, $fields)
+    public function createProduct(Concrete $object): void
     {
+        $fields = $this->getAttributes($object);
+
         $graphQLInputString = [];
         $graphQLInputString["title"] = $object->getKey();
         foreach ($fields['metafields'] as $attribute) {
@@ -147,7 +153,7 @@ class ShopifyStoreInterface extends BaseStoreInterface
         foreach ($fields as $field => $value) {
             $graphQLInputString[$field] = $value;
         }
-        $this->createGreaphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
+        $this->createGraphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
         $this->createObjs[] = $object;
     }
 
@@ -177,11 +183,11 @@ class ShopifyStoreInterface extends BaseStoreInterface
         return $variantsField;
     }
 
-    public function commit()
+    public function commit(): Models\CommitResult
     {
-        if ($this->createGreaphQLStrings) {
+        if ($this->createGraphQLStrings) {
             //create unmade products
-            $remoteFileKey = $this->uploadProductFile($this->createGreaphQLStrings);
+            $remoteFileKey = $this->uploadProductFile($this->createGraphQLStrings);
 
             //will return array of ids to link to our products
             $product_create_query =
@@ -190,6 +196,7 @@ class ShopifyStoreInterface extends BaseStoreInterface
                 mutation: "mutation call($input: ProductInput!) { productCreate(input: $input) {
                     product {
                         id
+                        title
                     } userErrors { message field } } }",
                 stagedUploadPath: "' . $remoteFileKey . '") {
                 bulkOperation {
@@ -218,8 +225,8 @@ class ShopifyStoreInterface extends BaseStoreInterface
             }
         }
 
-        if ($this->graphQLStrings) {
-            $remoteFileKey = $this->uploadProductFile($this->graphQLStrings);
+        if ($this->updateGraphQLStrings) {
+            $remoteFileKey = $this->uploadProductFile($this->updateGraphQLStrings);
 
             $product_update_query =
                 'mutation {
@@ -259,6 +266,8 @@ class ShopifyStoreInterface extends BaseStoreInterface
             while (!$resultFileURL = $this->queryFinished()) {
             }
         }
+
+        return new Models\CommitResult();
     }
 
     private function uploadProductFile(string $productString)

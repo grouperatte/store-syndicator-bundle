@@ -2,45 +2,40 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Command;
 
-use Pimcore\Config;
 use Pimcore\Console\AbstractCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use \Pimcore\Model\Asset;
-use \Pimcore\Model\Document;
-use \Pimcore\Model\DataObject;
-use \Shopify\Context;
-use \Shopify\Auth\FileSessionStorage;
-use \Shopify\Clients\Rest;
-use Shopify\Rest\Admin2022_07\Metafield;
+use Pimcore\Bundle\DataHubBundle\Configuration;
+use Symfony\Component\Console\Input\InputArgument;
+use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
 
 class PushToShopifyCommand extends AbstractCommand
 {
+    private ExecutionService $executionService;
+
+    public function __construct(ExecutionService $executionService)
+    {
+        parent::__construct();
+
+        $this->executionService = $executionService;
+    }
+
     protected function configure()
     {
         $this
             ->setName('torq:push-to-shopify')
+            ->addArgument('store-name', InputArgument::REQUIRED)
             ->setDescription('Do Shopify Stuff');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
 
-        Context::initialize(
-            '9632c9dce96a6aa6f8408aad3bd6009d',
-            'de813dac03d6fb78c3ed21a2dc065967',
-            ["read_products","write_products"],
-            "mighty-spruce.myshopify.com",
-            new FileSessionStorage('/tmp/php_sessions')
-        );
+        $name = $input->getArgument("store-name");
 
-        $client = new Rest("mighty-spruce.myshopify.com", "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");
-        $response = $client->get('metafields', [], ["metafield"=>["owner_id" => "7585995653308", "owner_resource" => "product"]]);
+        $config = Configuration::getByName($name);
 
-        $yee = json_encode($response->getDecodedBody(),JSON_PRETTY_PRINT);
+        $this->executionService->export($config->getConfiguration());
 
-        $output->writeln($yee);
-
-        return 0;
     }
 }
