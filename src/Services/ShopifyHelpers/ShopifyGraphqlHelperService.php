@@ -8,6 +8,8 @@ class ShopifyGraphqlHelperService
     private string $updateProductsQuery;
     private string $bulkQueryWrapper;
     private string $fileUploadQuery;
+    private string $queryFinishedQuery;
+
     public function __construct()
     {
     }
@@ -48,6 +50,16 @@ class ShopifyGraphqlHelperService
         $query = preg_replace("/REPLACEMERESOURCE/", $resource, $query);
         $query = preg_replace("/REPLACEMEFILENAME/", $filename, $query);
         $query = preg_replace("/REPLACEMEMIMETYPE/", $mimetype, $query);
+        return $query;
+    }
+
+    public function buildQueryFinishedQuery($queryType)
+    {
+        if (!isset($this->queryFinishedQuery)) {
+            $this->queryFinishedQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/check-query-finished.graphql');
+        }
+        $query = $this->queryFinishedQuery;
+        $query = preg_replace("/REPLACEMEMUTATION/", $queryType, $query);
         return $query;
     }
 }

@@ -196,7 +196,7 @@ class ShopifyStore extends BaseStore
 
             $this->client->query(["query" => $product_create_query])->getDecodedBody();
 
-            while (!$resultFileURL = $this->queryFinished()) {
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
             //map created products
             $result = file_get_contents($resultFileURL);
@@ -214,7 +214,7 @@ class ShopifyStore extends BaseStore
             $product_update_query = $this->shopifyGraphqlHelperService->buildUpdateQuery($remoteFileKey);
             $result = $this->client->query(["query" => $product_update_query])->getDecodedBody();
 
-            while (!$resultFileURL = $this->queryFinished()) {
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
         }
 
@@ -275,23 +275,9 @@ class ShopifyStore extends BaseStore
         return (string) $arr_result->Key;
     }
 
-    public function queryFinished(): bool|string
+    public function queryFinished($queryType): bool|string
     {
-        $query = <<<QUERY
-        query {
-            currentBulkOperation(type: MUTATION) {
-            id
-            status
-            errorCode
-            createdAt
-            completedAt
-            objectCount
-            fileSize
-            url
-            partialDataUrl
-            }
-        }
-        QUERY;
+        $query = $this->shopifyGraphqlHelperService->buildQueryFinishedQuery($queryType);
         $response = $this->client->query(["query" => $query])->getDecodedBody();
         if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
             return $response['data']["currentBulkOperation"]["url"];
