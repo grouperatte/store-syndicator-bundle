@@ -9,6 +9,7 @@ use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Concrete;
 use Shopify\Rest\Admin2023_01\Product;
 use Shopify\Exception\RestResourceRequestException;
+use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 
 class ShopifyStore extends BaseStore
 {
@@ -19,9 +20,11 @@ class ShopifyStore extends BaseStore
     private Session $session;
     private GraphQl $client;
     private array $productMetafieldsMapping;
+    private ShopifyGraphqlHelperService $shopifyGraphqlHelperService;
 
     public function __construct()
     {
+        $this->shopifyGraphqlHelperService = new ShopifyGraphqlHelperService();
     }
 
     public function setup(array $config)
@@ -189,27 +192,7 @@ class ShopifyStore extends BaseStore
             //create unmade products
             $remoteFileKey = $this->uploadProductFile($this->createGraphQLStrings);
 
-            //will return array of ids to link to our products
-            $product_create_query =
-                'mutation {
-                bulkOperationRunMutation(
-                mutation: "mutation call($input: ProductInput!) { productCreate(input: $input) {
-                    product {
-                        id
-                        title
-                    } userErrors { message field } } }",
-                stagedUploadPath: "' . $remoteFileKey . '") {
-                bulkOperation {
-                    id
-                    url
-                    status
-                }
-                userErrors {
-                    message
-                    field
-                }
-            }
-            }';
+            $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
 
             $this->client->query(["query" => $product_create_query])->getDecodedBody();
 
@@ -228,39 +211,7 @@ class ShopifyStore extends BaseStore
         if ($this->updateGraphQLStrings) {
             $remoteFileKey = $this->uploadProductFile($this->updateGraphQLStrings);
 
-            $product_update_query =
-                'mutation {
-                    bulkOperationRunMutation(
-                    mutation: "mutation call($input: ProductInput!) { productUpdate(input: $input) {
-                        product {
-                            title
-                            id
-                            options {
-                                name
-                            }
-                            variants(first: 10) {
-                                edges {
-                                    node {
-                                        selectedOptions {
-                                            name
-                                            value
-                                        }
-                                    }
-                                }
-                            }
-                        } userErrors { message field } } }",
-                    stagedUploadPath: "' . $remoteFileKey . '") {
-                    bulkOperation {
-                    id
-                    url
-                    status
-                    }
-                    userErrors {
-                    message
-                    field
-                }
-            }
-            }';
+            $product_update_query = $this->shopifyGraphqlHelperService->buildUpdateQuery($remoteFileKey);
             $result = $this->client->query(["query" => $product_update_query])->getDecodedBody();
 
             while (!$resultFileURL = $this->queryFinished()) {
@@ -277,29 +228,8 @@ class ShopifyStore extends BaseStore
         $path = stream_get_meta_data($file)['uri'];
         $filepatharray = explode("/", $path);
         $filename = end($filepatharray);
-        $query = <<<QUERY
-        mutation {
-            stagedUploadsCreate(input:{
-              resource: BULK_MUTATION_VARIABLES,
-              filename: "$filename",
-              mimeType: "text/jsonl",
-              httpMethod: POST
-            }){
-              userErrors{
-                field,
-                message
-              },
-              stagedTargets{
-                url,
-                resourceUrl,
-                parameters {
-                  name,
-                  value
-                }
-              }
-            }
-          }
-        QUERY;
+
+        $query = $this->shopifyGraphqlHelperService->buildFileUploadQuery("BULK_MUTATION_VARIABLES", $filename, "text/jsonl");
 
         //get upload instructions
         $response = $this->client->query(["query" => $query])->getDecodedBody()["data"]["stagedUploadsCreate"]["stagedTargets"][0];

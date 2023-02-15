@@ -37,5 +37,6 @@ class PushToShopifyCommand extends AbstractCommand
 
         $this->executionService->export($config->getConfiguration());
 
+        return 0;
     }
 }

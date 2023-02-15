@@ -1,0 +1,23 @@
+mutation {
+  stagedUploadsCreate(
+    input: {
+      resource: REPLACEMERESOURCE
+      filename: "REPLACEMEFILENAME"
+      mimeType: "REPLACEMEMIMETYPE"
+      httpMethod: POST
+    }
+  ) {
+    userErrors {
+      field
+      message
+    }
+    stagedTargets {
+      url
+      resourceUrl
+      parameters {
+        name
+        value
+      }
+    }
+  }
+}
