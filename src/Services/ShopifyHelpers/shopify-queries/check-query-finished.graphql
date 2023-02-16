@@ -1,0 +1,7 @@
+query {
+  currentBulkOperation(type: REPLACEMEMUTATION) {
+    errorCode
+    completedAt
+    url
+  }
+}

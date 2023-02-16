@@ -1,12 +1,10 @@
 <?php
 
-namespace TorqIT\StoreSyndicatorBundle\Services\StoreInterfaces;
+namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
-use Exception;
 use Pimcore\Model\DataObject\Concrete;
-use Pimcore\Model\DataObject\Data\ElementMetadata;
 
-abstract class BaseStoreInterface
+abstract class BaseStore implements StoreInterface
 {
     protected const PROPERTTYNAME = "Default";
     protected array $config;
@@ -14,19 +12,23 @@ abstract class BaseStoreInterface
     abstract public function setup(array $config);
     abstract public function getAllProducts();
     abstract public function getProduct(string $id);
-    abstract public function createOrUpdateProduct(Concrete $object, array $params = []);
+    
+    abstract public function createProduct(Concrete $object): void;
+    abstract public function updateProduct(Concrete $object): void;
+    
     /**
      * call to perform an final actions between the app and the store
      * one mandatory asction is to update the webstore's product -> remoteId mapping if the remote store uses one
      *
      * @param Webstore $webstore to webstore with the product mapping
      **/
-    abstract public function commit();
+    abstract public function commit(): Models\CommitResult;
 
     public function getStoreProductId(Concrete $object): string|null
     {
         return $object->getProperty(static::PROPERTTYNAME);
     }
+    
     function setStoreProductId(Concrete $object, string $id)
     {
         $object->setProperty(static::PROPERTTYNAME, "text", $id);
@@ -80,5 +82,9 @@ abstract class BaseStoreInterface
             $variantsOptions[] = $options;
         }
         return $variantsOptions;
+    }
+
+    public function existsInStore(Concrete $object): bool{
+        return $this->getStoreProductId($object) != null;
     }
 }

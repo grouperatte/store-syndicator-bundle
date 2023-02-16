@@ -1,0 +1,16 @@
+mutation {
+  bulkOperationRunMutation(
+    mutation: "REPLACEMEMUTATION"
+    stagedUploadPath: "REPLACEMEPATH"
+  ) {
+    bulkOperation {
+      id
+      url
+      status
+    }
+    userErrors {
+      message
+      field
+    }
+  }
+}

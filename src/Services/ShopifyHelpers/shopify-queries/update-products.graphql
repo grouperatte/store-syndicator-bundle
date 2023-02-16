@@ -1,0 +1,25 @@
+mutation call($input: ProductInput!) {
+  productUpdate(input: $input) {
+    product {
+      title
+      id
+      options {
+        name
+      }
+      variants(first: 10) {
+        edges {
+          node {
+            selectedOptions {
+              name
+              value
+            }
+          }
+        }
+      }
+    }
+    userErrors {
+      message
+      field
+    }
+  }
+}
