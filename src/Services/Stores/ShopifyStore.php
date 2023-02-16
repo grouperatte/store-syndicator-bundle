@@ -188,6 +188,7 @@ class ShopifyStore extends BaseStore
 
     public function commit(): Models\CommitResult
     {
+        $commitResults = new Models\CommitResult;
         if ($this->createGraphQLStrings) {
             //create unmade products
             $file = $this->makeFile($this->createGraphQLStrings);
@@ -209,6 +210,7 @@ class ShopifyStore extends BaseStore
             $result = json_decode($result, true);
             foreach ($result as $ind => $createdProduct) {
                 $this->setStoreProductId($this->createObjs[$ind], $createdProduct["data"]["productCreate"]["product"]["id"]);
+                $commitResults->addUpdated($this->createObjs[$ind]);
             }
         }
 
