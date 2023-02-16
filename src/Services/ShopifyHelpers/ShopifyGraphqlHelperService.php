@@ -9,6 +9,7 @@ class ShopifyGraphqlHelperService
     private string $bulkQueryWrapper;
     private string $fileUploadQuery;
     private string $queryFinishedQuery;
+    private string $getProductsQuery;
 
     public function __construct()
     {
@@ -57,5 +58,13 @@ class ShopifyGraphqlHelperService
         $query = $this->queryFinishedQuery;
         $query = preg_replace("/REPLACEMEMUTATION/", $queryType, $query);
         return $query;
+    }
+
+    public function buildProductsQuery()
+    {
+        if (!isset($this->getProductsQuery)) {
+            $this->getProductsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/products-query.graphql');
+        }
+        return $this->getProductsQuery;
     }
 }

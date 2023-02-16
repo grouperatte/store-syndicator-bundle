@@ -54,28 +54,7 @@ class ShopifyStore extends BaseStore
     */
     public function getAllProducts()
     {
-        $query = <<<QUERY
-        query {
-            products(first:10) {
-            edges {
-                node {
-                id
-                title
-                metafields(first: 50) {
-                    edges {
-                        node {
-                            namespace
-                            key
-                            value
-                            id
-                        }
-                    }
-                }
-                }
-            }
-            }
-        }
-        QUERY;
+        $query = $this->shopifyGraphqlHelperService->buildProductsQuery();
         $result = $this->client->query(["query" => $query])->getDecodedBody();
         $products = [];
         foreach ($result['data']['products']["edges"] as $product) {
@@ -110,15 +89,6 @@ class ShopifyStore extends BaseStore
             return null;
         }
     }
-
-    /*
-        Checks if our local object has a remote id property. 
-        If the object has a remote id we queue it for update. 
-        Otherwise, we queue the product for create.
-
-
-    */
-
 
     public function updateProduct(Concrete $object): void
     {
