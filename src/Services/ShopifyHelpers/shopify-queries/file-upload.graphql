@@ -1,12 +1,5 @@
-mutation {
-  stagedUploadsCreate(
-    input: {
-      resource: REPLACEMERESOURCE
-      filename: "REPLACEMEFILENAME"
-      mimeType: "REPLACEMEMIMETYPE"
-      httpMethod: POST
-    }
-  ) {
+mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+  stagedUploadsCreate(input: $input) {
     userErrors {
       field
       message

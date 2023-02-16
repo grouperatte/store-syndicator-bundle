@@ -190,7 +190,10 @@ class ShopifyStore extends BaseStore
     {
         if ($this->createGraphQLStrings) {
             //create unmade products
-            $remoteFileKey = $this->uploadProductFile($this->createGraphQLStrings);
+            $file = $this->makeFile($this->createGraphQLStrings);
+            $filename = stream_get_meta_data($file)['uri'];
+            $remoteFileKey = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]])[0];
+            fclose($file);
 
             $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
 
@@ -209,7 +212,11 @@ class ShopifyStore extends BaseStore
         }
 
         if ($this->updateGraphQLStrings) {
-            $remoteFileKey = $this->uploadProductFile($this->updateGraphQLStrings);
+            $file = $this->makeFile($this->updateGraphQLStrings);
+            $filename = stream_get_meta_data($file)['uri'];
+            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $remoteFileKey = $remoteFileKeys[$filename];
+            fclose($file);
 
             $product_update_query = $this->shopifyGraphqlHelperService->buildUpdateQuery($remoteFileKey);
             $result = $this->client->query(["query" => $product_update_query])->getDecodedBody();
@@ -221,58 +228,87 @@ class ShopifyStore extends BaseStore
         return new Models\CommitResult();
     }
 
-    private function uploadProductFile(string $productString)
+    private function makeFile($content)
     {
         $file = tmpfile();
-        fwrite($file, $productString);
-        $path = stream_get_meta_data($file)['uri'];
-        $filepatharray = explode("/", $path);
-        $filename = end($filepatharray);
+        fwrite($file, $content);
+        return $file;
+    }
 
-        $query = $this->shopifyGraphqlHelperService->buildFileUploadQuery("BULK_MUTATION_VARIABLES", $filename, "text/jsonl");
+    /**
+     * uploads the filesat the strings you provide
+     * @param array<array<string, string>> $var [[filename, resource]..]
+     * @return array<array<string, string>> [[filename, remoteFileKey]..]
+     **/
+    private function uploadFiles(array $files): array
+    {
+        //build query and query variables 
+        $query = $this->shopifyGraphqlHelperService->buildFileUploadQuery();
+        $variables["input"] = [];
+        foreach ($files as $file) {
+            $filepatharray = explode("/", $file["filename"]);
+            $filename = end($filepatharray);
+            $variables["input"][] = [
+                "filename" => $filename,
+                "resource" => $file["resource"],
+                //"mimeType" => mime_content_type($file["filename"]),
+                "mimeType" => "text/jsonl",
+                "httpMethod" => "POST",
+            ];
+        }
 
         //get upload instructions
-        $response = $this->client->query(["query" => $query])->getDecodedBody()["data"]["stagedUploadsCreate"]["stagedTargets"][0];
-        $curl_opt_url = $response["url"];
-        $response = $response["parameters"];
-        $curl_key = $response[3]["value"];
-        $curl_policy = $response[8]["value"];
-        $curl_x_goog_credentials = $response[5]["value"];
-        $curl_x_goog_algorithm = $response[6]["value"];
-        $curl_x_goog_date = $response[4]["value"];
-        $curl_x_goog_signature = $response[7]["value"];
+        $response = $this->client->query(["query" => $query, "variables" => $variables])->getDecodedBody();
+        $response = $response["data"]["stagedUploadsCreate"]["stagedTargets"];
 
-        //send upload
-        $ch = curl_init();
+        //upload all the files
+        $fileKeys = [];
+        foreach ($response as $fileInd => $uploadTarget) {
+            $file = $files[$fileInd];
+            $filepatharray = explode("/", $file["filename"]);
+            $filename = end($filepatharray);
 
-        curl_setopt($ch, CURLOPT_URL, $curl_opt_url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        $post = array(
-            'key' => $curl_key,
-            'x-goog-credential' => $curl_x_goog_credentials,
-            'x-goog-algorithm' => $curl_x_goog_algorithm,
-            'x-goog-date' => $curl_x_goog_date,
-            'x-goog-signature' => $curl_x_goog_signature,
-            'policy' => $curl_policy,
-            'acl' => 'private',
-            'Content-Type' => 'text/jsonl',
-            'success_action_status' => '201',
-            'file' => new \CURLFile($path, "text/jsonl", $filename)
-        );
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+            $curl_opt_url = $uploadTarget["url"];
+            $parameters = $uploadTarget["parameters"];
+            $curl_key = $parameters[3]["value"];
+            $curl_policy = $parameters[8]["value"];
+            $curl_x_goog_credentials = $parameters[5]["value"];
+            $curl_x_goog_algorithm = $parameters[6]["value"];
+            $curl_x_goog_date = $parameters[4]["value"];
+            $curl_x_goog_signature = $parameters[7]["value"];
 
-        $result = curl_exec($ch);
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
+            //send upload
+            $ch = curl_init();
+
+            curl_setopt($ch, CURLOPT_URL, $curl_opt_url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            $post = array(
+                'key' => $curl_key,
+                'x-goog-credential' => $curl_x_goog_credentials,
+                'x-goog-algorithm' => $curl_x_goog_algorithm,
+                'x-goog-date' => $curl_x_goog_date,
+                'x-goog-signature' => $curl_x_goog_signature,
+                'policy' => $curl_policy,
+                'acl' => 'private',
+                'Content-Type' => 'text/jsonl',
+                'success_action_status' => '201',
+                'file' => new \CURLFile($file["filename"], mime_content_type($file["filename"]), $filename)
+            );
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+
+            $result = curl_exec($ch);
+            if (curl_errno($ch)) {
+                echo 'Error:' . curl_error($ch);
+            }
+            $arr_result = simplexml_load_string(
+                $result,
+            );
+            curl_close($ch);
+            $fileKeys[$file["filename"]] = (string) $arr_result->Key;
         }
-        $arr_result = simplexml_load_string(
-            $result,
-        );
-        curl_close($ch);
-        fclose($file);
 
-        return (string) $arr_result->Key;
+        return $fileKeys;
     }
 
     public function queryFinished($queryType): bool|string

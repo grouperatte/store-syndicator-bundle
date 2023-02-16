@@ -41,16 +41,12 @@ class ShopifyGraphqlHelperService
         return $bulkquery;
     }
 
-    public function buildFileUploadQuery(string $resource, string $filename, string $mimetype)
+    public function buildFileUploadQuery()
     {
         if (!isset($this->fileUploadQuery)) {
             $this->fileUploadQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/file-upload.graphql');
         }
-        $query = $this->fileUploadQuery;
-        $query = preg_replace("/REPLACEMERESOURCE/", $resource, $query);
-        $query = preg_replace("/REPLACEMEFILENAME/", $filename, $query);
-        $query = preg_replace("/REPLACEMEMIMETYPE/", $mimetype, $query);
-        return $query;
+        return $this->fileUploadQuery;
     }
 
     public function buildQueryFinishedQuery($queryType)
