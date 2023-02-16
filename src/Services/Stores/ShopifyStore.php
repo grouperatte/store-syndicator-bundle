@@ -192,7 +192,8 @@ class ShopifyStore extends BaseStore
             //create unmade products
             $file = $this->makeFile($this->createGraphQLStrings);
             $filename = stream_get_meta_data($file)['uri'];
-            $remoteFileKey = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]])[0];
+            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $remoteFileKey = $remoteFileKeys[$filename];
             fclose($file);
 
             $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
