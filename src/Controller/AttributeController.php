@@ -53,6 +53,20 @@ class AttributeController extends FrontendController
 
         $fields = $attributesService->getRemoteFields($config->getConfiguration()["APIAccess"]);
 
+        return $this->json($fields);
+    }
+
+    /**
+     * @Route("/getRemoteTypes", name="_get_remote_types")
+     *
+     * @param Request $request
+     *
+     * @return JsonResponse|null
+     */
+    public function getRemoteAttributeTypes(Request $request, AttributesService $attributesService): JsonResponse
+    {
+        $fields = $attributesService->getRemoteTypes();
+
         $data = [];
         foreach ($fields as $field) {
             $data[] = ['name' => $field];

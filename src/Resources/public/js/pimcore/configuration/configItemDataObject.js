@@ -193,9 +193,10 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 },
                 autoLoad: true
             });
-        }if(!this.remoteAttributesStore){
+        }
+        if(!this.remoteAttributesStore){
             this.remoteAttributesStore = Ext.create('Ext.data.Store', {
-                fields: ['name'],
+                fields: ['metafields'],
                 proxy: {
                     method: 'GET',
                     url: Routing.generate('pimcore_storesyndicator_attributes_get_remote'),
@@ -204,6 +205,20 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     root: 'result',
                     totalProperty: 'total',
                     extraParams: {'name': this.data.general.name}//change to something about what kind of export this is
+                },
+                autoLoad: true
+            });
+        }
+        if(!this.remoteAttributeTypeStore){
+            this.remoteAttributeTypeStore = Ext.create('Ext.data.Store', {
+                fields: ['name'],
+                proxy: {
+                    method: 'GET',
+                    url: Routing.generate('pimcore_storesyndicator_attributes_get_remote_types'),
+                    noCache: false,
+                    type: 'ajax',
+                    root: 'result',
+                    totalProperty: 'total'
                 },
                 autoLoad: true
             });
@@ -222,6 +237,17 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 }.bind(this)
             }],
             store: this.attributeStore,
+
+            listeners: {
+                edit: function (editor, e, fieldname, value) {
+                    console.log("here");
+                    var text = e.record.data.name;
+                    console.log(text);
+
+                    var record = e.record;
+                    record.set("remote field", ""); //Here you can set the value
+                } 
+            },
         
             columns: [
                 {
@@ -245,6 +271,24 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     }
                 },
                 {
+                    text: 'field type',
+                    dataIndex: 'field type',
+                    width: 200,
+                    tooltip: t('plugin_pimcore_datahub_configpanel_item_remote_type_header_tip'),
+                    editor: {
+                        xtype: 'combobox',
+                        queryMode: 'local',
+                        valueField: 'name',
+                        displayField: 'name',
+                        store: this.remoteAttributeTypeStore,
+                        listeners: {
+                            beforerender: function (thisCmb, eOpts) {
+        
+                            },
+                        }
+                    }                    
+                },
+                {
                     text: 'remote field',
                     dataIndex: 'remote field',
                     width: 200,
@@ -252,8 +296,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     editor: {
                         xtype: 'combobox',
                         queryMode: 'local',
-                        valueField: 'name',
-                        displayField: 'name',
+                        valueField: 'metafields',
+                        displayField: 'metafields',
                         store: this.remoteAttributesStore,
                         listeners: {
                             change: function (thisCmb, newValue, oldValue) {
@@ -284,6 +328,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 handler: function(){
                     this.localAttributesStore.load();
                     this.remoteAttributesStore.load();
+                    this.remoteAttributeTypeStore.load();
                 }.bind(this)
             }]
         });
