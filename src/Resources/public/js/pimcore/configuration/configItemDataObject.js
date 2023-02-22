@@ -194,21 +194,6 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 autoLoad: true
             });
         }
-        if(!this.remoteAttributesStore){
-            this.remoteAttributesStore = Ext.create('Ext.data.Store', {
-                fields: ['metafields'],
-                proxy: {
-                    method: 'GET',
-                    url: Routing.generate('pimcore_storesyndicator_attributes_get_remote'),
-                    noCache: false,
-                    type: 'ajax',
-                    root: 'result',
-                    totalProperty: 'total',
-                    extraParams: {'name': this.data.general.name}//change to something about what kind of export this is
-                },
-                autoLoad: true
-            });
-        }
         if(!this.remoteAttributeTypeStore){
             this.remoteAttributeTypeStore = Ext.create('Ext.data.Store', {
                 fields: ['name'],
@@ -223,6 +208,22 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 autoLoad: true
             });
         }
+        if(!this.remoteAttributesStore){
+            this.remoteAttributesStore = Ext.create('Ext.data.Store', {
+                fields: ['name', 'type'],
+                proxy: {
+                    method: 'GET',
+                    url: Routing.generate('pimcore_storesyndicator_attributes_get_remote'),
+                    noCache: false,
+                    type: 'ajax',
+                    root: 'result',
+                    totalProperty: 'total',
+                    extraParams: {'name': this.data.general.name}//change to something about what kind of export this is
+                },
+                autoLoad: true
+            });
+        }
+        
         grid = Ext.create('Ext.grid.Panel', {
             title: t('plugin_pimcore_datahub_configpanel_item_attribute_mapping'),
             plugins: [Ext.create('Ext.grid.plugin.CellEditing', {
@@ -237,17 +238,6 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 }.bind(this)
             }],
             store: this.attributeStore,
-
-            listeners: {
-                edit: function (editor, e, fieldname, value) {
-                    console.log("here");
-                    var text = e.record.data.name;
-                    console.log(text);
-
-                    var record = e.record;
-                    record.set("remote field", ""); //Here you can set the value
-                } 
-            },
         
             columns: [
                 {
@@ -296,15 +286,16 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     editor: {
                         xtype: 'combobox',
                         queryMode: 'local',
-                        valueField: 'metafields',
-                        displayField: 'metafields',
+                        valueField: 'name',
+                        displayField: 'name',
                         store: this.remoteAttributesStore,
                         listeners: {
-                            change: function (thisCmb, newValue, oldValue) {
-        
-                            },
-                            beforerender: function (thisCmb, eOpts) {
-        
+                            expand: function(combo){
+                                combo.store.clearFilter();
+                                var type = combo.up('grid').editingPlugin.activeRecord.get('field type');
+                                combo.store.filterBy(function(record){
+                                    return record.get('type') == type;
+                                });
                             }
                         }
                     }

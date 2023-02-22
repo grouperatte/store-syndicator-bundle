@@ -75,10 +75,10 @@ class AttributesService
         $response = $client->query(["query" => $query])->getDecodedBody();
         $data = [];
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
-            $data[] = ["metafields" => $node["node"]["namespace"] .  "." . $node["node"]["key"]];
+            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "metafields"];
         }
         foreach (self::$baseFields as $field) {
-            $data[] = ["base product" => $field];
+            $data[] = ["name" => $field, "type" => "base product"];
         }
         return $data;
     }
