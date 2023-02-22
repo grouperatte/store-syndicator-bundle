@@ -216,40 +216,43 @@ class ShopifyStore extends BaseStore
 
         if (isset($this->updateImageMap)) {
             $pushArray = [];
-            $variables = [];
+            //upload assets with no shopify url
+            foreach ($this->updateImageMap as $product) {
+                foreach ($product as $image) {
+                    if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
+                        $pushArray[$image->getLocalFile()] = $image;
+                    }
+                }
+            }
+            $remoteFileKeys = $this->uploadFiles($pushArray);
+            //and save their url's
+            foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
+                /** @var Image $image */
+                $image = $pushArray[$fileName];
+                $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
+                $image->save();
+            }
+
+            //build query variables
+            $createMediaQuery = "";
             foreach ($this->updateImageMap as $product => $imagesArray) {
                 $object = Concrete::getById($product);
                 $images = [];
                 /** @var Image $image */
                 foreach ($imagesArray as $image) {
-                    if ($remoteImageUrl = $image->getProperty(self::IMAGEPROPERTYNAME)) {
-                        $images[] = [
-                            "src" => $remoteImageUrl
-                        ];
-                    } else {
-                        $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "IMAGE"];
-                        $images[] = [
-                            "src" => $image->getLocalFile() //gets replaced with the remote url later
-                        ];
-                    }
-                }
-                $variables[] = [
-                    "id" => $object->getProperty(self::PROPERTTYNAME),
-                    "images" => $images
-                ];
-            }
-            $remoteFileKeys = $this->uploadFiles($pushArray);
-            $createMediaQuery = "";
-            foreach ($variables as $productArray) {
-                foreach ($productArray["images"] as &$imageArray) {
-                    if (array_key_exists($imageArray['src'], $remoteFileKeys)) {
-                        $imageArray['src'] = $remoteFileKeys[$imageArray['src']]["url"]; //pull the uploaded image url from uploadFile return array using filename of this image
-                    }
+                    $images[] = [
+                        "src" => $image->getProperty(self::IMAGEPROPERTYNAME)
+                    ];
                 }
                 $createMediaQuery .= json_encode([
-                    "input" => $productArray
+                    "input" => [
+                        "id" => $object->getProperty(self::PROPERTTYNAME),
+                        "images" => $images
+                    ]
                 ]) . PHP_EOL;
             }
+
+            //run bulk query
             $file = $this->makeFile($createMediaQuery);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
