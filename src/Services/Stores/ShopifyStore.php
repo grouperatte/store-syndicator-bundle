@@ -216,11 +216,13 @@ class ShopifyStore extends BaseStore
 
         if (isset($this->updateImageMap)) {
             $pushArray = [];
+            $mapBackArray = [];
             //upload assets with no shopify url
             foreach ($this->updateImageMap as $product) {
                 foreach ($product as $image) {
                     if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
-                        $pushArray[$image->getLocalFile()] = $image;
+                        $mapBackArray[$image->getLocalFile()] = $image;
+                        $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
                     }
                 }
             }
@@ -228,7 +230,7 @@ class ShopifyStore extends BaseStore
             //and save their url's
             foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
                 /** @var Image $image */
-                $image = $pushArray[$fileName];
+                $image = $mapBackArray[$fileName];
                 $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
                 $image->save();
             }
