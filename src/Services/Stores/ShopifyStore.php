@@ -5,6 +5,7 @@ namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
+use Pimcore\Model\Asset\Image;
 use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Concrete;
 use Shopify\Rest\Admin2023_01\Product;
@@ -14,12 +15,15 @@ use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperSer
 class ShopifyStore extends BaseStore
 {
     const PROPERTTYNAME = "ShopifyProductId"; //override parent value
+    const IMAGEPROPERTYNAME = "ShopifyImageURL";
     private $updateGraphQLStrings;
     private $createGraphQLStrings;
     private array $createObjs;
     private Session $session;
     private GraphQl $client;
     private array $productMetafieldsMapping;
+    private array $updateImageMap;
+
     private ShopifyGraphqlHelperService $shopifyGraphqlHelperService;
 
     public function __construct()
@@ -102,6 +106,13 @@ class ShopifyStore extends BaseStore
                 $graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->productMetafieldsMapping[$remoteId]);
         }
         unset($fields['metafields']);
+        if (isset($fields["images"])) {
+            /** @var Image $image */
+            foreach ($fields["images"] as $image) {
+                $this->updateImageMap[$object->getId()][] = $image;
+            }
+            unset($fields["images"]);
+        }
         foreach ($fields as $field => $value) {
             $graphQLInputString[$field] = $value;
         }
@@ -123,6 +134,11 @@ class ShopifyStore extends BaseStore
             ];
         }
         unset($fields['metafields']);
+        /** @var Image $image */
+        foreach ($fields["images"] as $image) {
+            $this->updateImageMap[$object][] = $image;
+        }
+        unset($fields["images"]);
         foreach ($fields as $field => $value) {
             $graphQLInputString[$field] = $value;
         }
@@ -164,7 +180,7 @@ class ShopifyStore extends BaseStore
             $file = $this->makeFile($this->createGraphQLStrings);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-            $remoteFileKey = $remoteFileKeys[$filename];
+            $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
             $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
@@ -188,7 +204,7 @@ class ShopifyStore extends BaseStore
             $file = $this->makeFile($this->updateGraphQLStrings);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-            $remoteFileKey = $remoteFileKeys[$filename];
+            $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
             $product_update_query = $this->shopifyGraphqlHelperService->buildUpdateQuery($remoteFileKey);
@@ -198,6 +214,59 @@ class ShopifyStore extends BaseStore
             }
         }
 
+        if (isset($this->updateImageMap)) {
+            $pushArray = [];
+            $mapBackArray = [];
+            //upload assets with no shopify url
+            foreach ($this->updateImageMap as $product) {
+                foreach ($product as $image) {
+                    if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
+                        $mapBackArray[$image->getLocalFile()] = $image;
+                        $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
+                    }
+                }
+            }
+            $remoteFileKeys = $this->uploadFiles($pushArray);
+            //and save their url's
+            foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
+                /** @var Image $image */
+                $image = $mapBackArray[$fileName];
+                $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
+                $image->save();
+            }
+
+            //build query variables
+            $createMediaQuery = "";
+            foreach ($this->updateImageMap as $product => $imagesArray) {
+                $object = Concrete::getById($product);
+                $images = [];
+                /** @var Image $image */
+                foreach ($imagesArray as $image) {
+                    $images[] = [
+                        "src" => $image->getProperty(self::IMAGEPROPERTYNAME)
+                    ];
+                }
+                $createMediaQuery .= json_encode([
+                    "input" => [
+                        "id" => $object->getProperty(self::PROPERTTYNAME),
+                        "images" => $images
+                    ]
+                ]) . PHP_EOL;
+            }
+
+            //run bulk query
+            $file = $this->makeFile($createMediaQuery);
+            $filename = stream_get_meta_data($file)['uri'];
+            $remoteKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $bulkParamsFilekey = $remoteKeys[$filename]["key"];
+            fclose($file);
+            $imagesCreateQuery = $this->shopifyGraphqlHelperService->buildCreateMediaQuery($bulkParamsFilekey);
+
+            $results = $this->client->query(["query" => $imagesCreateQuery])->getDecodedBody();
+
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            }
+        }
         return new Models\CommitResult();
     }
 
@@ -224,8 +293,8 @@ class ShopifyStore extends BaseStore
             $variables["input"][] = [
                 "filename" => $filename,
                 "resource" => $file["resource"],
-                //"mimeType" => mime_content_type($file["filename"]),
-                "mimeType" => "text/jsonl",
+                "mimeType" => mime_content_type($file["filename"]),
+                //"mimeType" => "text/jsonl",
                 "httpMethod" => "POST",
             ];
         }
@@ -256,6 +325,7 @@ class ShopifyStore extends BaseStore
             curl_setopt($ch, CURLOPT_URL, $curl_opt_url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ch, CURLOPT_POST, 1);
+            $mimetype = mime_content_type($file["filename"]);
             $post = array(
                 'key' => $curl_key,
                 'x-goog-credential' => $curl_x_goog_credentials,
@@ -264,9 +334,9 @@ class ShopifyStore extends BaseStore
                 'x-goog-signature' => $curl_x_goog_signature,
                 'policy' => $curl_policy,
                 'acl' => 'private',
-                'Content-Type' => 'text/jsonl',
+                'Content-Type' => $mimetype,
                 'success_action_status' => '201',
-                'file' => new \CURLFile($file["filename"], mime_content_type($file["filename"]), $filename)
+                'file' => new \CURLFile($file["filename"], $mimetype, $filename)
             );
             curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
 
@@ -278,7 +348,7 @@ class ShopifyStore extends BaseStore
                 $result,
             );
             curl_close($ch);
-            $fileKeys[$file["filename"]] = (string) $arr_result->Key;
+            $fileKeys[$file["filename"]] = ["url" => (string) $arr_result->Location, "key" => (string) $arr_result->Key];
         }
 
         return $fileKeys;
