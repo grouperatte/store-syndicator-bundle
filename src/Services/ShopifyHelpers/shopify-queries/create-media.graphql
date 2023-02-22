@@ -1,0 +1,19 @@
+mutation call($input: ProductInput!) {
+    productUpdate(input: $input) {
+      product {
+        title
+        id
+        images(first: 10) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+      userErrors {
+        message
+        field
+      }
+  }
+}

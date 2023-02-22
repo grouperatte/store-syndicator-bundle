@@ -2,7 +2,10 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
+use Pimcore\Model\Asset;
+use Pimcore\Model\Asset\Image;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Data\ImageGallery;
 
 abstract class BaseStore implements StoreInterface
 {
@@ -12,10 +15,10 @@ abstract class BaseStore implements StoreInterface
     abstract public function setup(array $config);
     abstract public function getAllProducts();
     abstract public function getProduct(string $id);
-    
+
     abstract public function createProduct(Concrete $object): void;
     abstract public function updateProduct(Concrete $object): void;
-    
+
     /**
      * call to perform an final actions between the app and the store
      * one mandatory asction is to update the webstore's product -> remoteId mapping if the remote store uses one
@@ -28,7 +31,7 @@ abstract class BaseStore implements StoreInterface
     {
         return $object->getProperty(static::PROPERTTYNAME);
     }
-    
+
     function setStoreProductId(Concrete $object, string $id)
     {
         $object->setProperty(static::PROPERTTYNAME, "text", $id);
@@ -61,6 +64,12 @@ abstract class BaseStore implements StoreInterface
                     'fieldName' => $remoteFieldPath[1],
                     'value' => strval($currentField)
                 ];
+            } elseif ($currentField instanceof Image) {
+                $returnMap["images"][] = $currentField;
+            } elseif ($currentField instanceof ImageGallery) {
+                foreach ($currentField->getItems() as $hotspot) {
+                    $returnMap["images"][] = $hotspot->getImage();
+                }
             } else {
                 $returnMap[$remoteAttribute] = strval($currentField);
             }
@@ -84,7 +93,8 @@ abstract class BaseStore implements StoreInterface
         return $variantsOptions;
     }
 
-    public function existsInStore(Concrete $object): bool{
+    public function existsInStore(Concrete $object): bool
+    {
         return $this->getStoreProductId($object) != null;
     }
 }

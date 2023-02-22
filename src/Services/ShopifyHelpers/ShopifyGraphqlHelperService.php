@@ -10,6 +10,8 @@ class ShopifyGraphqlHelperService
     private string $fileUploadQuery;
     private string $queryFinishedQuery;
     private string $getProductsQuery;
+    private string $createMediaQuery;
+    private string $updateMediaQuery;
 
     public function __construct()
     {
@@ -66,5 +68,21 @@ class ShopifyGraphqlHelperService
             $this->getProductsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/products-query.graphql');
         }
         return $this->getProductsQuery;
+    }
+
+    public function buildCreateMediaQuery($remoteFile)
+    {
+        if (!isset($this->createMediaQuery)) {
+            $this->createMediaQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/create-media.graphql');
+        }
+        return $this->bulkwrap($this->createMediaQuery, $remoteFile);
+    }
+
+    public function buildUpdateMediaQuery($remoteFile)
+    {
+        if (!isset($this->updateMediaQuery)) {
+            $this->updateMediaQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/update-media.graphql');
+        }
+        return $this->bulkwrap($this->updateMediaQuery, $remoteFile);
     }
 }

@@ -109,7 +109,7 @@ class AttributesService
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = ObjectbrickDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . ".");
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . ".");
                 }
             } elseif ($field instanceof Fieldcollections) {
                 $allowedTypes = $field->getAllowedTypes();
