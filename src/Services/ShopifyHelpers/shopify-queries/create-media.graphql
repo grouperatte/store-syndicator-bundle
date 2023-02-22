@@ -1,17 +1,19 @@
-mutation call($media: [CreateMediaInput!]!, $productId: ID!) {
-  productCreateMedia(media: $media, productId: $productId) {
-    media {
-      alt
-      mediaContentType
-      status
-    }
-    mediaUserErrors {
-      field
-      message
-    }
-    product {
-      id
-      title
-    }
+mutation call($input: ProductInput!) {
+    productUpdate(input: $input) {
+      product {
+        title
+        id
+        images(first: 10) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+      userErrors {
+        message
+        field
+      }
   }
 }

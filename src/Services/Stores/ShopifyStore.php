@@ -227,9 +227,9 @@ class ShopifyStore extends BaseStore
             foreach ($this->createImageMap as $imageMap) {
                 /** @var Image $image */
                 $image = $imageMap[0];
-                $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "IMAGE"];
+                $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
             }
-            $remoteFileKeys = $this->uploadFiles($pushArray);
+            $remoteFileKeys = $this->uploadFiles($pushArray, true);
             $createMediaQuery = "";
             foreach ($this->createImageMap as $ind => $imageMap) {
                 /** @var Image $image */
@@ -237,12 +237,15 @@ class ShopifyStore extends BaseStore
                 /** @var Concrete $product */
                 $product = $imageMap[1];
                 $createMediaQuery .= json_encode([
-                    "media" => [
-                        "alt" => "IMAGE",
-                        "mediaContentType" => "IMAGE",
-                        "originalSource" => array_values($remoteFileKeys)[$ind],
+                    "input" => [
+                        "id" => $product->getProperty(self::PROPERTTYNAME),
+                        "images" => [ 
+                            [
+                                "altText" => "IMAGE",
+                                "src" => array_values($remoteFileKeys)[$ind]
+                            ]
+                        ]
                     ],
-                    "productId" => $product->getProperty(self::PROPERTTYNAME)
                 ]) . PHP_EOL;
             }
             $file = $this->makeFile($createMediaQuery);
@@ -253,6 +256,10 @@ class ShopifyStore extends BaseStore
             $imagesCreateQuery = $this->shopifyGraphqlHelperService->buildCreateMediaQuery($bulkParamsFilekey);
 
             $results = $this->client->query(["query" => $imagesCreateQuery])->getDecodedBody();
+
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            }
+            
         }
         if (isset($this->updateImageMap)) {
             $pushArray = [];
@@ -302,7 +309,7 @@ class ShopifyStore extends BaseStore
      * @param array<array<string, string>> $var [[filename, resource]..]
      * @return array<array<string, string>> [[filename, remoteFileKey]..]
      **/
-    private function uploadFiles(array $files): array
+    private function uploadFiles(array $files, bool $url = false): array
     {
         //build query and query variables 
         $query = $this->shopifyGraphqlHelperService->buildFileUploadQuery();
@@ -368,7 +375,13 @@ class ShopifyStore extends BaseStore
                 $result,
             );
             curl_close($ch);
-            $fileKeys[$file["filename"]] = (string) $arr_result->Key;
+            if($url){
+                $fileKeys[$file["filename"]] = (string) $arr_result->Location;
+            }
+            else{
+                $fileKeys[$file["filename"]] = (string) $arr_result->Key;
+            }
+
         }
 
         return $fileKeys;
