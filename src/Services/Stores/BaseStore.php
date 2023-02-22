@@ -5,6 +5,7 @@ namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Data\ImageGallery;
 
 abstract class BaseStore implements StoreInterface
 {
@@ -65,6 +66,10 @@ abstract class BaseStore implements StoreInterface
                 ];
             } elseif ($currentField instanceof Image) {
                 $returnMap["images"][] = $currentField;
+            } elseif ($currentField instanceof ImageGallery) {
+                foreach ($currentField->getItems() as $hotspot) {
+                    $returnMap["images"][] = $hotspot->getImage();
+                }
             } else {
                 $returnMap[$remoteAttribute] = strval($currentField);
             }
