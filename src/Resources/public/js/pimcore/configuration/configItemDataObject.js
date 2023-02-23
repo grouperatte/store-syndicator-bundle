@@ -238,7 +238,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 }.bind(this)
             }],
             store: this.attributeStore,
-        
+            width: "auto",
             columns: [
                 {
                     text: 'local field',
@@ -299,6 +299,18 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                             }
                         }
                     }
+                },
+                {
+                    xtype:'actioncolumn',
+                    width:30,
+                    items: [{
+                        iconCls: 'plugin_pimcore_datahub_icon_storeExporterDataObject_delete_row',
+                        tooltip: 'Delete',
+                        handler: function(grid, rowIndex, colIndex) {
+                            grid.getStore().removeAt(rowIndex);
+                        },
+                        scope: this
+                    }]
                 }
             ],
         });
