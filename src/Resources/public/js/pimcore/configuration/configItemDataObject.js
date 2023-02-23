@@ -230,6 +230,14 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 clicksToEdit: 1,
                 delay: 10
             })],
+            viewConfig: {
+                plugins: {
+                    ptype: 'gridviewdragdrop',
+                    containerScroll: true,
+                    dragGroup: t('plugin_pimcore_datahub_configpanel_item_attribute_mapping'),
+                    dropGroup: t('plugin_pimcore_datahub_configpanel_item_attribute_mapping')
+                },
+            },
             tbar: [{
                 text: 'Add Mapping',
                 handler: function () {
