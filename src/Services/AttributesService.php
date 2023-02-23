@@ -34,6 +34,7 @@ class AttributesService
         "Country/Region of origin",
         "HS code",
         "Fulfillment service",
+        "title",
     ];
 
     static array $fieldTypes = [
@@ -96,7 +97,7 @@ class AttributesService
         $class = $config["products"]["class"];
         $class = ClassDefinition::getByName($class);
 
-        $attributes = [];
+        $attributes = ["Key"];
         $this->getFieldDefinitionsRecursive($class, $attributes, "");
 
         return $attributes;

@@ -73,7 +73,7 @@ abstract class BaseStore implements StoreInterface
                     array_push($value, $hotspot->getImage());
                 }
             } elseif ($currentField != null) {
-                array_push($value, strval($currentField));
+                $value[$remoteAttribute] = strval($currentField);
             }
             if (count($value) > 0) {
                 $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);

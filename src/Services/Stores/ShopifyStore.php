@@ -100,20 +100,20 @@ class ShopifyStore extends BaseStore
         $remoteId = $this->getStoreProductId($object);
 
         $graphQLInputString = [];
-        $graphQLInputString["title"] = $object->getKey();
+        $graphQLInputString["title"] = $fields["title"] ?? $object->getKey();
         foreach ($fields['metafields'] as $attribute) {
             if (array_key_exists($remoteId, $this->productMetafieldsMapping))
                 $graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->productMetafieldsMapping[$remoteId]);
         }
         unset($fields['metafields']);
-        if (isset($fields["images"])) {
+        if (isset($fields["Images"])) {
             /** @var Image $image */
-            foreach ($fields["images"] as $image) {
+            foreach ($fields["Images"] as $image) {
                 $this->updateImageMap[$object->getId()][] = $image;
             }
-            unset($fields["images"]);
+            unset($fields["Images"]);
         }
-        foreach ($fields as $field => $value) {
+        foreach ($fields['base product'] as $field => $value) {
             $graphQLInputString[$field] = $value;
         }
         $graphQLInputString["id"] = $remoteId;
@@ -135,11 +135,13 @@ class ShopifyStore extends BaseStore
         }
         unset($fields['metafields']);
         /** @var Image $image */
-        foreach ($fields["images"] as $image) {
-            $this->updateImageMap[$object][] = $image;
+        if (isset($fields["Images"])) {
+            foreach ($fields["Images"] as $image) {
+                $this->updateImageMap[$object][] = $image;
+            }
+            unset($fields["Images"]);
         }
-        unset($fields["images"]);
-        foreach ($fields as $field => $value) {
+        foreach ($fields['base product'] as $field => $value) {
             $graphQLInputString[$field] = $value;
         }
         $this->createGraphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
