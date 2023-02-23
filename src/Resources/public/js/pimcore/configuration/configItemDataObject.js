@@ -193,9 +193,24 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 },
                 autoLoad: true
             });
-        }if(!this.remoteAttributesStore){
-            this.remoteAttributesStore = Ext.create('Ext.data.Store', {
+        }
+        if(!this.remoteAttributeTypeStore){
+            this.remoteAttributeTypeStore = Ext.create('Ext.data.Store', {
                 fields: ['name'],
+                proxy: {
+                    method: 'GET',
+                    url: Routing.generate('pimcore_storesyndicator_attributes_get_remote_types'),
+                    noCache: false,
+                    type: 'ajax',
+                    root: 'result',
+                    totalProperty: 'total'
+                },
+                autoLoad: true
+            });
+        }
+        if(!this.remoteAttributesStore){
+            this.remoteAttributesStore = Ext.create('Ext.data.Store', {
+                fields: ['name', 'type'],
                 proxy: {
                     method: 'GET',
                     url: Routing.generate('pimcore_storesyndicator_attributes_get_remote'),
@@ -208,12 +223,21 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 autoLoad: true
             });
         }
+        
         grid = Ext.create('Ext.grid.Panel', {
             title: t('plugin_pimcore_datahub_configpanel_item_attribute_mapping'),
             plugins: [Ext.create('Ext.grid.plugin.CellEditing', {
                 clicksToEdit: 1,
                 delay: 10
             })],
+            viewConfig: {
+                plugins: {
+                    ptype: 'gridviewdragdrop',
+                    containerScroll: true,
+                    dragGroup: t('plugin_pimcore_datahub_configpanel_item_attribute_mapping'),
+                    dropGroup: t('plugin_pimcore_datahub_configpanel_item_attribute_mapping')
+                },
+            },
             tbar: [{
                 text: 'Add Mapping',
                 handler: function () {
@@ -222,7 +246,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 }.bind(this)
             }],
             store: this.attributeStore,
-        
+            width: "auto",
             columns: [
                 {
                     text: 'local field',
@@ -245,6 +269,24 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     }
                 },
                 {
+                    text: 'field type',
+                    dataIndex: 'field type',
+                    width: 200,
+                    tooltip: t('plugin_pimcore_datahub_configpanel_item_remote_type_header_tip'),
+                    editor: {
+                        xtype: 'combobox',
+                        queryMode: 'local',
+                        valueField: 'name',
+                        displayField: 'name',
+                        store: this.remoteAttributeTypeStore,
+                        listeners: {
+                            beforerender: function (thisCmb, eOpts) {
+        
+                            },
+                        }
+                    }                    
+                },
+                {
                     text: 'remote field',
                     dataIndex: 'remote field',
                     width: 200,
@@ -256,14 +298,27 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                         displayField: 'name',
                         store: this.remoteAttributesStore,
                         listeners: {
-                            change: function (thisCmb, newValue, oldValue) {
-        
-                            },
-                            beforerender: function (thisCmb, eOpts) {
-        
+                            expand: function(combo){
+                                combo.store.clearFilter();
+                                var type = combo.up('grid').editingPlugin.activeRecord.get('field type');
+                                combo.store.filterBy(function(record){
+                                    return record.get('type') == type;
+                                });
                             }
                         }
                     }
+                },
+                {
+                    xtype:'actioncolumn',
+                    width:30,
+                    items: [{
+                        iconCls: 'plugin_pimcore_datahub_icon_storeExporterDataObject_delete_row',
+                        tooltip: 'Delete',
+                        handler: function(grid, rowIndex, colIndex) {
+                            grid.getStore().removeAt(rowIndex);
+                        },
+                        scope: this
+                    }]
                 }
             ],
         });
@@ -284,6 +339,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                 handler: function(){
                     this.localAttributesStore.load();
                     this.remoteAttributesStore.load();
+                    this.remoteAttributeTypeStore.load();
                 }.bind(this)
             }]
         });

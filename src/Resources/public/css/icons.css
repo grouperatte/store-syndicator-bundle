@@ -1,3 +1,6 @@
 .plugin_pimcore_datahub_icon_storeExporterDataObject {
     background: url(/bundles/pimcoreadmin/img/icon/cart.png) center center no-repeat !important;
 }
+.plugin_pimcore_datahub_icon_storeExporterDataObject_delete_row {
+    background: url(/bundles/pimcoreadmin/img/icon/delete.png) no-repeat;
+}

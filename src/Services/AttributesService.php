@@ -35,6 +35,16 @@ class AttributesService
         "HS code",
         "Fulfillment service",
     ];
+
+    static array $fieldTypes = [
+        "base product",
+        "Images",
+        "metafields",
+        "options",
+        "variant options",
+        "variant metafield",
+    ];
+
     public function getRemoteFields($apiAccess): array
     {
         Context::initialize(
@@ -65,10 +75,18 @@ class AttributesService
         $response = $client->query(["query" => $query])->getDecodedBody();
         $data = [];
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
-            $data[] = $node["node"]["namespace"] .  "." . $node["node"]["key"];
+            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "metafields"];
         }
-        $data = array_merge($data, self::$baseFields);
+        foreach (self::$baseFields as $field) {
+            $data[] = ["name" => $field, "type" => "base product"];
+        }
+        $data[] = ["name" => "Image", "type" => "Images"];
         return $data;
+    }
+
+    public function getRemoteTypes(): array
+    {
+        return self::$fieldTypes;
     }
 
     public function getLocalFields(Configuration $configuration): array
@@ -77,8 +95,6 @@ class AttributesService
 
         $class = $config["products"]["class"];
         $class = ClassDefinition::getByName($class);
-        $brick = $class->getFieldDefinitions()['testBrick'];
-        //$huh = ObjectbrickDefinition::getByKey($brick->getAllowedTypes()[0]);
 
         $attributes = [];
         $this->getFieldDefinitionsRecursive($class, $attributes, "");
