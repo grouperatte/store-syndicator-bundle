@@ -43,6 +43,7 @@ abstract class BaseStore implements StoreInterface
         $attributeMap = $this->config["attributeMap"];
         $returnMap = [];
         foreach ($attributeMap as $row) {
+            $fieldType = $row['field type'];
             $localAttribute = $row['local field'];
             $remoteAttribute = $row['remote field'];
             //getting local value of field
@@ -58,20 +59,24 @@ abstract class BaseStore implements StoreInterface
                     break;
                 }
             }
-            if (count($remoteFieldPath) > 1) { //metafields have paths
-                $returnMap["metafields"][] = [
+            $value = array();
+            if ($fieldType == 'metafields') {
+                array_push($value, [
                     'namespace' => $remoteFieldPath[0],
                     'fieldName' => $remoteFieldPath[1],
                     'value' => strval($currentField)
-                ];
+                ]);
             } elseif ($currentField instanceof Image) {
-                $returnMap["images"][] = $currentField;
+                array_push($value, $currentField);
             } elseif ($currentField instanceof ImageGallery) {
                 foreach ($currentField->getItems() as $hotspot) {
-                    $returnMap["images"][] = $hotspot->getImage();
+                    array_push($value, $hotspot->getImage());
                 }
-            } else {
-                $returnMap[$remoteAttribute] = strval($currentField);
+            } elseif ($currentField != null) {
+                array_push($value, strval($currentField));
+            }
+            if (count($value) > 0) {
+                $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);
             }
         }
         return $returnMap;
