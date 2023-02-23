@@ -38,7 +38,7 @@ class AttributesService
 
     static array $fieldTypes = [
         "base product",
-        "images",
+        "Images",
         "metafields",
         "options",
         "variant options",
@@ -80,6 +80,7 @@ class AttributesService
         foreach (self::$baseFields as $field) {
             $data[] = ["name" => $field, "type" => "base product"];
         }
+        $data[] = ["name" => "Image", "type" => "Images"];
         return $data;
     }
 
