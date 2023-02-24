@@ -60,7 +60,7 @@ abstract class BaseStore implements StoreInterface
                 }
             }
             $value = array();
-            if ($fieldType == 'metafields') {
+            if (in_array($fieldType, ['metafields', 'variant metafields'])) {
                 array_push($value, [
                     'namespace' => $remoteFieldPath[0],
                     'fieldName' => $remoteFieldPath[1],

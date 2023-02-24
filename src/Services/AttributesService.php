@@ -14,6 +14,7 @@ use Pimcore\Model\DataObject\ClassDefinition\Data\Fieldcollections;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
 use Pimcore\Model\DataObject\Objectbrick\Definition as ObjectbrickDefinition;
 use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefinition;
+use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 
 class AttributesService
 {
@@ -43,8 +44,13 @@ class AttributesService
         "metafields",
         "options",
         "variant options",
-        "variant metafield",
+        "variant metafields",
     ];
+
+    public function __construct(
+        private ShopifyGraphqlHelperService $shopifyGraphqlHelperService
+    ) {
+    }
 
     public function getRemoteFields($apiAccess): array
     {
@@ -56,28 +62,25 @@ class AttributesService
             new FileSessionStorage('/tmp/php_sessions')
         );
         $host = $apiAccess["host"];
-        $offlineSession = new Session("offline_$host", $host, false, 'state');
-        $offlineSession->setScope(Context::$SCOPES->toString());
-        $offlineSession->setAccessToken($apiAccess["token"]);
 
-        $client = new Graphql($apiAccess["host"], $apiAccess["token"]);
-        $query = <<<QUERY
-        query {
-            metafieldDefinitions(first: 250, ownerType: PRODUCT) {
-                edges {
-                    node {
-                        namespace
-                        key
-                    }
-                }
-            }
-        }
-        QUERY;
-        $response = $client->query(["query" => $query])->getDecodedBody();
         $data = [];
+
+        //get metafields
+        $client = new Graphql($apiAccess["host"], $apiAccess["token"]);
+        $query = $this->shopifyGraphqlHelperService->buildMetafieldsQuery();
+        $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
             $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "metafields"];
         }
+
+        //get variant metafields
+        $client = new Graphql($apiAccess["host"], $apiAccess["token"]);
+        $query = $this->shopifyGraphqlHelperService->buildVariantMetafieldsQuery();
+        $response = $client->query(["query" => $query])->getDecodedBody();
+        foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
+            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "variant metafields"];
+        }
+
         foreach (self::$baseFields as $field) {
             $data[] = ["name" => $field, "type" => "base product"];
         }

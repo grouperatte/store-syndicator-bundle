@@ -337,6 +337,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             buttons: [{
                 text: t("plugin_pimcore_datahub_configpanel_item_reload_fields"),
                 handler: function(){
+                    console.log("here")
                     this.localAttributesStore.load();
                     this.remoteAttributesStore.load();
                     this.remoteAttributeTypeStore.load();

@@ -161,19 +161,6 @@ class ShopifyStore extends BaseStore
         return $tmpMetafield;
     }
 
-    public function createVariantsField(array $variants)
-    {
-        $variantsField = [];
-        foreach ($variants as $options) {
-            $variantsCustomizationField = [];
-            foreach ($options as $field => $option) {
-                $variantsCustomizationField[] = strval($option);
-            }
-            $variantsField[] = ["options" => $variantsCustomizationField];
-        }
-        return $variantsField;
-    }
-
     public function commit(): Models\CommitResult
     {
         $commitResults = new Models\CommitResult;

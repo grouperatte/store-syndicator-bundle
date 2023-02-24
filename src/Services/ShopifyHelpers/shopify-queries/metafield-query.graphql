@@ -1,0 +1,10 @@
+query {
+  metafieldDefinitions(first: 250, ownerType: REPLACEMETYPE) {
+    edges {
+      node {
+        namespace
+        key
+      }
+    }
+  }
+}

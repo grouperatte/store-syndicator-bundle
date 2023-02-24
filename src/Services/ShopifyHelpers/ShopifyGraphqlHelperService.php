@@ -12,6 +12,7 @@ class ShopifyGraphqlHelperService
     private string $getProductsQuery;
     private string $createMediaQuery;
     private string $updateMediaQuery;
+    private string $getMetafieldsQuery;
 
     public function __construct()
     {
@@ -84,5 +85,25 @@ class ShopifyGraphqlHelperService
             $this->updateMediaQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/update-media.graphql');
         }
         return $this->bulkwrap($this->updateMediaQuery, $remoteFile);
+    }
+
+    public function buildMetafieldsQuery()
+    {
+        if (!isset($this->getMetafieldsQuery)) {
+            $this->getMetafieldsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/metafield-query.graphql');
+        }
+        $query = $this->getMetafieldsQuery;
+        $query = preg_replace("/REPLACEMETYPE/", "PRODUCT", $query);
+        return $query;
+    }
+
+    public function buildVariantMetafieldsQuery()
+    {
+        if (!isset($this->getMetafieldsQuery)) {
+            $this->getMetafieldsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/metafield-query.graphql');
+        }
+        $query = $this->getMetafieldsQuery;
+        $query = preg_replace("/REPLACEMETYPE/", "PRODUCTVARIANT", $query);
+        return $query;
     }
 }
