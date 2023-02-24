@@ -18,10 +18,12 @@ class ShopifyStore extends BaseStore
     const IMAGEPROPERTYNAME = "ShopifyImageURL";
     private $updateGraphQLStrings;
     private $createGraphQLStrings;
+    private $variantMapping;
     private array $createObjs;
     private Session $session;
     private GraphQl $client;
     private array $productMetafieldsMapping;
+    private array $variantMetafieldsMapping;
     private array $updateImageMap;
 
     private ShopifyGraphqlHelperService $shopifyGraphqlHelperService;
@@ -51,11 +53,9 @@ class ShopifyStore extends BaseStore
         $this->client = new Graphql($this->session->getShop(), $this->session->getAccessToken());
 
         $this->productMetafieldsMapping = $this->getAllProducts();
+        $this->variantMetafieldsMapping = $this->getAllVariants();
     }
 
-    /*
-       Not currently used. 
-    */
     public function getAllProducts()
     {
         $query = $this->shopifyGraphqlHelperService->buildProductsQuery();
@@ -79,7 +79,26 @@ class ShopifyStore extends BaseStore
                 "metafields" => $metafields,
             ];
         }
+
         return $products;
+    }
+
+    private function getAllVariants()
+    {
+        $query = $this->shopifyGraphqlHelperService->buildVariantsQuery();
+        $result = $this->client->query(["query" => $query])->getDecodedBody();
+
+        $variants = [];
+        foreach ($result['data']['productVariants']["edges"] as $variant) {
+            $metafields = [];
+            foreach ($variant['node']["metafields"]["edges"] as $metafield) {
+                $metafields[$metafield["node"]["namespace"] . "." . $metafield["node"]["key"]] = $metafield["node"]["id"];
+            }
+            if (count($metafields) > 0) {
+                $variants[$variant['node']['id']] = $metafields;
+            }
+        }
+        return $variants;
     }
 
     /*
@@ -101,11 +120,13 @@ class ShopifyStore extends BaseStore
 
         $graphQLInputString = [];
         $graphQLInputString["title"] = $fields["title"] ?? $object->getKey();
-        foreach ($fields['metafields'] as $attribute) {
-            if (array_key_exists($remoteId, $this->productMetafieldsMapping))
-                $graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->productMetafieldsMapping[$remoteId]);
+        if (isset($fields['metafields'])) {
+            foreach ($fields['metafields'] as $attribute) {
+                if (array_key_exists($remoteId, $this->productMetafieldsMapping))
+                    $graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->productMetafieldsMapping[$remoteId]);
+            }
+            unset($fields['metafields']);
         }
-        unset($fields['metafields']);
         if (isset($fields["Images"])) {
             /** @var Image $image */
             foreach ($fields["Images"] as $image) {
@@ -117,6 +138,7 @@ class ShopifyStore extends BaseStore
             $graphQLInputString[$field] = $value;
         }
         $graphQLInputString["id"] = $remoteId;
+        $graphQLInputString["handle"] = $graphQLInputString["title"] . "-" . $remoteId;
         $this->updateGraphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
     }
 
@@ -126,14 +148,16 @@ class ShopifyStore extends BaseStore
 
         $graphQLInputString = [];
         $graphQLInputString["title"] = $object->getKey();
-        foreach ($fields['metafields'] as $attribute) {
-            $graphQLInputString["metafields"][] = [
-                "key" => $attribute["fieldName"],
-                "value" => $attribute["value"],
-                "namespace" => $attribute["namespace"],
-            ];
+        if (isset($fields['metafields'])) {
+            foreach ($fields['metafields'] as $attribute) {
+                $graphQLInputString["metafields"][] = [
+                    "key" => $attribute["fieldName"],
+                    "value" => $attribute["value"],
+                    "namespace" => $attribute["namespace"],
+                ];
+            }
+            unset($fields['metafields']);
         }
-        unset($fields['metafields']);
         /** @var Image $image */
         if (isset($fields["Images"])) {
             foreach ($fields["Images"] as $image) {
@@ -148,6 +172,47 @@ class ShopifyStore extends BaseStore
         $this->createObjs[] = $object;
     }
 
+    public function processVariant(Concrete $parent, Concrete $child): void
+    {
+        $fields = $this->getAttributes($child);
+        if ($this->existsInStore($child)) {
+            $thisVariantArray["id"] = $this->getStoreProductId($child);
+        }
+        $metafields = [];
+        foreach ($fields['variant metafields'] as $metafield) {
+            //if we pulled this variant metafield, get its id
+            if (
+                $this->existsInStore($child) &&
+                array_key_exists($this->getStoreProductId($child), $this->variantMetafieldsMapping) &&
+                array_key_exists($metafield["namespace"] . "." . $metafield["fieldName"], $this->variantMetafieldsMapping[$this->getStoreProductId($child)])
+            ) {
+                $metafields[] = [
+                    "id" => $this->variantMetafieldsMapping[$this->getStoreProductId($child)][$metafield["namespace"] . "." . $metafield["fieldName"]],
+                    "value" => $metafield["value"]
+                ];
+            } else { //its a new variant / metafield
+                $metafields[] = [
+                    "key" => $metafield["fieldName"],
+                    "value" => $metafield["value"],
+                    "namespace" => $metafield["namespace"],
+                ];
+            }
+        }
+        $thisVariantArray["metafields"] = $metafields;
+        foreach ($fields['base variant'] as $field => $value) {
+            $thisVariantArray[$field] = $value;
+        }
+
+        if (!isset($thisVariantArray["title"])) {
+            $thisVariantArray["title"] = $child->getKey();
+        }
+        if (!isset($thisVariantArray["options"])) {
+            $thisVariantArray["options"] = [$thisVariantArray["title"]];
+        }
+
+        $this->variantMapping[$parent->getId()][$child->getId()] = $thisVariantArray;
+    }
+
     private function createMetafield($attribute, $mapping)
     {
         $tmpMetafield = [
@@ -159,19 +224,6 @@ class ShopifyStore extends BaseStore
             $tmpMetafield["id"] = $mapping["metafields"][$attribute["fieldName"]]["id"];
         }
         return $tmpMetafield;
-    }
-
-    public function createVariantsField(array $variants)
-    {
-        $variantsField = [];
-        foreach ($variants as $options) {
-            $variantsCustomizationField = [];
-            foreach ($options as $field => $option) {
-                $variantsCustomizationField[] = strval($option);
-            }
-            $variantsField[] = ["options" => $variantsCustomizationField];
-        }
-        return $variantsField;
     }
 
     public function commit(): Models\CommitResult
@@ -269,6 +321,46 @@ class ShopifyStore extends BaseStore
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
         }
+
+        if (isset($this->variantMapping)) {
+            $variableString = '';
+            $mapBackArray = [];
+            foreach ($this->variantMapping as $parentId => $variantMap) {
+                $variantMapBack = [];
+                foreach ($variantMap as $variantObjId => $variant) {
+                    $variantMapBack[] = Concrete::getById($variantObjId);
+                }
+                $mapBackArray[] = $variantMapBack;
+                $variableString .= json_encode(["input" => [
+                    "id" => $this->getStoreProductId(Concrete::getById($parentId)),
+                    "variants" => array_values($variantMap)
+                ]]) . PHP_EOL;
+            }
+            $file = $this->makeFile($variableString);
+            $filename = stream_get_meta_data($file)['uri'];
+            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $remoteFileKey = $remoteFileKeys[$filename]["key"];
+            fclose($file);
+
+            $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
+            $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
+
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            }
+            //map created variants
+            $result = file_get_contents($resultFileURL);
+            $result = '[' . str_replace(PHP_EOL, ',', $result);
+            $result = substr($result, 0, strlen($result) - 1) . "]";
+            $result = json_decode($result, true);
+            foreach ($result as $prodInd => $products) {
+                $product = $mapBackArray[$prodInd];
+                foreach ($products['data']['productUpdate']['product']['variants']['edges'] as $variantInd => $variant) {
+                    $this->setStoreProductId($product[$variantInd], $variant["node"]["id"]);
+                    $product[$variantInd]->save();
+                }
+            }
+        }
+
         return new Models\CommitResult();
     }
 

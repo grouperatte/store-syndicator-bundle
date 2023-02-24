@@ -3,8 +3,12 @@ mutation call($input: ProductInput!) {
     product {
       title
       id
-      options {
-        name
+      variants(first: 10) {
+        edges {
+          node {
+            id
+          }
+        }
       }
     }
     userErrors {

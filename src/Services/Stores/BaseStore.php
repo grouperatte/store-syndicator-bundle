@@ -18,6 +18,7 @@ abstract class BaseStore implements StoreInterface
 
     abstract public function createProduct(Concrete $object): void;
     abstract public function updateProduct(Concrete $object): void;
+    abstract public function processVariant(Concrete $parent, Concrete $child): void;
 
     /**
      * call to perform an final actions between the app and the store
@@ -60,7 +61,7 @@ abstract class BaseStore implements StoreInterface
                 }
             }
             $value = array();
-            if ($fieldType == 'metafields') {
+            if (in_array($fieldType, ['metafields', 'variant metafields'])) {
                 array_push($value, [
                     'namespace' => $remoteFieldPath[0],
                     'fieldName' => $remoteFieldPath[1],
