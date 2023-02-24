@@ -5,6 +5,7 @@ namespace Services;
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
 use Pimcore\Model\DataObject;
+use Pimcore\Model\DataObject\Concrete;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
@@ -13,6 +14,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
     It then gets all the paths from the config, and calls export on the paths.
 */
+
 class ExecutionService
 {
     private array $config;
@@ -47,12 +49,15 @@ class ExecutionService
 
     private function recursiveExport($dataObject)
     {
-        if (is_a($dataObject, $this->classType)){
-            if(!$this->storeInterface->existsInStore($dataObject)){
+        /** @var Concrete $dataObject */
+        if (is_a($dataObject, $this->classType)) {
+            if (!$this->storeInterface->existsInStore($dataObject)) {
                 $this->storeInterface->createProduct($dataObject);
-            }
-            else{
+            } else {
                 $this->storeInterface->updateProduct($dataObject);
+            }
+            foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT]) as $childVariant) {
+                $this->storeInterface->processVariant($dataObject, $childVariant);
             }
         }
 

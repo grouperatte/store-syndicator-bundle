@@ -13,6 +13,7 @@ class ShopifyGraphqlHelperService
     private string $createMediaQuery;
     private string $updateMediaQuery;
     private string $getMetafieldsQuery;
+    private string $updateVariantsQuery;
 
     public function __construct()
     {
@@ -105,5 +106,13 @@ class ShopifyGraphqlHelperService
         $query = $this->getMetafieldsQuery;
         $query = preg_replace("/REPLACEMETYPE/", "PRODUCTVARIANT", $query);
         return $query;
+    }
+
+    public function buildVariantQuery($remoteFile)
+    {
+        if (!isset($this->updateVariantsQuery)) {
+            $this->updateVariantsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/update-product-variants.graphql');
+        }
+        return $this->bulkwrap($this->updateVariantsQuery, $remoteFile);
     }
 }

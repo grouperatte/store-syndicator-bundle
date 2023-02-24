@@ -45,6 +45,7 @@ class AttributesService
         "options",
         "variant options",
         "variant metafields",
+        "base variant"
     ];
 
     public function __construct(
@@ -83,6 +84,7 @@ class AttributesService
 
         foreach (self::$baseFields as $field) {
             $data[] = ["name" => $field, "type" => "base product"];
+            $data[] = ["name" => $field, "type" => "base variant"];
         }
         $data[] = ["name" => "Image", "type" => "Images"];
         return $data;

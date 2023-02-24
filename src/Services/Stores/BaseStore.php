@@ -18,6 +18,7 @@ abstract class BaseStore implements StoreInterface
 
     abstract public function createProduct(Concrete $object): void;
     abstract public function updateProduct(Concrete $object): void;
+    abstract public function processVariant(Concrete $parent, Concrete $child): void;
 
     /**
      * call to perform an final actions between the app and the store
