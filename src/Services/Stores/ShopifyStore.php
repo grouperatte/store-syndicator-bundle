@@ -23,6 +23,7 @@ class ShopifyStore extends BaseStore
     private Session $session;
     private GraphQl $client;
     private array $productMetafieldsMapping;
+    private array $variantMetafieldsMapping;
     private array $updateImageMap;
 
     private ShopifyGraphqlHelperService $shopifyGraphqlHelperService;
@@ -52,11 +53,9 @@ class ShopifyStore extends BaseStore
         $this->client = new Graphql($this->session->getShop(), $this->session->getAccessToken());
 
         $this->productMetafieldsMapping = $this->getAllProducts();
+        $this->variantMetafieldsMapping = $this->getAllVariants();
     }
 
-    /*
-       Not currently used. 
-    */
     public function getAllProducts()
     {
         $query = $this->shopifyGraphqlHelperService->buildProductsQuery();
@@ -80,7 +79,26 @@ class ShopifyStore extends BaseStore
                 "metafields" => $metafields,
             ];
         }
+
         return $products;
+    }
+
+    private function getAllVariants()
+    {
+        $query = $this->shopifyGraphqlHelperService->buildVariantsQuery();
+        $result = $this->client->query(["query" => $query])->getDecodedBody();
+
+        $variants = [];
+        foreach ($result['data']['productVariants']["edges"] as $variant) {
+            $metafields = [];
+            foreach ($variant['node']["metafields"]["edges"] as $metafield) {
+                $metafields[$metafield["node"]["namespace"] . "." . $metafield["node"]["key"]] = $metafield["node"]["id"];
+            }
+            if (count($metafields) > 0) {
+                $variants[$variant['node']['id']] = $metafields;
+            }
+        }
+        return $variants;
     }
 
     /*
@@ -157,22 +175,34 @@ class ShopifyStore extends BaseStore
     public function processVariant(Concrete $parent, Concrete $child): void
     {
         $fields = $this->getAttributes($child);
-
+        if ($this->existsInStore($child)) {
+            $thisVariantArray["id"] = $this->getStoreProductId($child);
+        }
         $metafields = [];
         foreach ($fields['variant metafields'] as $metafield) {
-            $metafields[] = [
-                "key" => $metafield["fieldName"],
-                "value" => $metafield["value"],
-                "namespace" => $metafield["namespace"],
-            ];
+            //if we pulled this variant metafield, get its id
+            if (
+                $this->existsInStore($child) &&
+                array_key_exists($this->getStoreProductId($child), $this->variantMetafieldsMapping) &&
+                array_key_exists($metafield["namespace"] . "." . $metafield["fieldName"], $this->variantMetafieldsMapping[$this->getStoreProductId($child)])
+            ) {
+                $metafields[] = [
+                    "id" => $this->variantMetafieldsMapping[$this->getStoreProductId($child)][$metafield["namespace"] . "." . $metafield["fieldName"]],
+                    "value" => $metafield["value"]
+                ];
+            } else { //its a new variant / metafield
+                $metafields[] = [
+                    "key" => $metafield["fieldName"],
+                    "value" => $metafield["value"],
+                    "namespace" => $metafield["namespace"],
+                ];
+            }
         }
         $thisVariantArray["metafields"] = $metafields;
         foreach ($fields['base variant'] as $field => $value) {
             $thisVariantArray[$field] = $value;
         }
-        if ($this->existsInStore($child)) {
-            $thisVariantArray["id"] = $this->getStoreProductId($child);
-        }
+
         if (!isset($thisVariantArray["title"])) {
             $thisVariantArray["title"] = $child->getKey();
         }
@@ -312,7 +342,7 @@ class ShopifyStore extends BaseStore
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
-            $variantQuery = $this->shopifyGraphqlHelperService->buildVariantQuery($remoteFileKey);
+            $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
             $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
 
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
