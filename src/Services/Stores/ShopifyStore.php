@@ -180,7 +180,7 @@ class ShopifyStore extends BaseStore
             $thisVariantArray["options"] = [$thisVariantArray["title"]];
         }
 
-        $this->variantMapping[$parent->getId()][] = $thisVariantArray;
+        $this->variantMapping[$parent->getId()][$child->getId()] = $thisVariantArray;
     }
 
     private function createMetafield($attribute, $mapping)
@@ -294,10 +294,16 @@ class ShopifyStore extends BaseStore
 
         if (isset($this->variantMapping)) {
             $variableString = '';
+            $mapBackArray = [];
             foreach ($this->variantMapping as $parentId => $variantMap) {
+                $variantMapBack = [];
+                foreach ($variantMap as $variantObjId => $variant) {
+                    $variantMapBack[] = Concrete::getById($variantObjId);
+                }
+                $mapBackArray[] = $variantMapBack;
                 $variableString .= json_encode(["input" => [
                     "id" => $this->getStoreProductId(Concrete::getById($parentId)),
-                    "variants" => $variantMap
+                    "variants" => array_values($variantMap)
                 ]]) . PHP_EOL;
             }
             $file = $this->makeFile($variableString);
@@ -312,14 +318,17 @@ class ShopifyStore extends BaseStore
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
             //map created variants
-            // $result = file_get_contents($resultFileURL);
-            // $result = '[' . str_replace(PHP_EOL, ',', $result);
-            // $result = substr($result, 0, strlen($result) - 1) . "]";
-            // $result = json_decode($result, true);
-            // foreach ($result as $ind => $updatedProduct) {
-            //     $this->setStoreProductId($this->createObjs[$ind], $createdProduct["data"]["productCreate"]["product"]["id"]);
-            //     $commitResults->addUpdated($this->createObjs[$ind]);
-            // }
+            $result = file_get_contents($resultFileURL);
+            $result = '[' . str_replace(PHP_EOL, ',', $result);
+            $result = substr($result, 0, strlen($result) - 1) . "]";
+            $result = json_decode($result, true);
+            foreach ($result as $prodInd => $products) {
+                $product = $mapBackArray[$prodInd];
+                foreach ($products['data']['productUpdate']['product']['variants']['edges'] as $variantInd => $variant) {
+                    $this->setStoreProductId($product[$variantInd], $variant["node"]["id"]);
+                    $product[$variantInd]->save();
+                }
+            }
         }
 
         return new Models\CommitResult();
