@@ -3,18 +3,21 @@
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
 use Shopify\Context;
-use Pimcore\Model\DataObject\ClassDefinition\Data\Objectbricks;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
 use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\ClassDefinition;
-use Pimcore\Model\DataObject\Classificationstore;
 use Pimcore\Bundle\DataHubBundle\Configuration;
+use Pimcore\Model\DataObject\Classificationstore;
+use Pimcore\Model\DataObject\ClassDefinition\Data\Objectbricks;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Fieldcollections;
-use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
+use Pimcore\Model\DataObject\ClassDefinition\Data\AdvancedManyToManyRelation;
 use Pimcore\Model\DataObject\Objectbrick\Definition as ObjectbrickDefinition;
+use Pimcore\Model\DataObject\ClassDefinition\Data\Relations\AbstractRelations;
+use Pimcore\Model\DataObject\ClassDefinition\Data\AdvancedManyToManyObjectRelation;
 use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefinition;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
+use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
 
 class AttributesService
 {
@@ -130,6 +133,16 @@ class AttributesService
                 $fields = $this->getStoreKeys($field->getStoreId());
                 foreach ($fields as $field) {
                     $attributes[] = $prefix . $field->getName();
+                }
+            } elseif ($field instanceof AbstractRelations) {
+                if ($field instanceof AdvancedManyToManyRelation || $field instanceof AdvancedManyToManyObjectRelation) {
+                    $classes = [["classes" => $field->getAllowedClassId()]];
+                } else {
+                    $classes = $field->classes;
+                }
+                foreach ($classes as $allowedClass) {
+                    $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
+                    $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ".");
                 }
             } else {
                 $attributes[] = $prefix . $field->getName();

@@ -4,6 +4,7 @@ namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
+use Pimcore\Model\DataObject\ClassDefinition\Data;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\Data\ImageGallery;
 
@@ -50,39 +51,70 @@ abstract class BaseStore implements StoreInterface
             //getting local value of field
             $localFieldPath = explode(".", $localAttribute);
             $remoteFieldPath = explode(".", $remoteAttribute);
-            $currentField = $object;
-            foreach ($localFieldPath as $field) {
-                $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
-                if ($currentField && method_exists($currentField, $getter)) {
-                    $currentField = $currentField->$getter();
+            $localValue = $this->getFieldValues($object, $localFieldPath);
+            if ($localValue) {
+                if (!is_array($localValue)) {
+                    $localValue = [$localValue];
+                }
+                $value = array();
+
+                if (in_array($fieldType, ['metafields', 'variant metafields'])) {
+                    array_push($value, [
+                        'namespace' => $remoteFieldPath[0],
+                        'fieldName' => $remoteFieldPath[1],
+                        'value' => $localValue[0]
+                    ]);
+                } elseif (!in_array($fieldType, ["Images"])) {
+                    $value[$remoteAttribute] = $localValue;
                 } else {
-                    $currentField = null;
-                    break;
+                    $value = $localValue;
                 }
-            }
-            $value = array();
-            if (in_array($fieldType, ['metafields', 'variant metafields'])) {
-                array_push($value, [
-                    'namespace' => $remoteFieldPath[0],
-                    'fieldName' => $remoteFieldPath[1],
-                    'value' => strval($currentField)
-                ]);
-            } elseif ($currentField instanceof Image) {
-                array_push($value, $currentField);
-            } elseif ($currentField instanceof ImageGallery) {
-                foreach ($currentField->getItems() as $hotspot) {
-                    array_push($value, $hotspot->getImage());
+                if (count($value) > 0) {
+                    $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);
                 }
-            } elseif ($currentField != null) {
-                $value[$remoteAttribute] = strval($currentField);
-            }
-            if (count($value) > 0) {
-                $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);
             }
         }
         return $returnMap;
     }
 
+    //get the value(s) at the end of the fieldPath array on an object
+    private function getFieldValues($rootField, array $fieldPath)
+    {
+        $field = $fieldPath[0];
+        array_shift($fieldPath);
+        $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
+        $fieldVal = $rootField->$getter();
+        if (count($fieldPath) == 0) {
+            return $this->processLocalValue($fieldVal);
+        } elseif (is_iterable($fieldVal)) { //this would be like manytomany fields
+            $vals = [];
+            foreach ($fieldVal as $singleVal) {
+                if ($singleVal && method_exists($singleVal, "get" . $fieldPath[0])) {
+                    $vals[] = $this->getFieldValues($singleVal, $fieldPath);
+                }
+            }
+            return $vals;
+        } else {
+            if ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
+                return $this->getFieldValues($fieldVal, $fieldPath);
+            }
+        }
+    }
+
+    public function processLocalValue($field)
+    {
+        if ($field instanceof Image) {
+            return $field;
+        } elseif ($field instanceof ImageGallery) {
+            $returnArray = [];
+            foreach ($field->getItems() as $hotspot) {
+                $returnArray[] = $hotspot->getImage();
+            }
+            return $returnArray;
+        } else {
+            return strval($field);
+        }
+    }
     public function getVariantsOptions(Concrete $object, array $fields): array
     {
         $variants = $object->getChildren([Concrete::OBJECT_TYPE_VARIANT]);
