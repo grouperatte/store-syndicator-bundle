@@ -158,10 +158,10 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        /** @var Image $image */
         if (isset($fields["Images"])) {
+            /** @var Image $image */
             foreach ($fields["Images"] as $image) {
-                $this->updateImageMap[$object][] = $image;
+                $this->updateImageMap[$object->getId()][] = $image;
             }
             unset($fields["Images"]);
         }

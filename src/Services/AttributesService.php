@@ -18,6 +18,8 @@ use Pimcore\Model\DataObject\ClassDefinition\Data\AdvancedManyToManyObjectRelati
 use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefinition;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
+use Pimcore\Model\DataObject\ClassDefinition\Data\Localizedfields;
+use Pimcore\Model\DataObject\Localizedfield;
 
 class AttributesService
 {
@@ -115,6 +117,10 @@ class AttributesService
 
     private function getFieldDefinitionsRecursive($class, &$attributes, $prefix)
     {
+        if (!method_exists($class, "getFieldDefinitions")) {
+            $attributes[] = $prefix . $class->getName();
+            return;
+        }
         $fields = $class->getFieldDefinitions();
         foreach ($fields as $field) {
             if ($field instanceof Objectbricks) {
@@ -133,6 +139,15 @@ class AttributesService
                 $fields = $this->getStoreKeys($field->getStoreId());
                 foreach ($fields as $field) {
                     $attributes[] = $prefix . $field->getName();
+                }
+            } elseif ($field instanceof Localizedfields) {
+                $fields = $field->getChildren();
+                foreach ($fields as $field) {
+                    if (!method_exists($field, "getFieldDefinitions")) {
+                        $attributes[] = $prefix . $field->getName();
+                    } else {
+                        $this->getFieldDefinitionsRecursive($field, $attributes, $prefix . $field->getName() . ".");
+                    }
                 }
             } elseif ($field instanceof AbstractRelations) {
                 if ($field instanceof AdvancedManyToManyRelation || $field instanceof AdvancedManyToManyObjectRelation) {
