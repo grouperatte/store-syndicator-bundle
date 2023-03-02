@@ -103,7 +103,9 @@ class AttributesService
         $config = $configuration->getConfiguration();
 
         $class = $config["products"]["class"];
-        $class = ClassDefinition::getByName($class);
+        if (!$class = ClassDefinition::getByName($class)) {
+            return [];
+        }
 
         $attributes = ["Key"];
         $this->getFieldDefinitionsRecursive($class, $attributes, "");
