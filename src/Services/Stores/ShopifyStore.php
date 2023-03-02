@@ -119,7 +119,7 @@ class ShopifyStore extends BaseStore
         $remoteId = $this->getStoreProductId($object);
 
         $graphQLInputString = [];
-        $graphQLInputString["title"] = $fields["title"] ?? $object->getKey();
+        $graphQLInputString["title"] = $fields["title"][0] ?? $object->getKey();
         if (isset($fields['metafields'])) {
             foreach ($fields['metafields'] as $attribute) {
                 if (array_key_exists($remoteId, $this->productMetafieldsMapping))
@@ -135,7 +135,7 @@ class ShopifyStore extends BaseStore
             unset($fields["Images"]);
         }
         foreach ($fields['base product'] as $field => $value) {
-            $graphQLInputString[$field] = $value;
+            $graphQLInputString[$field] = $value[0];
         }
         $graphQLInputString["id"] = $remoteId;
         $graphQLInputString["handle"] = $graphQLInputString["title"] . "-" . $remoteId;
@@ -166,7 +166,7 @@ class ShopifyStore extends BaseStore
             unset($fields["Images"]);
         }
         foreach ($fields['base product'] as $field => $value) {
-            $graphQLInputString[$field] = $value;
+            $graphQLInputString[$field] = $value[0];
         }
         $this->createGraphQLStrings .= json_encode(["input" => $graphQLInputString]) . PHP_EOL;
         $this->createObjs[] = $object;
@@ -200,7 +200,7 @@ class ShopifyStore extends BaseStore
         }
         $thisVariantArray["metafields"] = $metafields;
         foreach ($fields['base variant'] as $field => $value) {
-            $thisVariantArray[$field] = $value;
+            $thisVariantArray[$field] = $value[0];
         }
 
         if (!isset($thisVariantArray["title"])) {
