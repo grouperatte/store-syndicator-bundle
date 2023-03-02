@@ -62,7 +62,7 @@ abstract class BaseStore implements StoreInterface
                     array_push($value, [
                         'namespace' => $remoteFieldPath[0],
                         'fieldName' => $remoteFieldPath[1],
-                        'value' => $localValue
+                        'value' => $localValue[0]
                     ]);
                 } elseif (!in_array($fieldType, ["Images"])) {
                     $value[$remoteAttribute] = $localValue;
