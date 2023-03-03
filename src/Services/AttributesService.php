@@ -142,11 +142,20 @@ class AttributesService
                 }
             } elseif ($field instanceof Localizedfields) {
                 $fields = $field->getChildren();
-                foreach ($fields as $field) {
-                    if (!method_exists($field, "getFieldDefinitions")) {
-                        $attributes[] = $prefix . $field->getName();
+                foreach ($fields as $childField) {
+                    if (!method_exists($childField, "getFieldDefinitions")) {
+                        $attributes[] = $prefix . $childField->getName();
                     } else {
-                        $this->getFieldDefinitionsRecursive($field, $attributes, $prefix . $field->getName() . ".");
+                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . ".");
+                    }
+                }
+                if ($fields = $field->getReferencedFields()) {
+                    $names = [];
+                    foreach ($fields as $field) {
+                        if (!in_array($field->getName(), $names)) { //sometimes returns the same field multiple times...
+                            $this->getFieldDefinitionsRecursive($field, $attributes, $prefix);
+                            $names[] = $field->getName();
+                        }
                     }
                 }
             } elseif ($field instanceof AbstractRelations) {
