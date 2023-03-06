@@ -38,13 +38,13 @@ class ExecutionService
         foreach ($productPaths as $pathArray) {
             $path = $pathArray["cpath"];
             $products = DataObject::getByPath($path);
-            $products = $products->getChildren();
+            $products = $products->getChildren([DataObject::OBJECT_TYPE_OBJECT, DataObject::OBJECT_TYPE_FOLDER], true);
             foreach ($products as $product) {
                 $this->recursiveExport($product);
             }
         }
 
-        $this->storeInterface->commit();
+        return $this->storeInterface->commit();
     }
 
     private function recursiveExport($dataObject)
@@ -56,12 +56,12 @@ class ExecutionService
             } else {
                 $this->storeInterface->updateProduct($dataObject);
             }
-            foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT]) as $childVariant) {
+            foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true) as $childVariant) {
                 $this->storeInterface->processVariant($dataObject, $childVariant);
             }
         }
 
-        $products = $dataObject->getChildren();
+        $products = $dataObject->getChildren([DataObject::OBJECT_TYPE_OBJECT, DataObject::OBJECT_TYPE_FOLDER], true);
 
         foreach ($products as $product) {
             $this->recursiveExport($product);

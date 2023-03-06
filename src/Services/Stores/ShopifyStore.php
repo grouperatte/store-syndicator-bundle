@@ -365,13 +365,17 @@ class ShopifyStore extends BaseStore
             foreach ($result as $prodInd => $products) {
                 $product = $mapBackArray[$prodInd];
                 foreach ($products['data']['productUpdate']['product']['variants']['edges'] as $variantInd => $variant) {
-                    $this->setStoreProductId($product[$variantInd], $variant["node"]["id"]);
-                    $product[$variantInd]->save();
+                    if (array_key_exists($variantInd, $product)) {
+                        $this->setStoreProductId($product[$variantInd], $variant["node"]["id"]);
+                        $product[$variantInd]->save();
+                    } else {
+                        $commitResults->addError("variant: $variantInd not on product: $prodInd");
+                    }
                 }
             }
         }
 
-        return new Models\CommitResult();
+        return $commitResults;
     }
 
     private function makeFile($content)
