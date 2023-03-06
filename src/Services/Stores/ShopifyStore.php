@@ -158,6 +158,11 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
+        $graphQLInputString["metafields"][] = [
+            "key" => "pimcore_id",
+            "value" => $object->getId(),
+            "namespace" => "custom",
+        ];
         if (isset($fields["Images"])) {
             /** @var Image $image */
             foreach ($fields["Images"] as $image) {
@@ -178,6 +183,11 @@ class ShopifyStore extends BaseStore
         if ($this->existsInStore($child)) {
             $thisVariantArray["id"] = $this->getStoreProductId($child);
         }
+        $fields['variant metafields'][] = [
+            "key" => "pimcore_id",
+            "value" => $child->getId(),
+            "namespace" => "custom",
+        ];
         $metafields = [];
         foreach ($fields['variant metafields'] as $metafield) {
             //if we pulled this variant metafield, get its id
