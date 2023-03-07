@@ -60,26 +60,26 @@ class ShopifyStore extends BaseStore
     {
         $query = $this->shopifyGraphqlHelperService->buildProductsQuery();
         $result = $this->client->query(["query" => $query])->getDecodedBody();
-        $products = [];
-        foreach ($result['data']['products']["edges"] as $product) {
-            $metafields = [];
-            foreach ($product['node']["metafields"]["edges"] as $metafield) {
-                $metaId = $metafield["node"]["id"];
-                $metafields[$metafield["node"]["key"]] = [
-                    "namespace" => $metafield["node"]["namespace"],
-                    "key" => $metafield["node"]["key"],
-                    "value" => $metafield["node"]["value"],
-                    "id" => $metaId,
-                ];
-            }
-            $prodId = $product['node']['id'];
-            $products[$prodId] = [
-                "id" => $prodId,
-                "title" => $product['node']['title'],
-                "metafields" => $metafields,
-            ];
+        while (!$resultFileURL = $this->queryFinished("QUERY")) {
         }
-
+        $products = [];
+        if ($resultFileURL != "none") {
+            $resultFile = fopen($resultFileURL, "r");
+            while ($productOrMetafield = fgets($resultFile)) {
+                $productOrMetafield = (array)json_decode($productOrMetafield);
+                if (array_key_exists("key", $productOrMetafield)) {
+                    $products[$productOrMetafield['__parentId']]['metafields'][$productOrMetafield["key"]] = [
+                        "namespace" => $productOrMetafield["namespace"],
+                        "key" => $productOrMetafield["key"],
+                        "value" => $productOrMetafield["value"],
+                        "id" => $productOrMetafield['id'],
+                    ];
+                } else {
+                    $products[$productOrMetafield["id"]]['id'] = $productOrMetafield["id"];
+                    $products[$productOrMetafield["id"]]['title'] = $productOrMetafield["title"];
+                }
+            }
+        }
         return $products;
     }
 
@@ -87,15 +87,16 @@ class ShopifyStore extends BaseStore
     {
         $query = $this->shopifyGraphqlHelperService->buildVariantsQuery();
         $result = $this->client->query(["query" => $query])->getDecodedBody();
-
+        while (!$resultFileURL = $this->queryFinished("QUERY")) {
+        }
         $variants = [];
-        foreach ($result['data']['productVariants']["edges"] as $variant) {
-            $metafields = [];
-            foreach ($variant['node']["metafields"]["edges"] as $metafield) {
-                $metafields[$metafield["node"]["namespace"] . "." . $metafield["node"]["key"]] = $metafield["node"]["id"];
-            }
-            if (count($metafields) > 0) {
-                $variants[$variant['node']['id']] = $metafields;
+        if ($resultFileURL != "none") {
+            $resultFile = fopen($resultFileURL, "r");
+            while ($variantOrMetafield = fgets($resultFile)) {
+                $variantOrMetafield = (array)json_decode($variantOrMetafield);
+                if (array_key_exists("key", $variantOrMetafield)) {
+                    $variants[$variantOrMetafield['__parentId']][$variantOrMetafield["namespace"] . "." . $variantOrMetafield["key"]] = $variantOrMetafield['id'];
+                }
             }
         }
         return $variants;
@@ -253,13 +254,17 @@ class ShopifyStore extends BaseStore
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
             //map created products
-            $result = file_get_contents($resultFileURL);
-            $result = '[' . str_replace(PHP_EOL, ',', $result);
-            $result = substr($result, 0, strlen($result) - 1) . "]";
-            $result = json_decode($result, true);
-            foreach ($result as $ind => $createdProduct) {
-                $this->setStoreProductId($this->createObjs[$ind], $createdProduct["data"]["productCreate"]["product"]["id"]);
-                $commitResults->addUpdated($this->createObjs[$ind]);
+            $mappingQuery = $this->shopifyGraphqlHelperService->buildProductIdMappingQuery();
+            $result = $this->client->query(["query" => $mappingQuery])->getDecodedBody();
+            while (!$resultFileURL = $this->queryFinished("QUERY")) {
+            }
+            $resultFile = fopen($resultFileURL, "r");
+            while ($productOrMetafield = fgets($resultFile)) {
+                $productOrMetafield = (array)json_decode($productOrMetafield);
+                if (array_key_exists("key", $productOrMetafield) && $productOrMetafield["key"] == "pimcore_id") {
+                    $productObj = Concrete::getById($productOrMetafield["value"]);
+                    $this->setStoreProductId($productObj, $productOrMetafield['__parentId']);
+                }
             }
         }
 
@@ -355,12 +360,9 @@ class ShopifyStore extends BaseStore
             $result = $this->client->query(["query" => $variantMappingQuery])->getDecodedBody();
             while (!$resultFileURL = $this->queryFinished("QUERY")) {
             }
-            $result = file_get_contents($resultFileURL);
-            $result = '[' . str_replace(PHP_EOL, ',', $result);
-            $result = substr($result, 0, strlen($result) - 1) . "]";
-            $result = json_decode($result, true);
-            foreach ($result as $variantOrMetafield) {
-                //check the row is a metafield and of the pimore ID metafield
+            $resultFile = fopen($resultFileURL, "r");
+            while ($variantOrMetafield = fgets($resultFile)) {
+                $variantOrMetafield = (array)json_decode($variantOrMetafield);
                 if (array_key_exists("key", $variantOrMetafield) && $variantOrMetafield["key"] == "pimcore_id") {
                     $variantObj = Concrete::getById($variantOrMetafield["value"]);
                     $this->setStoreProductId($variantObj, $variantOrMetafield['__parentId']);
@@ -460,7 +462,7 @@ class ShopifyStore extends BaseStore
         $query = $this->shopifyGraphqlHelperService->buildQueryFinishedQuery($queryType);
         $response = $this->client->query(["query" => $query])->getDecodedBody();
         if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
-            return $response['data']["currentBulkOperation"]["url"];
+            return $response['data']["currentBulkOperation"]["url"] ?? "none"; //if the query returns nothing
         } else {
             return false;
         }

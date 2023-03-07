@@ -17,6 +17,7 @@ class ShopifyGraphqlHelperService
     private string $updateVariantsQuery;
     private string $variantsQuery;
     private string $variantsMappingQuery;
+    private string $productsMappingQuery;
 
     public function __construct()
     {
@@ -82,7 +83,7 @@ class ShopifyGraphqlHelperService
         if (!isset($this->getProductsQuery)) {
             $this->getProductsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/products-query.graphql');
         }
-        return $this->getProductsQuery;
+        return $this->bulkQueryWrap($this->getProductsQuery);
     }
 
     public function buildCreateMediaQuery($remoteFile)
@@ -134,7 +135,15 @@ class ShopifyGraphqlHelperService
         if (!isset($this->variantsQuery)) {
             $this->variantsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/variants-query.graphql');
         }
-        return $this->variantsQuery;
+        return $this->bulkQueryWrap($this->variantsQuery);
+    }
+
+    public function buildProductIdMappingQuery()
+    {
+        if (!isset($this->productsMappingQuery)) {
+            $this->productsMappingQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/product-pimcore-id-query.graphql');
+        }
+        return $this->bulkQueryWrap($this->productsMappingQuery);
     }
 
     public function buildVariantIdMappingQuery()

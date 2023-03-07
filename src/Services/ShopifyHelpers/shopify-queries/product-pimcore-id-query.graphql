@@ -3,14 +3,12 @@ query {
     edges {
       node {
         id
-        title
         metafields {
           edges {
             node {
               namespace
               key
               value
-              id
             }
           }
         }
