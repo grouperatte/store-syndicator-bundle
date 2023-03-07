@@ -1,11 +1,7 @@
 mutation call($input: ProductInput!) {
   productUpdate(input: $input) {
     product {
-      title
       id
-      options {
-        name
-      }
     }
     userErrors {
       message

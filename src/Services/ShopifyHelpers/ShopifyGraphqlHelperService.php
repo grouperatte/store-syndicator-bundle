@@ -6,6 +6,7 @@ class ShopifyGraphqlHelperService
 {
     private string $createProductsQuery;
     private string $updateProductsQuery;
+    private string $bulkMutationWrapper;
     private string $bulkQueryWrapper;
     private string $fileUploadQuery;
     private string $queryFinishedQuery;
@@ -15,6 +16,7 @@ class ShopifyGraphqlHelperService
     private string $getMetafieldsQuery;
     private string $updateVariantsQuery;
     private string $variantsQuery;
+    private string $variantsMappingQuery;
 
     public function __construct()
     {
@@ -38,12 +40,22 @@ class ShopifyGraphqlHelperService
 
     private function bulkwrap(string $towrap, $remoteFile)
     {
-        if (!isset($this->bulkQueryWrapper)) {
-            $this->bulkQueryWrapper = file_get_contents(dirname(__FILE__) . '/shopify-queries/bulk-call-wrapper.graphql');
+        if (!isset($this->bulkMutationWrapper)) {
+            $this->bulkMutationWrapper = file_get_contents(dirname(__FILE__) . '/shopify-queries/bulk-call-wrapper.graphql');
         }
-        $bulkquery = $this->bulkQueryWrapper;
+        $bulkquery = $this->bulkMutationWrapper;
         $bulkquery = preg_replace('/REPLACEMEMUTATION/', $towrap, $bulkquery);
         $bulkquery = preg_replace('/REPLACEMEPATH/', $remoteFile, $bulkquery);
+        return $bulkquery;
+    }
+
+    private function bulkQueryWrap(string $towrap)
+    {
+        if (!isset($this->bulkQueryWrapper)) {
+            $this->bulkQueryWrapper = file_get_contents(dirname(__FILE__) . '/shopify-queries/bulk-query-wrapper.graphql');
+        }
+        $bulkquery = $this->bulkQueryWrapper;
+        $bulkquery = preg_replace('/REPLACEMEQUERY/', $towrap, $bulkquery);
         return $bulkquery;
     }
 
@@ -123,5 +135,13 @@ class ShopifyGraphqlHelperService
             $this->variantsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/variants-query.graphql');
         }
         return $this->variantsQuery;
+    }
+
+    public function buildVariantIdMappingQuery()
+    {
+        if (!isset($this->variantsMappingQuery)) {
+            $this->variantsMappingQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/variant-pimcore-id-query.graphql');
+        }
+        return $this->bulkQueryWrap($this->variantsMappingQuery);
     }
 }

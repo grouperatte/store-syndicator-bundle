@@ -24,6 +24,7 @@ class CommitResult
     {
         $this->updated = array();
         $this->created = array();
+        $this->errors = array();
     }
 
     public function addCreated(Concrete $object)

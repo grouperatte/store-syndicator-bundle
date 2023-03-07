@@ -145,7 +145,11 @@ class ShopifyStore extends BaseStore
     public function createProduct(Concrete $object): void
     {
         $fields = $this->getAttributes($object);
-
+        $fields["metafields"][] = [
+            "fieldName" => "pimcore_id",
+            "value" => strval($object->getId()),
+            "namespace" => "custom",
+        ];
         $graphQLInputString = [];
         $graphQLInputString["title"] = $object->getKey();
         if (isset($fields['metafields'])) {
@@ -158,11 +162,6 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        $graphQLInputString["metafields"][] = [
-            "key" => "pimcore_id",
-            "value" => $object->getId(),
-            "namespace" => "custom",
-        ];
         if (isset($fields["Images"])) {
             /** @var Image $image */
             foreach ($fields["Images"] as $image) {
@@ -184,8 +183,8 @@ class ShopifyStore extends BaseStore
             $thisVariantArray["id"] = $this->getStoreProductId($child);
         }
         $fields['variant metafields'][] = [
-            "key" => "pimcore_id",
-            "value" => $child->getId(),
+            "fieldName" => "pimcore_id",
+            "value" => strval($child->getId()),
             "namespace" => "custom",
         ];
         $metafields = [];
@@ -238,7 +237,7 @@ class ShopifyStore extends BaseStore
 
     public function commit(): Models\CommitResult
     {
-        $commitResults = new Models\CommitResult;
+        $commitResults = new Models\CommitResult();
         if ($this->createGraphQLStrings) {
             //create unmade products
             $file = $this->makeFile($this->createGraphQLStrings);
@@ -249,7 +248,7 @@ class ShopifyStore extends BaseStore
 
             $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
 
-            $this->client->query(["query" => $product_create_query])->getDecodedBody();
+            $result = $this->client->query(["query" => $product_create_query])->getDecodedBody();
 
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
@@ -333,20 +332,14 @@ class ShopifyStore extends BaseStore
         }
 
         if (isset($this->variantMapping)) {
-            $variableString = '';
-            $mapBackArray = [];
+            $variantString = '';
             foreach ($this->variantMapping as $parentId => $variantMap) {
-                $variantMapBack = [];
-                foreach ($variantMap as $variantObjId => $variant) {
-                    $variantMapBack[] = Concrete::getById($variantObjId);
-                }
-                $mapBackArray[] = $variantMapBack;
-                $variableString .= json_encode(["input" => [
+                $variantString .= json_encode(["input" => [
                     "id" => $this->getStoreProductId(Concrete::getById($parentId)),
                     "variants" => array_values($variantMap)
                 ]]) . PHP_EOL;
             }
-            $file = $this->makeFile($variableString);
+            $file = $this->makeFile($variantString);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
@@ -358,19 +351,19 @@ class ShopifyStore extends BaseStore
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
             //map created variants
+            $variantMappingQuery = $this->shopifyGraphqlHelperService->buildVariantIdMappingQuery();
+            $result = $this->client->query(["query" => $variantMappingQuery])->getDecodedBody();
+            while (!$resultFileURL = $this->queryFinished("QUERY")) {
+            }
             $result = file_get_contents($resultFileURL);
             $result = '[' . str_replace(PHP_EOL, ',', $result);
             $result = substr($result, 0, strlen($result) - 1) . "]";
             $result = json_decode($result, true);
-            foreach ($result as $prodInd => $products) {
-                $product = $mapBackArray[$prodInd];
-                foreach ($products['data']['productUpdate']['product']['variants']['edges'] as $variantInd => $variant) {
-                    if (array_key_exists($variantInd, $product)) {
-                        $this->setStoreProductId($product[$variantInd], $variant["node"]["id"]);
-                        $product[$variantInd]->save();
-                    } else {
-                        $commitResults->addError("variant: $variantInd not on product: $prodInd");
-                    }
+            foreach ($result as $variantOrMetafield) {
+                //check the row is a metafield and of the pimore ID metafield
+                if (array_key_exists("key", $variantOrMetafield) && $variantOrMetafield["key"] == "pimcore_id") {
+                    $variantObj = Concrete::getById($variantOrMetafield["value"]);
+                    $this->setStoreProductId($variantObj, $variantOrMetafield['__parentId']);
                 }
             }
         }

@@ -1,0 +1,18 @@
+query {
+  productVariants {
+    edges {
+      node {
+        id
+        metafields {
+          edges {
+            node {
+              namespace
+              key
+              value
+            }
+          }
+        }
+      }
+    }
+  }
+}

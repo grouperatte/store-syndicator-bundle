@@ -1,7 +1,6 @@
 mutation call($input: ProductInput!) {
   productUpdate(input: $input) {
     product {
-      title
       id
       variants(first: 100) {
         edges {
