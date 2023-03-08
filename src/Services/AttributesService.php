@@ -88,7 +88,9 @@ class AttributesService
         }
 
         foreach (self::$baseFields as $field) {
-            $data[] = ["name" => $field, "type" => "base product"];
+            if ($field != "SKU") {
+                $data[] = ["name" => $field, "type" => "base product"];
+            }
             $data[] = ["name" => $field, "type" => "base variant"];
         }
         $data[] = ["name" => "Image", "type" => "Images"];
