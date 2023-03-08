@@ -7,6 +7,7 @@ use Pimcore\Model\Asset\Image;
 use Pimcore\Model\DataObject\ClassDefinition\Data;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\Data\ImageGallery;
+use Pimcore\Model\DataObject\Data\QuantityValue;
 
 abstract class BaseStore implements StoreInterface
 {
@@ -52,7 +53,7 @@ abstract class BaseStore implements StoreInterface
             $localFieldPath = explode(".", $localAttribute);
             $remoteFieldPath = explode(".", $remoteAttribute);
             $localValue = $this->getFieldValues($object, $localFieldPath);
-            if ($localValue) {
+            if ($localValue !== null) {
                 if (!is_array($localValue)) {
                     $localValue = [$localValue];
                 }
@@ -111,8 +112,10 @@ abstract class BaseStore implements StoreInterface
                 $returnArray[] = $hotspot->getImage();
             }
             return $returnArray;
+        } elseif ($field instanceof QuantityValue) {
+            return $field->getValue();
         } else {
-            return strval($field);
+            return $field;
         }
     }
     public function getVariantsOptions(Concrete $object, array $fields): array
