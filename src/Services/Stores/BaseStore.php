@@ -115,7 +115,7 @@ abstract class BaseStore implements StoreInterface
         } elseif ($field instanceof QuantityValue) {
             return $field->getValue();
         } else {
-            return $field;
+            return json_encode($field);
         }
     }
     public function getVariantsOptions(Concrete $object, array $fields): array
