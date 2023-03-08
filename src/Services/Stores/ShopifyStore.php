@@ -262,8 +262,9 @@ class ShopifyStore extends BaseStore
             while ($productOrMetafield = fgets($resultFile)) {
                 $productOrMetafield = (array)json_decode($productOrMetafield);
                 if (array_key_exists("key", $productOrMetafield) && $productOrMetafield["key"] == "pimcore_id") {
-                    $productObj = Concrete::getById($productOrMetafield["value"]);
-                    $this->setStoreProductId($productObj, $productOrMetafield['__parentId']);
+                    if ($productObj = Concrete::getById($productOrMetafield["value"])) {
+                        $this->setStoreProductId($productObj, $productOrMetafield['__parentId']);
+                    }
                 }
             }
         }
@@ -364,8 +365,9 @@ class ShopifyStore extends BaseStore
             while ($variantOrMetafield = fgets($resultFile)) {
                 $variantOrMetafield = (array)json_decode($variantOrMetafield);
                 if (array_key_exists("key", $variantOrMetafield) && $variantOrMetafield["key"] == "pimcore_id") {
-                    $variantObj = Concrete::getById($variantOrMetafield["value"]);
-                    $this->setStoreProductId($variantObj, $variantOrMetafield['__parentId']);
+                    if ($variantObj = Concrete::getById($variantOrMetafield["value"])) {
+                        $this->setStoreProductId($variantObj, $variantOrMetafield['__parentId']);
+                    }
                 }
             }
         }
