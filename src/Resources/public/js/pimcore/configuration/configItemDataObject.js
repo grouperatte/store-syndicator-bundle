@@ -176,7 +176,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         if(!this.attributeStore){
             this.attributeStore = Ext.create('Ext.data.Store', {
                 fields: ['local field', 'remote field'],
-                data: this.data.attributeMap
+                data: this.data.attributeMap,
+                pageSize: 0
             });
         }
         if(!this.localAttributesStore){
@@ -191,7 +192,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     totalProperty: 'total',
                     extraParams: {'name': this.data.general.name}
                 },
-                autoLoad: true
+                autoLoad: true,
+                pageSize: 0
             });
         }
         if(!this.remoteAttributeTypeStore){
@@ -205,7 +207,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     root: 'result',
                     totalProperty: 'total'
                 },
-                autoLoad: true
+                autoLoad: true,
+                pageSize: 0
             });
         }
         if(!this.remoteAttributesStore){
@@ -220,7 +223,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     totalProperty: 'total',
                     extraParams: {'name': this.data.general.name}//change to something about what kind of export this is
                 },
-                autoLoad: true
+                autoLoad: true,
+                pageSize: 0
             });
         }
         
