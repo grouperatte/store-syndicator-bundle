@@ -2,6 +2,7 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
+use PhpParser\Node\Expr\Cast\Bool_;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use Pimcore\Model\DataObject\ClassDefinition\Data;
@@ -113,9 +114,13 @@ abstract class BaseStore implements StoreInterface
             }
             return $returnArray;
         } elseif ($field instanceof QuantityValue) {
-            return $field->getValue();
+            return $this->processLocalValue($field->getValue());
+        } elseif (is_bool($field)) {
+            return $field ? "true" : "false";
+        } elseif (empty($field)) {
+            return null;
         } else {
-            return json_encode($field);
+            return strval($field);
         }
     }
     public function getVariantsOptions(Concrete $object, array $fields): array
