@@ -117,6 +117,8 @@ abstract class BaseStore implements StoreInterface
             return $this->processLocalValue($field->getValue());
         } elseif (is_bool($field)) {
             return $field ? "true" : "false";
+        } elseif (is_numeric($field)) {
+            return strval($field);
         } elseif (empty($field)) {
             return null;
         } else {
