@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Command;
+namespace TorqIT\StoreSyndicatorBundle\Command;
 
 use Pimcore\Model\DataObject;
 use Pimcore\Console\AbstractCommand;
