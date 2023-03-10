@@ -210,6 +210,9 @@ class ShopifyStore extends BaseStore
         }
         $thisVariantArray["metafields"] = $metafields;
         foreach ($fields['base variant'] as $field => $value) {
+            if ($field == 'weight') { //wants this as a non-string wrapped number
+                $value[0] = (float)$value[0];
+            }
             $thisVariantArray[$field] = $value[0];
         }
 

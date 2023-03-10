@@ -2,13 +2,15 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
-use PhpParser\Node\Expr\Cast\Bool_;
+use Exception;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
-use Pimcore\Model\DataObject\ClassDefinition\Data;
+use PhpParser\Node\Expr\Cast\Bool_;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
 use Pimcore\Model\DataObject\Data\QuantityValue;
+use Pimcore\Model\DataObject\ClassDefinition\Data;
 
 abstract class BaseStore implements StoreInterface
 {
@@ -64,7 +66,9 @@ abstract class BaseStore implements StoreInterface
                     array_push($value, [
                         'namespace' => $remoteFieldPath[0],
                         'fieldName' => $remoteFieldPath[1],
-                        'value' => $localValue[0]
+                        'value' => count($localValue) > 1 ?
+                            '["' . implode('", "', $localValue) . '"]' :
+                            $localValue[0]
                     ]);
                 } elseif (!in_array($fieldType, ["Images"])) {
                     $value[$remoteAttribute] = $localValue;
@@ -86,16 +90,27 @@ abstract class BaseStore implements StoreInterface
         array_shift($fieldPath);
         $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
         $fieldVal = $rootField->$getter();
-        if (count($fieldPath) == 0) {
-            return $this->processLocalValue($fieldVal);
-        } elseif (is_iterable($fieldVal)) { //this would be like manytomany fields
+        if (is_iterable($fieldVal)) { //this would be like manytomany fields
             $vals = [];
             foreach ($fieldVal as $singleVal) {
-                if ($singleVal && method_exists($singleVal, "get" . $fieldPath[0])) {
+                if ($singleVal && is_object($singleVal) && method_exists($singleVal, "get" . $fieldPath[0])) {
                     $vals[] = $this->getFieldValues($singleVal, $fieldPath);
+                } elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
+                    $vals[] = $this->processLocalValue($singleVal[$fieldPath[0]]->getData());
+                } else {
+                    $vals[] = $singleVal;
                 }
             }
-            return $vals;
+            return count($vals) > 0 ? $vals : null;
+        } elseif (count($fieldPath) == 0) {
+            return $this->processLocalValue($fieldVal);
+        } elseif ($fieldVal instanceof BlockElement) {
+            $vals = [];
+            foreach ($fieldVal as $blockItem) {
+                //assuming the next fieldname is the value we want
+                $vals[] = $this->processLocalValue($blockItem[$fieldPath[0]]->getData());
+            }
+            return count($vals) > 0 ? $vals : null;
         } else {
             if ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
                 return $this->getFieldValues($fieldVal, $fieldPath);
