@@ -10,6 +10,7 @@ use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Concrete;
 use Shopify\Rest\Admin2023_01\Product;
 use Shopify\Exception\RestResourceRequestException;
+use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 
 class ShopifyStore extends BaseStore
@@ -22,15 +23,18 @@ class ShopifyStore extends BaseStore
     private array $createObjs;
     private Session $session;
     private GraphQl $client;
+    private array $metafieldTypeDefinitions;
     private array $productMetafieldsMapping;
     private array $variantMetafieldsMapping;
     private array $updateImageMap;
 
     private ShopifyGraphqlHelperService $shopifyGraphqlHelperService;
+    private AttributesService $attributeService;
 
     public function __construct()
     {
         $this->shopifyGraphqlHelperService = new ShopifyGraphqlHelperService();
+        $this->attributeService = new AttributesService($this->shopifyGraphqlHelperService);
     }
 
     public function setup(array $config)
@@ -54,6 +58,19 @@ class ShopifyStore extends BaseStore
 
         $this->productMetafieldsMapping = $this->getAllProducts();
         $this->variantMetafieldsMapping = $this->getAllVariants();
+        $this->metafieldTypeDefinitions = $this->getMetafields();
+    }
+
+    public function getMetafields()
+    {
+        $defs = $this->attributeService->getRemoteFields($this->config["APIAccess"]);
+        $defMap = [];
+        foreach ($defs as $def) {
+            if (array_key_exists("fieldDefType", $def)) {
+                $defMap[$def["name"]] = $def["fieldDefType"];
+            }
+        }
+        return $defMap;
     }
 
     public function getAllProducts()
@@ -148,18 +165,14 @@ class ShopifyStore extends BaseStore
         $fields = $this->getAttributes($object);
         $fields["metafields"][] = [
             "fieldName" => "pimcore_id",
-            "value" => strval($object->getId()),
+            "value" => [strval($object->getId())],
             "namespace" => "custom",
         ];
         $graphQLInputString = [];
         $graphQLInputString["title"] = $object->getKey();
         if (isset($fields['metafields'])) {
             foreach ($fields['metafields'] as $attribute) {
-                $graphQLInputString["metafields"][] = [
-                    "key" => $attribute["fieldName"],
-                    "value" => $attribute["value"],
-                    "namespace" => $attribute["namespace"],
-                ];
+                $graphQLInputString["metafields"][] = $this->createMetafield($attribute, null);
             }
             unset($fields['metafields']);
         }
@@ -185,7 +198,7 @@ class ShopifyStore extends BaseStore
         }
         $fields['variant metafields'][] = [
             "fieldName" => "pimcore_id",
-            "value" => strval($child->getId()),
+            "value" => [strval($child->getId())],
             "namespace" => "custom",
         ];
         $metafields = [];
@@ -196,16 +209,23 @@ class ShopifyStore extends BaseStore
                 array_key_exists($this->getStoreProductId($child), $this->variantMetafieldsMapping) &&
                 array_key_exists($metafield["namespace"] . "." . $metafield["fieldName"], $this->variantMetafieldsMapping[$this->getStoreProductId($child)])
             ) {
-                $metafields[] = [
+                $tmpmetafield = [
                     "id" => $this->variantMetafieldsMapping[$this->getStoreProductId($child)][$metafield["namespace"] . "." . $metafield["fieldName"]],
                     "value" => $metafield["value"]
                 ];
+                if (array_key_exists($metafield["namespace"] . "." . $metafield["fieldName"], $this->metafieldTypeDefinitions)) {
+                    $tmpmetafield["type"] = $this->metafieldTypeDefinitions[$metafield["namespace"] . "." .  $metafield["fieldName"]];
+                    if (str_contains($tmpmetafield["type"], "list.")) {
+                        $tmpmetafield["value"] = json_encode($metafield["value"]);
+                    } else {
+                        $tmpmetafield["value"] = $metafield["value"][0];
+                    }
+                } else {
+                    $tmpmetafield["value"] = $metafield["value"][0];
+                }
+                $metafields[] = $tmpmetafield;
             } else { //its a new variant / metafield
-                $metafields[] = [
-                    "key" => $metafield["fieldName"],
-                    "value" => $metafield["value"],
-                    "namespace" => $metafield["namespace"],
-                ];
+                $metafields[] = $this->createMetafield($metafield, null);
             }
         }
         $thisVariantArray["metafields"] = $metafields;
@@ -228,14 +248,32 @@ class ShopifyStore extends BaseStore
 
     private function createMetafield($attribute, $mapping)
     {
-        $tmpMetafield = [
-            "key" => $attribute["fieldName"],
-            "value" => $attribute["value"],
-            "namespace" => $attribute["namespace"],
-        ];
-        if (array_key_exists($attribute["fieldName"], $mapping["metafields"])) {
+        if (array_key_exists($attribute["namespace"] . "." .  $attribute["fieldName"], $this->metafieldTypeDefinitions)) {
+            if (str_contains($this->metafieldTypeDefinitions[$attribute["namespace"] . "." .  $attribute["fieldName"]], "list.")) {
+                $tmpMetafield = [
+                    "key" => $attribute["fieldName"],
+                    "value" => json_encode($attribute["value"]),
+                    "namespace" => $attribute["namespace"],
+                ];
+            } else {
+                $tmpMetafield = [
+                    "key" => $attribute["fieldName"],
+                    "value" => $attribute["value"][0],
+                    "namespace" => $attribute["namespace"],
+                ];
+            }
+            $tmpMetafield["type"] = $this->metafieldTypeDefinitions[$attribute["namespace"] . "." .  $attribute["fieldName"]];
+        } else {
+            $tmpMetafield = [
+                "key" => $attribute["fieldName"],
+                "value" => $attribute["value"][0],
+                "namespace" => $attribute["namespace"],
+            ];
+        }
+        if ($mapping && array_key_exists($attribute["fieldName"], $mapping["metafields"])) {
             $tmpMetafield["id"] = $mapping["metafields"][$attribute["fieldName"]]["id"];
         }
+
         return $tmpMetafield;
     }
 

@@ -76,7 +76,7 @@ class AttributesService
         $query = $this->shopifyGraphqlHelperService->buildMetafieldsQuery();
         $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
-            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "metafields"];
+            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "metafields", "fieldDefType" => $node["node"]["type"]["name"]];
         }
 
         //get variant metafields
@@ -84,7 +84,7 @@ class AttributesService
         $query = $this->shopifyGraphqlHelperService->buildVariantMetafieldsQuery();
         $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
-            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "variant metafields"];
+            $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "variant metafields", "fieldDefType" => $node["node"]["type"]["name"]];
         }
 
         foreach (self::$baseFields as $field) {

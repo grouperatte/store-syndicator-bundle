@@ -6,6 +6,8 @@ use Pimcore\Model\DataObject;
 use Pimcore\Console\AbstractCommand;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
+use Pimcore\Model\Asset;
+use Pimcore\Model\DataObject\Product;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -26,6 +28,7 @@ class RemoveShopifyPropertiesCommand extends AbstractCommand
         $name = $input->getArgument("store-name");
 
         $config = Configuration::getByName($name);
+        $config = $config->getConfiguration();
 
         $productPaths = $config["products"]["products"];
         $classType = $config["products"]["class"];
@@ -47,8 +50,11 @@ class RemoveShopifyPropertiesCommand extends AbstractCommand
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $classType)) {
             $dataObject->removeProperty('ShopifyProductId');
+            $this->removeImageProperties($dataObject);
+            $dataObject->save();
             foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true) as $childVariant) {
                 $childVariant->removeProperty('ShopifyProductId');
+                $childVariant->save();
             }
         }
 
@@ -56,6 +62,23 @@ class RemoveShopifyPropertiesCommand extends AbstractCommand
 
         foreach ($products as $product) {
             $this->recursiveRemove($product, $classType);
+        }
+    }
+
+    //this should be generalized somehow
+    public function removeImageProperties(Product $product)
+    {
+        if ($image = $product->getMainImage()) {
+            $images[] = $image;
+        } else {
+            $images = [];
+        }
+        foreach ($product->getImageGallery() as $image) {
+            $images[] = $image;
+        }
+        foreach ($images as $image) {
+            $image->removeProperty("ShopifyImageURL");
+            $image->save();
         }
     }
 }

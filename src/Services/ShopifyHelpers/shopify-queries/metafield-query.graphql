@@ -4,6 +4,9 @@ query {
       node {
         namespace
         key
+        type {
+          name
+        }
       }
     }
   }
