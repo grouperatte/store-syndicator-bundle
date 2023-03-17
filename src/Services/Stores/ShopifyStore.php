@@ -433,6 +433,8 @@ class ShopifyStore extends BaseStore
         //build query and query variables 
         $query = $this->shopifyGraphqlHelperService->buildFileUploadQuery();
         $variables["input"] = [];
+        $stagedUploadUrls = [];
+        $count = 0;
         foreach ($files as $file) {
             $filepatharray = explode("/", $file["filename"]);
             $filename = end($filepatharray);
@@ -443,15 +445,22 @@ class ShopifyStore extends BaseStore
                 //"mimeType" => "text/jsonl",
                 "httpMethod" => "POST",
             ];
+            $count++;
+            if ($count % 200 == 0) { //if the query asks for more it will fail so loop the call if needed. 
+                $response = $this->client->query(["query" => $query, "variables" => $variables])->getDecodedBody();
+                array_push($stagedUploadUrls, $response["data"]["stagedUploadsCreate"]["stagedTargets"]);
+                $count = 0;
+                $variables["input"] = [];
+            }
         }
-
-        //get upload instructions
-        $response = $this->client->query(["query" => $query, "variables" => $variables])->getDecodedBody();
-        $response = $response["data"]["stagedUploadsCreate"]["stagedTargets"];
+        if ($count > 0) {
+            $response = $this->client->query(["query" => $query, "variables" => $variables])->getDecodedBody();
+            $stagedUploadUrls = array_merge($stagedUploadUrls, $response["data"]["stagedUploadsCreate"]["stagedTargets"]);
+        }
 
         //upload all the files
         $fileKeys = [];
-        foreach ($response as $fileInd => $uploadTarget) {
+        foreach ($stagedUploadUrls as $fileInd => $uploadTarget) {
             $file = $files[$fileInd];
             $filepatharray = explode("/", $file["filename"]);
             $filename = end($filepatharray);
