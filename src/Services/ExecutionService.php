@@ -35,36 +35,43 @@ class ExecutionService
         $this->classType = $this->config["products"]["class"];
 
         $this->classType = "Pimcore\\Model\\DataObject\\" . $this->classType;
+
+        $rejects = []; //array of products we cant export
         foreach ($productPaths as $pathArray) {
             $path = $pathArray["cpath"];
             $products = DataObject::getByPath($path);
             $products = $products->getChildren([DataObject::OBJECT_TYPE_OBJECT, DataObject::OBJECT_TYPE_FOLDER], true);
             foreach ($products as $product) {
-                $this->recursiveExport($product);
+                $this->recursiveExport($product, $rejects);
             }
         }
-
-        return $this->storeInterface->commit();
+        $results = $this->storeInterface->commit();
+        $results->addError("products with over 100 variants: " . json_encode($rejects));
+        return $results;
     }
 
-    private function recursiveExport($dataObject)
+    private function recursiveExport($dataObject, &$rejects)
     {
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $this->classType)) {
-            if (!$this->storeInterface->existsInStore($dataObject)) {
-                $this->storeInterface->createProduct($dataObject);
+            if (count($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true)) > 100) {
+                $rejects[] = $dataObject->getId();
             } else {
-                $this->storeInterface->updateProduct($dataObject);
-            }
-            foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true) as $childVariant) {
-                $this->storeInterface->processVariant($dataObject, $childVariant);
+                if (!$this->storeInterface->existsInStore($dataObject)) {
+                    $this->storeInterface->createProduct($dataObject);
+                } else {
+                    $this->storeInterface->updateProduct($dataObject);
+                }
+                foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true) as $childVariant) {
+                    $this->storeInterface->processVariant($dataObject, $childVariant);
+                }
             }
         }
 
         $products = $dataObject->getChildren([DataObject::OBJECT_TYPE_OBJECT, DataObject::OBJECT_TYPE_FOLDER], true);
 
         foreach ($products as $product) {
-            $this->recursiveExport($product);
+            $this->recursiveExport($product, $rejects);
         }
     }
 }

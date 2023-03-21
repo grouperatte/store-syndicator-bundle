@@ -379,23 +379,40 @@ class ShopifyStore extends BaseStore
         }
 
         if (isset($this->variantMapping)) {
-            $variantString = '';
+            $file = tmpfile();
             foreach ($this->variantMapping as $parentId => $variantMap) {
-                $variantString .= json_encode(["input" => [
+                fwrite($file, json_encode(["input" => [
                     "id" => $this->getStoreProductId(Concrete::getById($parentId)),
                     "variants" => array_values($variantMap)
-                ]]) . PHP_EOL;
+                ]]) . PHP_EOL);
+                if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+                    $filename = stream_get_meta_data($file)['uri'];
+
+                    $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                    $remoteFileKey = $remoteFileKeys[$filename]["key"];
+                    $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
+                    $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
+                    $commitResults->addError("result: " . json_encode($result));
+                    fclose($file);
+                    $file = tmpfile();
+                    while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                    }
+                    $commitResults->addError("result file: " . $resultFileURL);
+                }
             }
-            $file = $this->makeFile($variantString);
-            $filename = stream_get_meta_data($file)['uri'];
-            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-            $remoteFileKey = $remoteFileKeys[$filename]["key"];
-            fclose($file);
+            if (fstat($file)["size"] > 0) { //if there are any variants in here
+                $filename = stream_get_meta_data($file)['uri'];
 
-            $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
-            $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
-
-            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                $remoteFileKey = $remoteFileKeys[$filename]["key"];
+                $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
+                $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
+                $commitResults->addError("result: " . json_encode($result));
+                fclose($file);
+                $file = tmpfile();
+                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                }
+                $commitResults->addError("result file: " . $resultFileURL);
             }
             //map created variants
             $variantMappingQuery = $this->shopifyGraphqlHelperService->buildVariantIdMappingQuery();
@@ -424,7 +441,7 @@ class ShopifyStore extends BaseStore
     }
 
     /**
-     * uploads the filesat the strings you provide
+     * uploads the files at the strings you provide
      * @param array<array<string, string>> $var [[filename, resource]..]
      * @return array<array<string, string>> [[filename, remoteFileKey]..]
      **/
@@ -448,7 +465,7 @@ class ShopifyStore extends BaseStore
             $count++;
             if ($count % 200 == 0) { //if the query asks for more it will fail so loop the call if needed. 
                 $response = $this->client->query(["query" => $query, "variables" => $variables])->getDecodedBody();
-                array_push($stagedUploadUrls, $response["data"]["stagedUploadsCreate"]["stagedTargets"]);
+                $stagedUploadUrls = array_merge($stagedUploadUrls, $response["data"]["stagedUploadsCreate"]["stagedTargets"]);
                 $count = 0;
                 $variables["input"] = [];
             }

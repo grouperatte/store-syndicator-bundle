@@ -30,7 +30,8 @@ class PushToShopifyCommand extends AbstractCommand
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-
+        $initialTime = time();
+        $output->writeln("start time: " . $initialTime);
         $name = $input->getArgument("store-name");
 
         $config = Configuration::getByName($name);
@@ -39,7 +40,10 @@ class PushToShopifyCommand extends AbstractCommand
         foreach ($result->getErrors() as $error) {
             $output->writeln($error);
         }
-
+        $finalTime = time();
+        $diff = $finalTime - $initialTime;
+        $output->writeln("final time: " . time());
+        $output->writeln("execution duration: " . $diff);
         return 0;
     }
 }
