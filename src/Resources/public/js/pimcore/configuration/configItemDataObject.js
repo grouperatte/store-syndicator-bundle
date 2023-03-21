@@ -410,7 +410,8 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         let logPanel = Ext.create('Ext.grid.Panel', {
             store: this.logStore,
             viewConfig: {
-                forceFit: true
+                forceFit: true,
+                enableTextSelection: true 
             },
             columns: [
                 {
@@ -423,7 +424,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     dataIndex: "log",
                     renderer: function (value, metaData) {
                         return '<div style="white-space:normal">' + value + '</div>';
-                    }
+                    },
                 }
             ]
         });
