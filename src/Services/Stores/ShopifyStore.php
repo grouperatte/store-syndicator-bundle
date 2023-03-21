@@ -449,7 +449,7 @@ class ShopifyStore extends BaseStore
                 }
             }
         }
-
+        $this->config->save();
         return $commitResults;
     }
 

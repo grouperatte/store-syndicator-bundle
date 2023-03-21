@@ -165,6 +165,5 @@ abstract class BaseStore implements StoreInterface
         $configData = $this->config->getConfiguration();
         $configData["ExportLogs"][] = ["comment" => $comment, "log" => $log];
         $this->config->setConfiguration($configData);
-        $this->config->save();
     }
 }
