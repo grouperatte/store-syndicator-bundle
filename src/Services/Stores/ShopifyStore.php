@@ -42,6 +42,9 @@ class ShopifyStore extends BaseStore
     {
         $this->config = $config;
         $configData = $this->config->getConfiguration();
+        $configData["ExportLogs"] = [];
+        $this->config->setConfiguration($configData);
+        $this->config->save();
 
         $shopifyConfig = $configData["APIAccess"];
         $host = $shopifyConfig["host"];
