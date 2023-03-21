@@ -4,6 +4,7 @@ namespace Services;
 
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
@@ -17,7 +18,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
 class ExecutionService
 {
-    private array $config;
+    private Configuration $config;
     private string $classType;
     private StoreInterface $storeInterface;
 
@@ -26,13 +27,14 @@ class ExecutionService
         # code...
     }
 
-    public function export(array $config)
+    public function export(Configuration $config)
     {
         $this->config = $config;
+        $configData = $this->config->getConfiguration();
         $this->storeInterface = StoreFactory::getStore($this->config);
 
-        $productPaths = $this->config["products"]["products"];
-        $this->classType = $this->config["products"]["class"];
+        $productPaths = $configData["products"]["products"];
+        $this->classType = $configData["products"]["class"];
 
         $this->classType = "Pimcore\\Model\\DataObject\\" . $this->classType;
 

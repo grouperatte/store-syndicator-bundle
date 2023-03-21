@@ -2,6 +2,7 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
@@ -37,11 +38,12 @@ class ShopifyStore extends BaseStore
         $this->attributeService = new AttributesService($this->shopifyGraphqlHelperService);
     }
 
-    public function setup(array $config)
+    public function setup(Configuration $config)
     {
         $this->config = $config;
+        $configData = $this->config->getConfiguration();
 
-        $shopifyConfig = $this->config["APIAccess"];
+        $shopifyConfig = $configData["APIAccess"];
         $host = $shopifyConfig["host"];
         Context::initialize(
             $shopifyConfig["key"],
@@ -63,7 +65,7 @@ class ShopifyStore extends BaseStore
 
     public function getMetafields()
     {
-        $defs = $this->attributeService->getRemoteFields($this->config["APIAccess"]);
+        $defs = $this->attributeService->getRemoteFields($this->config->getConfiguration()["APIAccess"]);
         $defMap = [];
         foreach ($defs as $def) {
             if (array_key_exists("fieldDefType", $def)) {

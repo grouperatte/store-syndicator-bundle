@@ -27,7 +27,7 @@ class ExecutionController extends FrontendController
         $name = $request->get("name");
         $config = Configuration::getByName($name);
 
-        $executionService->export($config->getConfiguration());
+        $executionService->export($config);
 
         return $this->json([]);
     }

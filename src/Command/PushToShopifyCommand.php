@@ -36,7 +36,7 @@ class PushToShopifyCommand extends AbstractCommand
 
         $config = Configuration::getByName($name);
 
-        $result = $this->executionService->export($config->getConfiguration());
+        $result = $this->executionService->export($config);
         foreach ($result->getErrors() as $error) {
             $output->writeln($error);
         }
