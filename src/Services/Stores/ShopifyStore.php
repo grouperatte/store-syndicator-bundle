@@ -287,20 +287,25 @@ class ShopifyStore extends BaseStore
             $file = $this->makeFile($this->createGraphQLStrings);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $this->addLogRow("create products file", $remoteFileKeys[$filename]["url"]);
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
             $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
 
             $result = $this->client->query(["query" => $product_create_query])->getDecodedBody();
+            $this->addLogRow("create products result", json_encode($result));
 
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
+            $this->addLogRow("create products result file", $resultFileURL);
             //map created products
             $mappingQuery = $this->shopifyGraphqlHelperService->buildProductIdMappingQuery();
             $result = $this->client->query(["query" => $mappingQuery])->getDecodedBody();
+            $this->addLogRow("created products reverse mapping result", json_encode($result));
             while (!$resultFileURL = $this->queryFinished("QUERY")) {
             }
+            $this->addLogRow("created products reverse mapping result file", $resultFileURL);
             $resultFile = fopen($resultFileURL, "r");
             while ($productOrMetafield = fgets($resultFile)) {
                 $productOrMetafield = (array)json_decode($productOrMetafield);
@@ -316,14 +321,17 @@ class ShopifyStore extends BaseStore
             $file = $this->makeFile($this->updateGraphQLStrings);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $this->addLogRow("update products file", $remoteFileKeys[$filename]["url"]);
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
             $product_update_query = $this->shopifyGraphqlHelperService->buildUpdateQuery($remoteFileKey);
             $result = $this->client->query(["query" => $product_update_query])->getDecodedBody();
+            $this->addLogRow("update products result", json_encode($result));
 
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
+            $this->addLogRow("update products result file", $resultFileURL);
         }
 
         if (isset($this->updateImageMap)) {
@@ -339,6 +347,7 @@ class ShopifyStore extends BaseStore
                 }
             }
             $remoteFileKeys = $this->uploadFiles($pushArray);
+            $this->addLogRow("uploaded images", count($remoteFileKeys));
             //and save their url's
             foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
                 /** @var Image $image */
@@ -370,14 +379,16 @@ class ShopifyStore extends BaseStore
             $file = $this->makeFile($createMediaQuery);
             $filename = stream_get_meta_data($file)['uri'];
             $remoteKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+
             $bulkParamsFilekey = $remoteKeys[$filename]["key"];
             fclose($file);
             $imagesCreateQuery = $this->shopifyGraphqlHelperService->buildCreateMediaQuery($bulkParamsFilekey);
 
             $results = $this->client->query(["query" => $imagesCreateQuery])->getDecodedBody();
-
+            $this->addLogRow("update product images result", json_encode($results));
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             }
+            $this->addLogRow("update product images result file", $resultFileURL);
         }
 
         if (isset($this->variantMapping)) {
@@ -391,36 +402,40 @@ class ShopifyStore extends BaseStore
                     $filename = stream_get_meta_data($file)['uri'];
 
                     $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                    $this->addLogRow("update product variants file", $remoteFileKeys[$filename]["url"]);
                     $remoteFileKey = $remoteFileKeys[$filename]["key"];
                     $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
                     $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
-                    $commitResults->addError("result: " . json_encode($result));
+                    $this->addLogRow("update product variants result", json_encode($result));
                     fclose($file);
                     $file = tmpfile();
                     while (!$resultFileURL = $this->queryFinished("MUTATION")) {
                     }
-                    $commitResults->addError("result file: " . $resultFileURL);
+                    $this->addLogRow("update product variants result file", $resultFileURL);
                 }
             }
             if (fstat($file)["size"] > 0) { //if there are any variants in here
                 $filename = stream_get_meta_data($file)['uri'];
 
                 $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                $this->addLogRow("update product variants file", $remoteFileKeys[$filename]["url"]);
                 $remoteFileKey = $remoteFileKeys[$filename]["key"];
                 $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
                 $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
-                $commitResults->addError("result: " . json_encode($result));
+                $this->addLogRow("update product variants result", json_encode($result));
                 fclose($file);
                 $file = tmpfile();
                 while (!$resultFileURL = $this->queryFinished("MUTATION")) {
                 }
-                $commitResults->addError("result file: " . $resultFileURL);
+                $this->addLogRow("update product variants result file", $resultFileURL);
             }
             //map created variants
             $variantMappingQuery = $this->shopifyGraphqlHelperService->buildVariantIdMappingQuery();
             $result = $this->client->query(["query" => $variantMappingQuery])->getDecodedBody();
+            $this->addLogRow("product variants reverse mapping result", json_encode($result));
             while (!$resultFileURL = $this->queryFinished("QUERY")) {
             }
+            $this->addLogRow("product variants reverse mapping result file", $resultFileURL);
             $resultFile = fopen($resultFileURL, "r");
             while ($variantOrMetafield = fgets($resultFile)) {
                 $variantOrMetafield = (array)json_decode($variantOrMetafield);
@@ -445,7 +460,7 @@ class ShopifyStore extends BaseStore
     /**
      * uploads the files at the strings you provide
      * @param array<array<string, string>> $var [[filename, resource]..]
-     * @return array<array<string, string>> [[filename, remoteFileKey]..]
+     * @return array<array<string, string>> [[filename => [url, remoteFileKey]..]
      **/
     private function uploadFiles(array $files): array
     {
