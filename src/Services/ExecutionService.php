@@ -4,9 +4,11 @@ namespace Services;
 
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
+use Exception;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
@@ -31,7 +33,14 @@ class ExecutionService
     {
         $this->config = $config;
         $configData = $this->config->getConfiguration();
-        $this->storeInterface = StoreFactory::getStore($this->config);
+        try {
+            $this->storeInterface = StoreFactory::getStore($this->config);
+        } catch (Exception $e) {
+            $results = new CommitResult();
+            $results->addError("error during init: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+            return $results;
+        }
+
 
         $productPaths = $configData["products"]["products"];
         $this->classType = $configData["products"]["class"];
@@ -47,7 +56,13 @@ class ExecutionService
                 $this->recursiveExport($product, $rejects);
             }
         }
-        $results = $this->storeInterface->commit();
+        try {
+            $results = $this->storeInterface->commit();
+        } catch (Exception $e) {
+            $results = new CommitResult();
+            $results->addError("error during commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+            $config->save();
+        }
         $results->addError("products with over 100 variants: " . json_encode($rejects));
         return $results;
     }
