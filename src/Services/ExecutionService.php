@@ -4,8 +4,11 @@ namespace Services;
 
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
+use Exception;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
@@ -17,7 +20,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
 class ExecutionService
 {
-    private array $config;
+    private Configuration $config;
     private string $classType;
     private StoreInterface $storeInterface;
 
@@ -26,13 +29,21 @@ class ExecutionService
         # code...
     }
 
-    public function export(array $config)
+    public function export(Configuration $config)
     {
         $this->config = $config;
-        $this->storeInterface = StoreFactory::getStore($this->config);
+        $configData = $this->config->getConfiguration();
+        try {
+            $this->storeInterface = StoreFactory::getStore($this->config);
+        } catch (Exception $e) {
+            $results = new CommitResult();
+            $results->addError("error during init: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+            return $results;
+        }
 
-        $productPaths = $this->config["products"]["products"];
-        $this->classType = $this->config["products"]["class"];
+
+        $productPaths = $configData["products"]["products"];
+        $this->classType = $configData["products"]["class"];
 
         $this->classType = "Pimcore\\Model\\DataObject\\" . $this->classType;
 
@@ -45,7 +56,13 @@ class ExecutionService
                 $this->recursiveExport($product, $rejects);
             }
         }
-        $results = $this->storeInterface->commit();
+        try {
+            $results = $this->storeInterface->commit();
+        } catch (Exception $e) {
+            $results = new CommitResult();
+            $results->addError("error during commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+            $config->save();
+        }
         $results->addError("products with over 100 variants: " . json_encode($rejects));
         return $results;
     }

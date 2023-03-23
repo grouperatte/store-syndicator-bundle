@@ -399,19 +399,48 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
                     }
                 })
             }.bind(this)
-        })
+        });
+        if(!this.logStore){
+            this.logStore = Ext.create('Ext.data.Store', {
+                fields: ['comment', 'log'],
+                data: this.data.ExportLogs ?? [],
+                pageSize: 0
+            });
+        }
+        let logPanel = Ext.create('Ext.grid.Panel', {
+            store: this.logStore,
+            viewConfig: {
+                forceFit: true,
+                enableTextSelection: true 
+            },
+            columns: [
+                {
+                    text: "Log Comment",
+                    dataIndex: "comment",
+                    columnWidth: "5%",
+                },
+                {
+                    text: "Log",
+                    dataIndex: "log",
+                    renderer: function (value, metaData) {
+                        return '<div style="white-space:normal">' + value + '</div>';
+                    },
+                }
+            ]
+        });
         this.executionForm = Ext.create('Ext.form.FormPanel', {
             bodyStyle: "padding:10px;",
             autoScroll: true,
             defaults: {
                 labelWidth: 200,
-                width: 600
+                forceFit: true
             },
             border: false,
             title: t('plugin_pimcore_datahub_configpanel_item_execution'),
             //add some config for cron
             items: [
-                manualExecute
+                manualExecute,
+                logPanel
             ]
         });
         return this.executionForm;

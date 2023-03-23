@@ -6,6 +6,7 @@ use Exception;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use PhpParser\Node\Expr\Cast\Bool_;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
@@ -15,9 +16,9 @@ use Pimcore\Model\DataObject\ClassDefinition\Data;
 abstract class BaseStore implements StoreInterface
 {
     protected const PROPERTTYNAME = "Default";
-    protected array $config;
+    protected Configuration $config;
     abstract public function __construct();
-    abstract public function setup(array $config);
+    abstract public function setup(Configuration $config);
     abstract public function getAllProducts();
     abstract public function getProduct(string $id);
 
@@ -46,7 +47,7 @@ abstract class BaseStore implements StoreInterface
 
     public function getAttributes(Concrete $object): array
     {
-        $attributeMap = $this->config["attributeMap"];
+        $attributeMap = $this->config->getConfiguration()["attributeMap"];
         $returnMap = [];
         foreach ($attributeMap as $row) {
             $fieldType = $row['field type'];
@@ -157,5 +158,12 @@ abstract class BaseStore implements StoreInterface
     public function existsInStore(Concrete $object): bool
     {
         return $this->getStoreProductId($object) != null;
+    }
+
+    public function addLogRow(string $comment, string $log)
+    {
+        $configData = $this->config->getConfiguration();
+        $configData["ExportLogs"][] = ["comment" => $comment, "log" => $log];
+        $this->config->setConfiguration($configData);
     }
 }
