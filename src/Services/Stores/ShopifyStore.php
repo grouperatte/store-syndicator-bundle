@@ -96,7 +96,7 @@ class ShopifyStore extends BaseStore
                         "value" => $productOrMetafield["value"],
                         "id" => $productOrMetafield['id'],
                     ];
-                } else {
+                } elseif (array_key_exists("title", $productOrMetafield)) {
                     $products[$productOrMetafield["id"]]['id'] = $productOrMetafield["id"];
                     $products[$productOrMetafield["id"]]['title'] = $productOrMetafield["title"];
                 }
