@@ -350,6 +350,9 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         return this.attributeMappingForm;
     },
     buildAccessTab: function(){
+        if(!this.APIAccessPicker){
+            this.APIAccessPicker = new pimcore.plugin.storeExporterDataObject.helpers.workspace.apiObjects(this);
+        }
         this.accessForm = Ext.create('Ext.form.FormPanel', {
             bodyStyle: "padding:10px;",
             autoScroll: true,
@@ -360,28 +363,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
             border: false,
             title: t('plugin_pimcore_datahub_configpanel_item_access'),
             items: [
-                {
-                    name: "host",
-                    fieldLabel: t("plugin_pimcore_datahub_configpanel_item_shopify_host"),
-                    xtype: "textfield",
-                    value: this.data.APIAccess.host
-                },
-                {
-                    name: "token",
-                    fieldLabel: t("plugin_pimcore_datahub_configpanel_item_shopify_token"),
-                    xtype: "textfield",
-                    value: this.data.APIAccess.token
-                },{
-                    name: "key",
-                    fieldLabel: t("plugin_pimcore_datahub_configpanel_item_shopify_key"),
-                    xtype: "textfield",
-                    value: this.data.APIAccess.key
-                },{
-                    name: "secret",
-                    fieldLabel: t("plugin_pimcore_datahub_configpanel_item_shopify_secret"),
-                    xtype: "textfield",
-                    value: this.data.APIAccess.secret
-                },
+                this.APIAccessPicker.getPanel()
             ]
         });
         return this.accessForm;
@@ -495,7 +477,10 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject = Clas
         productsData['class'] = this.productsTab.getValues().class
 
         saveData['general'] = this.generalForm.getValues();
-        saveData['APIAccess'] = this.accessForm.getValues();
+
+        let chosenAPIAccessObject = this.APIAccessPicker.getValues();
+        saveData['APIAccess'] = chosenAPIAccessObject;
+        
         saveData['products'] = productsData;
         return saveData;
     },
