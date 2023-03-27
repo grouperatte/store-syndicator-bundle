@@ -2,6 +2,8 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Controller;
 
+use Google\Service\SecurityCommandCenter\Access;
+use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Controller\FrontendController;
 use Pimcore\Model\DataObject\ClassDefinition;
@@ -11,6 +13,7 @@ use Pimcore\Bundle\DataHubBundle\Configuration;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 
 /**
  * @Route("/admin/storesyndicator/attributes", name="pimcore_storesyndicator_attributes")
@@ -50,10 +53,16 @@ class AttributeController extends FrontendController
     {
         $name = $request->get("name");
         $config = Configuration::getByName($name);
+        $path = $config->getConfiguration()["APIAccess"][0]["cpath"];
+        $accessObject = DataObject::getByPath($path);
+        if ($accessObject instanceof AbstractAuthenticator) {
+            $client = $accessObject->connect()['client'];
+            $fields = $attributesService->getRemoteFields($client);
 
-        $fields = $attributesService->getRemoteFields($config->getConfiguration()["APIAccess"]);
-
-        return $this->json($fields);
+            return $this->json($fields);
+        } else {
+            return $this->json([]);
+        }
     }
 
     /**

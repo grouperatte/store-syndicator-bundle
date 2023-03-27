@@ -2,16 +2,19 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
-use Pimcore\Bundle\DataHubBundle\Configuration;
+use Exception;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
+use Pimcore\Model\DataObject;
 use Pimcore\Model\Asset\Image;
 use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Concrete;
 use Shopify\Rest\Admin2023_01\Product;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 
 class ShopifyStore extends BaseStore
@@ -46,20 +49,15 @@ class ShopifyStore extends BaseStore
         $this->config->setConfiguration($configData);
         $this->config->save();
 
-        $shopifyConfig = $configData["APIAccess"];
-        $host = $shopifyConfig["host"];
-        Context::initialize(
-            $shopifyConfig["key"],
-            $shopifyConfig["secret"],
-            ["read_products", "write_products"],
-            $host,
-            new FileSessionStorage('/tmp/php_sessions')
-        );
-        $offlineSession = new Session("offline_$host", $host, false, 'state');
-        $offlineSession->setScope(Context::$SCOPES->toString());
-        $offlineSession->setAccessToken($shopifyConfig["token"]);
-        $this->session = $offlineSession;
-        $this->client = new Graphql($this->session->getShop(), $this->session->getAccessToken());
+        $path = $config->getConfiguration()["APIAccess"][0]["cpath"];
+        $accessObject = DataObject::getByPath($path);
+        if ($accessObject instanceof AbstractAuthenticator) {
+            $shopifyConfig = $accessObject->connect();
+        } else {
+            throw new Exception("invalid object type in access tab");
+        }
+        $this->session = $shopifyConfig['session'];
+        $this->client = $shopifyConfig['client'];
 
         $this->productMetafieldsMapping = $this->getAllProducts();
         $this->variantMetafieldsMapping = $this->getAllVariants();
@@ -68,7 +66,7 @@ class ShopifyStore extends BaseStore
 
     public function getMetafields()
     {
-        $defs = $this->attributeService->getRemoteFields($this->config->getConfiguration()["APIAccess"]);
+        $defs = $this->attributeService->getRemoteFields($this->client);
         $defMap = [];
         foreach ($defs as $def) {
             if (array_key_exists("fieldDefType", $def)) {

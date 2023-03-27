@@ -58,21 +58,8 @@ class AttributesService
     ) {
     }
 
-    public function getRemoteFields($apiAccess): array
+    public function getRemoteFields(Graphql $client): array
     {
-        Context::initialize(
-            $apiAccess["key"],
-            $apiAccess["secret"],
-            ["read_products", "write_products"],
-            $apiAccess["host"],
-            new FileSessionStorage('/tmp/php_sessions')
-        );
-        $host = $apiAccess["host"];
-
-        $data = [];
-
-        //get metafields
-        $client = new Graphql($apiAccess["host"], $apiAccess["token"]);
         $query = $this->shopifyGraphqlHelperService->buildMetafieldsQuery();
         $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
@@ -80,7 +67,6 @@ class AttributesService
         }
 
         //get variant metafields
-        $client = new Graphql($apiAccess["host"], $apiAccess["token"]);
         $query = $this->shopifyGraphqlHelperService->buildVariantMetafieldsQuery();
         $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
