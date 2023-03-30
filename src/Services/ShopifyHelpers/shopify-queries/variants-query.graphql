@@ -1,16 +1,21 @@
 query {
-  productVariants(first: 70) {
+  productVariants(REPLACEMEPARAMS) {
     edges {
       node {
         id
-        metafields(first: 10) {
+        title
+        metafields {
           edges {
             node {
               key
               id
               namespace
+              value
             }
           }
+        }
+        product{
+          id
         }
       }
     }

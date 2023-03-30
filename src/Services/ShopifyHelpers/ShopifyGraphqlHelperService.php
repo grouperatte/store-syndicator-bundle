@@ -4,153 +4,111 @@ namespace TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers;
 
 class ShopifyGraphqlHelperService
 {
-    private string $createProductsQuery;
-    private string $updateProductsQuery;
-    private string $bulkMutationWrapper;
-    private string $bulkQueryWrapper;
-    private string $fileUploadQuery;
-    private string $queryFinishedQuery;
-    private string $getProductsQuery;
-    private string $createMediaQuery;
-    private string $updateMediaQuery;
-    private string $getMetafieldsQuery;
-    private string $updateVariantsQuery;
-    private string $variantsQuery;
-    private string $variantsMappingQuery;
-    private string $productsMappingQuery;
+    private static $CREATE_PRODUCTS_QUERY = '/shopify-queries/create-products.graphql';
+    private static $UPDATE_PRODUCTS_QUERY = '/shopify-queries/update-products.graphql';
+    private static $BULK_MUTATION_WRAPPER = '/shopify-queries/bulk-call-wrapper.graphql';
+    private static $BULK_QUERY_WRAPPER = '/shopify-queries/bulk-query-wrapper.graphql';
+    private static $FILE_UPLOAD_QUERY = '/shopify-queries/file-upload.graphql';
+    private static $QUERY_FINISHED_QUERY = '/shopify-queries/check-query-finished.graphql';
+    private static $GET_PRODUCTS_QUERY = '/shopify-queries/products-query.graphql';
+    private static $CREATE_MEDIA_QUERY = '/shopify-queries/create-media.graphql';
+    private static $UPDATE_MEDIA_QUERY = '/shopify-queries/update-media.graphql';
+    private static $GET_METAFIELDS_QUERY = '/shopify-queries/metafield-query.graphql';
+    private static $UPDATE_VARIANTS_QUERY = '/shopify-queries/update-product-variants.graphql';
+    private static $GET_VARIANTS_QUERY = '/shopify-queries/variants-query.graphql';
 
-    public function __construct()
+    public static function buildCreateQuery($remoteFile)
     {
+        return self::bulkwrap(file_get_contents(dirname(__FILE__) . self::$CREATE_PRODUCTS_QUERY), $remoteFile);
     }
 
-    public function buildCreateQuery($remoteFile)
+    public static function buildUpdateQuery($remoteFile)
     {
-        if (!isset($this->createProductsQuery)) {
-            $this->createProductsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/create-products.graphql');
-        }
-        return $this->bulkwrap($this->createProductsQuery, $remoteFile);
+        $updateProductsQuery = file_get_contents(dirname(__FILE__) . self::$UPDATE_PRODUCTS_QUERY);
+        return self::bulkwrap($updateProductsQuery, $remoteFile);
     }
 
-    public function buildUpdateQuery($remoteFile)
+    private static function bulkwrap(string $towrap, $remoteFile)
     {
-        if (!isset($this->updateProductsQuery)) {
-            $this->updateProductsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/update-products.graphql');
-        }
-        return $this->bulkwrap($this->updateProductsQuery, $remoteFile);
+        $bulkMutationWrapper = file_get_contents(dirname(__FILE__) . self::$BULK_MUTATION_WRAPPER);
+        $bulkMutationWrapper = preg_replace('/REPLACEMEMUTATION/', $towrap, $bulkMutationWrapper);
+        $bulkMutationWrapper = preg_replace('/REPLACEMEPATH/', $remoteFile, $bulkMutationWrapper);
+        return $bulkMutationWrapper;
     }
 
-    private function bulkwrap(string $towrap, $remoteFile)
+    private static function bulkQueryWrap(string $towrap)
     {
-        if (!isset($this->bulkMutationWrapper)) {
-            $this->bulkMutationWrapper = file_get_contents(dirname(__FILE__) . '/shopify-queries/bulk-call-wrapper.graphql');
-        }
-        $bulkquery = $this->bulkMutationWrapper;
-        $bulkquery = preg_replace('/REPLACEMEMUTATION/', $towrap, $bulkquery);
-        $bulkquery = preg_replace('/REPLACEMEPATH/', $remoteFile, $bulkquery);
-        return $bulkquery;
+        $bulkQueryWrapper = file_get_contents(dirname(__FILE__) . self::$BULK_QUERY_WRAPPER);
+        $bulkQueryWrapper = preg_replace('/REPLACEMEQUERY/', $towrap, $bulkQueryWrapper);
+        return $bulkQueryWrapper;
     }
 
-    private function bulkQueryWrap(string $towrap)
+    public static function buildFileUploadQuery()
     {
-        if (!isset($this->bulkQueryWrapper)) {
-            $this->bulkQueryWrapper = file_get_contents(dirname(__FILE__) . '/shopify-queries/bulk-query-wrapper.graphql');
-        }
-        $bulkquery = $this->bulkQueryWrapper;
-        $bulkquery = preg_replace('/REPLACEMEQUERY/', $towrap, $bulkquery);
-        return $bulkquery;
+        $fileUploadQuery = file_get_contents(dirname(__FILE__) . self::$FILE_UPLOAD_QUERY);
+        return $fileUploadQuery;
     }
 
-    public function buildFileUploadQuery()
+    public static function buildQueryFinishedQuery($queryType)
     {
-        if (!isset($this->fileUploadQuery)) {
-            $this->fileUploadQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/file-upload.graphql');
-        }
-        return $this->fileUploadQuery;
+        $queryFinishedQuery = file_get_contents(dirname(__FILE__) . self::$QUERY_FINISHED_QUERY);
+        $queryFinishedQuery = preg_replace("/REPLACEMEMUTATION/", $queryType, $queryFinishedQuery);
+        return $queryFinishedQuery;
     }
 
-    public function buildQueryFinishedQuery($queryType)
+    public static function buildProductsQuery($afterDateString = null)
     {
-        if (!isset($this->queryFinishedQuery)) {
-            $this->queryFinishedQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/check-query-finished.graphql');
+        $getProductsQuery = file_get_contents(dirname(__FILE__) . self::$GET_PRODUCTS_QUERY);
+        if ($afterDateString) {
+            $getProductsQuery = preg_replace("/REPLACEMEPARAMS/", 'query: \"created_at:>' . "'" . $afterDateString . "' OR " . 'updated_at:>' . "'" . $afterDateString . "'" . '\"', $getProductsQuery);
+        } else {
+            $getProductsQuery = preg_replace("/\(REPLACEMEPARAMS\)/", '', $getProductsQuery);
         }
-        $query = $this->queryFinishedQuery;
-        $query = preg_replace("/REPLACEMEMUTATION/", $queryType, $query);
-        return $query;
+
+        return self::bulkQueryWrap($getProductsQuery);
     }
 
-    public function buildProductsQuery()
+    public static function buildCreateMediaQuery($remoteFile)
     {
-        if (!isset($this->getProductsQuery)) {
-            $this->getProductsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/products-query.graphql');
-        }
-        return $this->bulkQueryWrap($this->getProductsQuery);
+        $createMediaQuery = file_get_contents(dirname(__FILE__) . self::$CREATE_MEDIA_QUERY);
+        return self::bulkwrap($createMediaQuery, $remoteFile);
     }
 
-    public function buildCreateMediaQuery($remoteFile)
+    public static function buildUpdateMediaQuery($remoteFile)
     {
-        if (!isset($this->createMediaQuery)) {
-            $this->createMediaQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/create-media.graphql');
-        }
-        return $this->bulkwrap($this->createMediaQuery, $remoteFile);
+        $updateMediaQuery = file_get_contents(dirname(__FILE__) . self::$UPDATE_MEDIA_QUERY);
+        return self::bulkwrap($updateMediaQuery, $remoteFile);
     }
 
-    public function buildUpdateMediaQuery($remoteFile)
+    public static function buildMetafieldsQuery()
     {
-        if (!isset($this->updateMediaQuery)) {
-            $this->updateMediaQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/update-media.graphql');
-        }
-        return $this->bulkwrap($this->updateMediaQuery, $remoteFile);
+        $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_METAFIELDS_QUERY);
+        $getMetafieldsQuery = preg_replace("/REPLACEMETYPE/", "PRODUCT", $getMetafieldsQuery);
+        return $getMetafieldsQuery;
     }
 
-    public function buildMetafieldsQuery()
+    public static function buildVariantMetafieldsQuery()
     {
-        if (!isset($this->getMetafieldsQuery)) {
-            $this->getMetafieldsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/metafield-query.graphql');
-        }
-        $query = $this->getMetafieldsQuery;
-        $query = preg_replace("/REPLACEMETYPE/", "PRODUCT", $query);
-        return $query;
+        $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_METAFIELDS_QUERY);
+        $getMetafieldsQuery = preg_replace("/REPLACEMETYPE/", "PRODUCTVARIANT", $getMetafieldsQuery);
+        return $getMetafieldsQuery;
     }
 
-    public function buildVariantMetafieldsQuery()
+    public static function buildUpdateVariantsQuery($remoteFile)
     {
-        if (!isset($this->getMetafieldsQuery)) {
-            $this->getMetafieldsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/metafield-query.graphql');
-        }
-        $query = $this->getMetafieldsQuery;
-        $query = preg_replace("/REPLACEMETYPE/", "PRODUCTVARIANT", $query);
-        return $query;
+        $updateVariantsQuery = file_get_contents(dirname(__FILE__) . self::$UPDATE_VARIANTS_QUERY);
+        return self::bulkwrap($updateVariantsQuery, $remoteFile);
     }
 
-    public function buildUpdateVariantsQuery($remoteFile)
+    public static function buildVariantsQuery($afterDateString = null)
     {
-        if (!isset($this->updateVariantsQuery)) {
-            $this->updateVariantsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/update-product-variants.graphql');
+        $variantsQuery = file_get_contents(dirname(__FILE__) . self::$GET_VARIANTS_QUERY);
+        if ($afterDateString) {
+            $variantsQuery = preg_replace("/REPLACEMEPARAMS/", 'query: \"created_at:>' . "'" . $afterDateString . "' OR " . 'updated_at:>' . "'" . $afterDateString . "'" . '\"', $variantsQuery);
+        } else {
+            $variantsQuery = preg_replace("/\(REPLACEMEPARAMS\)/", '', $variantsQuery);
         }
-        return $this->bulkwrap($this->updateVariantsQuery, $remoteFile);
-    }
 
-    public function buildVariantsQuery()
-    {
-        if (!isset($this->variantsQuery)) {
-            $this->variantsQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/variants-query.graphql');
-        }
-        return $this->bulkQueryWrap($this->variantsQuery);
-    }
-
-    public function buildProductIdMappingQuery()
-    {
-        if (!isset($this->productsMappingQuery)) {
-            $this->productsMappingQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/product-pimcore-id-query.graphql');
-        }
-        return $this->bulkQueryWrap($this->productsMappingQuery);
-    }
-
-    public function buildVariantIdMappingQuery()
-    {
-        if (!isset($this->variantsMappingQuery)) {
-            $this->variantsMappingQuery = file_get_contents(dirname(__FILE__) . '/shopify-queries/variant-pimcore-id-query.graphql');
-        }
-        return $this->bulkQueryWrap($this->variantsMappingQuery);
+        return self::bulkQueryWrap($variantsQuery);
     }
 }

@@ -14,6 +14,7 @@ use Shopify\Rest\Admin2023_01\Product;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 
@@ -32,13 +33,11 @@ class ShopifyStore extends BaseStore
     private array $variantMetafieldsMapping;
     private array $updateImageMap;
 
-    private ShopifyGraphqlHelperService $shopifyGraphqlHelperService;
     private AttributesService $attributeService;
 
     public function __construct()
     {
-        $this->shopifyGraphqlHelperService = new ShopifyGraphqlHelperService();
-        $this->attributeService = new AttributesService($this->shopifyGraphqlHelperService);
+        $this->attributeService = new AttributesService();
     }
 
     public function setup(Configuration $config)
@@ -49,15 +48,15 @@ class ShopifyStore extends BaseStore
         $this->config->setConfiguration($configData);
         $this->config->save();
 
-        $path = $config->getConfiguration()["APIAccess"][0]["cpath"];
-        $accessObject = DataObject::getByPath($path);
-        if ($accessObject instanceof AbstractAuthenticator) {
-            $shopifyConfig = $accessObject->connect();
+        $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
+        $result = $authenticator->connect();
+        if ($authenticator instanceof AbstractAuthenticator) {
+            $authenticator = $authenticator->connect();
         } else {
             throw new Exception("invalid object type in access tab");
         }
-        $this->session = $shopifyConfig['session'];
-        $this->client = $shopifyConfig['client'];
+        $this->session = $authenticator['session'];
+        $this->client = $authenticator['client'];
 
         $this->productMetafieldsMapping = $this->getAllProducts();
         $this->variantMetafieldsMapping = $this->getAllVariants();
@@ -78,7 +77,7 @@ class ShopifyStore extends BaseStore
 
     public function getAllProducts()
     {
-        $query = $this->shopifyGraphqlHelperService->buildProductsQuery();
+        $query = ShopifyGraphqlHelperService::buildProductsQuery();
         $result = $this->client->query(["query" => $query])->getDecodedBody();
         while (!$resultFileURL = $this->queryFinished("QUERY")) {
         }
@@ -105,7 +104,7 @@ class ShopifyStore extends BaseStore
 
     private function getAllVariants()
     {
-        $query = $this->shopifyGraphqlHelperService->buildVariantsQuery();
+        $query = ShopifyGraphqlHelperService::buildVariantsQuery();
         $result = $this->client->query(["query" => $query])->getDecodedBody();
         while (!$resultFileURL = $this->queryFinished("QUERY")) {
         }
@@ -292,7 +291,7 @@ class ShopifyStore extends BaseStore
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
-            $product_create_query = $this->shopifyGraphqlHelperService->buildCreateQuery($remoteFileKey);
+            $product_create_query = ShopifyGraphqlHelperService::buildCreateQuery($remoteFileKey);
 
             $result = $this->client->query(["query" => $product_create_query])->getDecodedBody();
             $this->addLogRow("create products result", json_encode($result));
@@ -301,7 +300,7 @@ class ShopifyStore extends BaseStore
             }
             $this->addLogRow("create products result file", $resultFileURL);
             //map created products
-            $mappingQuery = $this->shopifyGraphqlHelperService->buildProductIdMappingQuery();
+            $mappingQuery = ShopifyGraphqlHelperService::buildProductIdMappingQuery();
             $result = $this->client->query(["query" => $mappingQuery])->getDecodedBody();
             $this->addLogRow("created products reverse mapping result", json_encode($result));
             while (!$resultFileURL = $this->queryFinished("QUERY")) {
@@ -326,7 +325,7 @@ class ShopifyStore extends BaseStore
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             fclose($file);
 
-            $product_update_query = $this->shopifyGraphqlHelperService->buildUpdateQuery($remoteFileKey);
+            $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
             $result = $this->client->query(["query" => $product_update_query])->getDecodedBody();
             $this->addLogRow("update products result", json_encode($result));
 
@@ -383,7 +382,7 @@ class ShopifyStore extends BaseStore
 
             $bulkParamsFilekey = $remoteKeys[$filename]["key"];
             fclose($file);
-            $imagesCreateQuery = $this->shopifyGraphqlHelperService->buildCreateMediaQuery($bulkParamsFilekey);
+            $imagesCreateQuery = ShopifyGraphqlHelperService::buildCreateMediaQuery($bulkParamsFilekey);
 
             $results = $this->client->query(["query" => $imagesCreateQuery])->getDecodedBody();
             $this->addLogRow("update product images result", json_encode($results));
@@ -405,7 +404,7 @@ class ShopifyStore extends BaseStore
                     $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
                     $this->addLogRow("update product variants file", $remoteFileKeys[$filename]["url"]);
                     $remoteFileKey = $remoteFileKeys[$filename]["key"];
-                    $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
+                    $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
                     $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
                     $this->addLogRow("update product variants result", json_encode($result));
                     fclose($file);
@@ -421,7 +420,7 @@ class ShopifyStore extends BaseStore
                 $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
                 $this->addLogRow("update product variants file", $remoteFileKeys[$filename]["url"]);
                 $remoteFileKey = $remoteFileKeys[$filename]["key"];
-                $variantQuery = $this->shopifyGraphqlHelperService->buildUpdateVariantsQuery($remoteFileKey);
+                $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
                 $result = $this->client->query(["query" => $variantQuery])->getDecodedBody();
                 $this->addLogRow("update product variants result", json_encode($result));
                 fclose($file);
@@ -431,7 +430,7 @@ class ShopifyStore extends BaseStore
                 $this->addLogRow("update product variants result file", $resultFileURL);
             }
             //map created variants
-            $variantMappingQuery = $this->shopifyGraphqlHelperService->buildVariantIdMappingQuery();
+            $variantMappingQuery = ShopifyGraphqlHelperService::buildVariantIdMappingQuery();
             $result = $this->client->query(["query" => $variantMappingQuery])->getDecodedBody();
             $this->addLogRow("product variants reverse mapping result", json_encode($result));
             while (!$resultFileURL = $this->queryFinished("QUERY")) {
@@ -466,7 +465,7 @@ class ShopifyStore extends BaseStore
     private function uploadFiles(array $files): array
     {
         //build query and query variables 
-        $query = $this->shopifyGraphqlHelperService->buildFileUploadQuery();
+        $query = ShopifyGraphqlHelperService::buildFileUploadQuery();
         $variables["input"] = [];
         $stagedUploadUrls = [];
         $count = 0;
@@ -546,7 +545,7 @@ class ShopifyStore extends BaseStore
 
     public function queryFinished($queryType): bool|string
     {
-        $query = $this->shopifyGraphqlHelperService->buildQueryFinishedQuery($queryType);
+        $query = ShopifyGraphqlHelperService::buildQueryFinishedQuery($queryType);
         $response = $this->client->query(["query" => $query])->getDecodedBody();
         if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
             return $response['data']["currentBulkOperation"]["url"] ?? "none"; //if the query returns nothing

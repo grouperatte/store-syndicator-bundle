@@ -1,11 +1,14 @@
 <?php
 
-namespace TorqIT\StoreSyndicatorBundle\Services;
+namespace TorqIT\StoreSyndicatorBundle\Services\Configuration;
 
+use Pimcore\Model\DataObject\ClassDefinition;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Bundle\DataHubBundle\Configuration\Dao;
+use Pimcore\Model\DataObject\TorqStoreExporterShopifyCredentials;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
-class ConfigurationPreparationService
+class ConfigurationService
 {
     /**
      * @param string $configName
@@ -50,5 +53,20 @@ class ConfigurationPreparationService
         ], $config);
 
         return $config;
+    }
+
+    public static function getDataobjectClass(Configuration $configuration)
+    {
+        $config = $configuration->getConfiguration();
+
+        $class = $config["products"]["class"];
+        return ClassDefinition::getByName($class);
+    }
+
+    public static function getStoreName(Configuration $configuration)
+    {
+        $configuration = $configuration->getConfiguration();
+        $accessObj = TorqStoreExporterShopifyCredentials::getByPath($configuration["APIAccess"][0]["cpath"]);
+        return explode(".", $accessObj->getHost())[0];
     }
 }
