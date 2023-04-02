@@ -88,11 +88,15 @@ class ShopifyQueryService
      **/
     private function runQuery($query)
     {
-        $result = $this->graphql->query(["query" => $query]);
-        if ($result) {
-            $result = $result->getDecodedBody();
+        try {
+            $response = $this->graphql->query(["query" => $query]);
+            $response = $response->getDecodedBody();
+        } catch (SyntaxError $e) {
+            //we could do some error logging here
+            return null;
         }
-        return $result;
+
+        return $response;
     }
 
     /**
@@ -184,14 +188,7 @@ class ShopifyQueryService
     private function queryFinished($queryType): bool|string
     {
         $query = ShopifyGraphqlHelperService::buildQueryFinishedQuery($queryType);
-        try {
-            $response = $this->graphql->query(["query" => $query]);
-            $response = $response->getDecodedBody();
-        } catch (SyntaxError $e) {
-            //maybe write this to a file so we can firgure out why this is happening here.
-            return false;
-        }
-
+        $response = $this->runQuery($query);
 
         if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
             return $response['data']["currentBulkOperation"]["url"] ?? "none"; //if the query returns nothing
