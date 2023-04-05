@@ -3,6 +3,7 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Exception;
+use Pimcore\Db;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
@@ -14,11 +15,11 @@ use Shopify\Rest\Admin2023_01\Product;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
+use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
-use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 
 class ShopifyStore extends BaseStore
 {
@@ -53,10 +54,15 @@ class ShopifyStore extends BaseStore
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
         $this->shopifyQueryService = new ShopifyQueryService($authenticator);
-
-        //$this->productMetafieldsMapping = $this->getAllProducts();
-        //$this->variantMetafieldsMapping = $this->getAllVariants();
         $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
+
+        $this->updateProductArrays = [];
+        $this->createProductArrays = [];
+        $this->updateVariantsArrays = [];
+        $this->metafieldSetArrays = [];
+        $this->updateImageMap = [];
+
+        Db::get()->query('SET SESSION wait_timeout = ' . 28800); //timeout to 8 hours for this session
     }
 
     public function getAllProducts()
@@ -228,6 +234,8 @@ class ShopifyStore extends BaseStore
             $thisVariantArray["options"] = [$thisVariantArray["title"]];
         }
 
+        $thisVariantArray["id"] = $remoteId;
+
         $this->updateVariantsArrays[] = $thisVariantArray;
     }
 
@@ -239,11 +247,12 @@ class ShopifyStore extends BaseStore
     private function createMetafield($attribute, $mappingArray)
     {
         if (array_key_exists($attribute["namespace"] . "." .  $attribute["fieldName"], $mappingArray)) {
-            if (str_contains($mappingArray[$attribute["namespace"] . "." .  $attribute["fieldName"]]["type"], "list.")) {
-                $attribute["value"] = json_encode($attribute["value"]);
-            }
             $tmpMetafield = $mappingArray[$attribute["namespace"] . "." .  $attribute["fieldName"]];
-            $tmpMetafield["value"] = $attribute["value"];
+            if (str_contains($mappingArray[$attribute["namespace"] . "." .  $attribute["fieldName"]]["type"], "list.")) {
+                $tmpMetafield["value"] = json_encode($attribute["value"]);
+            } else {
+                $tmpMetafield["value"] = $attribute["value"][0];
+            }
         } else {
             throw new Exception("undefined metafield definition: " . $attribute["namespace"] . "." .  $attribute["fieldName"]);
         }
@@ -282,7 +291,7 @@ class ShopifyStore extends BaseStore
             foreach ($mapBackArray as $mapBackImage) {
                 if ($mapBackImage[2] == "create") {
                     $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-                } elseif ($mapBackArray[$fileName][2] == "update") {
+                } elseif ($mapBackImage[2] == "update") {
                     $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
                 }
             }
@@ -296,17 +305,18 @@ class ShopifyStore extends BaseStore
 
         //also takes care of creating variants
         if ($this->updateProductArrays) {
-            $this->shopifyQueryService->updateProducts($this->updateProductArrays);
+            $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
+            $this->addLogRow("update products result file", $resultFileURL);
         }
 
-        if (isset($this->updateVariantsArrays)) {
+        if ($this->updateVariantsArrays) {
             $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
             foreach ($resultFiles as $resultFileURL) {
                 $this->addLogRow("update variant result file", $resultFileURL);
             }
         }
 
-        if (isset($this->metafieldSetArrays)) {
+        if ($this->metafieldSetArrays) {
             $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
             foreach ($resultFiles as $resultFileURL) {
                 $this->addLogRow("update metafield result file", $resultFileURL);

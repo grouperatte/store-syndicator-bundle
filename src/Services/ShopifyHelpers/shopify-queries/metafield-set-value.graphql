@@ -1,0 +1,8 @@
+mutation call($metafields: [MetafieldsSetInput!]!) {
+  metafieldsSet(metafields: $metafields) {
+    userErrors {
+      message
+      field
+    }
+  }
+}
