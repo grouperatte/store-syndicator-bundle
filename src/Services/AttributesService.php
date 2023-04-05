@@ -72,14 +72,6 @@ class AttributesService
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
             $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "variant metafields", "fieldDefType" => $node["node"]["type"]["name"]];
         }
-
-        foreach (self::$baseFields as $field) {
-            if ($field != "SKU") {
-                $data[] = ["name" => $field, "type" => "base product"];
-            }
-            $data[] = ["name" => $field, "type" => "base variant"];
-        }
-        $data[] = ["name" => "Image", "type" => "Images"];
         return $data;
     }
 

@@ -8,7 +8,9 @@ use Exception;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\BaseStore;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 
@@ -22,24 +24,25 @@ class ExecutionService
 {
     private Configuration $config;
     private string $classType;
-    private StoreInterface $storeInterface;
+    private BaseStore $storeInterface;
 
-    public function __construct()
+    public function __construct(ShopifyStore $storeInterface)
     {
-        # code...
+        $this->storeInterface = $storeInterface;
     }
 
     public function export(Configuration $config)
     {
         $this->config = $config;
         $configData = $this->config->getConfiguration();
-        try {
-            $this->storeInterface = StoreFactory::getStore($this->config);
-        } catch (Exception $e) {
-            $results = new CommitResult();
-            $results->addError("error during init: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
-            return $results;
-        }
+        $this->storeInterface->setup($config);
+        // try {
+        //     $this->storeInterface = StoreFactory::getStore($this->config);
+        // } catch (Exception $e) {
+        //     $results = new CommitResult();
+        //     $results->addError("error during init: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+        //     return $results;
+        // }
 
 
         $productPaths = $configData["products"]["products"];
@@ -80,7 +83,11 @@ class ExecutionService
                     $this->storeInterface->updateProduct($dataObject);
                 }
                 foreach ($dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true) as $childVariant) {
-                    $this->storeInterface->processVariant($dataObject, $childVariant);
+                    if ($this->storeInterface->existsInStore($childVariant)) {
+                        $this->storeInterface->updateVariant($dataObject, $childVariant);
+                    } else {
+                        $this->storeInterface->createVariant($dataObject, $childVariant);
+                    }
                 }
             }
         }

@@ -63,6 +63,7 @@ class ShopifyQueryService
         }
         $queryResult = $this->runQuery($query);
         while (!$resultFileURL = $this->queryFinished("QUERY")) {
+            sleep(1);
         }
         $formattedResults = [];
 
@@ -77,6 +78,182 @@ class ShopifyQueryService
             }
         }
         return $formattedResults;
+    }
+
+    public function queryMetafieldDefinitions()
+    {
+
+        $data = [
+            "product" => [],
+            "variant" => []
+        ];
+        $query = ShopifyGraphqlHelperService::buildMetafieldsQuery();
+        $response = $this->runQuery($query);
+        foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
+            $data["product"][$node["node"]["namespace"] . "." . $node["node"]["key"]] = [
+                "namespace" => $node["node"]["namespace"],
+                "name" => $node["node"]["key"],
+                "type" => $node["node"]["type"]["name"]
+            ];
+        }
+
+        //get variant metafields
+        $query = ShopifyGraphqlHelperService::buildVariantMetafieldsQuery();
+        $response = $this->runQuery($query);
+        foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
+            $data["variant"][$node["node"]["namespace"] . "." . $node["node"]["key"]] = [
+                "namespace" => $node["node"]["namespace"],
+                "name" => $node["node"]["key"],
+                "type" => $node["node"]["type"]["name"]
+            ];
+        }
+        return $data;
+    }
+
+    public function updateProducts(array $inputArray)
+    {
+        $inputString = "";
+        foreach ($inputArray as $inputObj) {
+            $inputString .= json_encode(["input" => $inputObj]) . PHP_EOL;
+        }
+        $file = $this->makeFile($inputString);
+        $filename = stream_get_meta_data($file)['uri'];
+        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+        $remoteFileKey = $remoteFileKeys[$filename]["key"];
+        fclose($file);
+
+        $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
+        $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+
+        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            sleep(1);
+        }
+        return $resultFileURL;
+    }
+
+    public function createProducts(array $inputArray)
+    {
+        $inputString = "";
+        foreach ($inputArray as $inputObj) {
+            $inputString .= json_encode(["input" => $inputObj]) . PHP_EOL;
+        }
+        $file = $this->makeFile($inputString);
+        $filename = stream_get_meta_data($file)['uri'];
+        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+        $remoteFileKey = $remoteFileKeys[$filename]["key"];
+        fclose($file);
+
+        $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
+        $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+
+        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            sleep(1);
+        }
+        return $resultFileURL;
+    }
+
+    public function updateProductMedia(array $inputArray)
+    {
+        $inputString = "";
+        foreach ($inputArray as $inputObj) {
+            $inputString .= json_encode(["input" => $inputObj]) . PHP_EOL;
+        }
+        $file = $this->makeFile($inputString);
+        $filename = stream_get_meta_data($file)['uri'];
+        $remoteKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+
+        $bulkParamsFilekey = $remoteKeys[$filename]["key"];
+        fclose($file);
+        $imagesCreateQuery = ShopifyGraphqlHelperService::buildCreateMediaQuery($bulkParamsFilekey);
+
+        $results = $this->graphql->query(["query" => $imagesCreateQuery])->getDecodedBody();
+        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            sleep(1);
+        }
+        return $resultFileURL;
+    }
+
+    public function updateVariants(array $inputArray)
+    {
+        $resultFiles = [];
+        $file = tmpfile();
+        foreach ($inputArray as $parentId => $variantMap) {
+            fwrite($file, json_encode(["input" => $variantMap]) . PHP_EOL);
+            if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+                $filename = stream_get_meta_data($file)['uri'];
+
+                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                $remoteFileKey = $remoteFileKeys[$filename]["key"];
+                $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
+                $result = $this->graphql->query(["query" => $variantQuery])->getDecodedBody();
+                fclose($file);
+                $file = tmpfile();
+                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                    sleep(1);
+                }
+                $resultFiles[] = $resultFileURL;
+            }
+        }
+        if (fstat($file)["size"] > 0) { //if there are any variants in here
+            $filename = stream_get_meta_data($file)['uri'];
+
+            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $remoteFileKey = $remoteFileKeys[$filename]["key"];
+            $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
+            $result = $this->graphql->query(["query" => $variantQuery])->getDecodedBody();
+            fclose($file);
+            $file = tmpfile();
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                sleep(1);
+            }
+            $resultFiles[] = $resultFileURL;
+        }
+        return $resultFiles;
+    }
+
+    public function updateMetafields(array $inputArray)
+    {
+        $resultFiles = [];
+        $file = tmpfile();
+        foreach ($inputArray as $metafieldArray) {
+            fwrite($file, json_encode(["input" => $metafieldArray]) . PHP_EOL);
+            if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+                $filename = stream_get_meta_data($file)['uri'];
+
+                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                $remoteFileKey = $remoteFileKeys[$filename]["key"];
+                $variantQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
+                $result = $this->graphql->query(["query" => $variantQuery])->getDecodedBody();
+                fclose($file);
+                $file = tmpfile();
+                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                    sleep(1);
+                }
+                $resultFiles[] = $resultFileURL;
+            }
+        }
+        if (fstat($file)["size"] > 0) { //if there are any variants in here
+            $filename = stream_get_meta_data($file)['uri'];
+
+            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $remoteFileKey = $remoteFileKeys[$filename]["key"];
+            $variantQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
+            $result = $this->graphql->query(["query" => $variantQuery])->getDecodedBody();
+            fclose($file);
+            $file = tmpfile();
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                sleep(1);
+            }
+            $resultFiles[] = $resultFileURL;
+        }
+        return $resultFiles;
+    }
+
+    private function makeFile($content)
+    {
+        $file = tmpfile();
+        fwrite($file, $content);
+        return $file;
     }
 
     /**
