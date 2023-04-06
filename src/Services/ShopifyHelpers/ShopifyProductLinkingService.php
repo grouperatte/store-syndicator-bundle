@@ -53,12 +53,7 @@ class ShopifyProductLinkingService
         * check here if we are linking based off variant or product, metafield or base value
         * hardcoded for testing
         */
-        $linkingAttribute = [
-            'local field' => 'Id',
-            'remote field' => 'custom.pimcore_id',
-            'id' => 'extModel323-22',
-            'field type' => 'variant metafields'
-        ];
+        $linkingAttribute = ConfigurationService::getMapOnRow($configuration);
 
         /*
         *   run variant query

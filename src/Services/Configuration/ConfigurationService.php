@@ -69,4 +69,20 @@ class ConfigurationService
         $accessObj = TorqStoreExporterShopifyCredentials::getByPath($configuration["APIAccess"][0]["cpath"]);
         return explode(".", $accessObj->getHost())[0];
     }
+
+    public static function getMapOnRow(Configuration $configuration): array
+    {
+        $configuration = $configuration->getConfiguration();
+        foreach ($configuration['attributeMap'] as $attributeMap) {
+            if (isset($attributeMap['map on']) && $attributeMap['map on']) {
+                return $attributeMap;
+            }
+        }
+        return [
+            'local field' => 'Id',
+            'remote field' => 'custom.pimcore_id',
+            'id' => 'extModel323-22',
+            'field type' => 'variant metafields'
+        ];
+    }
 }
