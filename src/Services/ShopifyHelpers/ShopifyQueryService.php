@@ -369,7 +369,7 @@ class ShopifyQueryService
         $response = $this->graphql->query(["query" => $query]);
         $response->getBody()->rewind();
         $response = $response->getBody()->getContents();
-        $response = json_decode($response);
+        $response = json_decode($response, true);
         if (json_last_error() === JSON_ERROR_NONE) {
             if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
                 return $response['data']["currentBulkOperation"]["url"] ?? "none"; //if the query returns nothing
