@@ -2,8 +2,10 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
+use DateTime;
 use Exception;
 use Pimcore\Db;
+use DateTimeZone;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
@@ -19,12 +21,15 @@ use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
+use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
 
 class ShopifyStore extends BaseStore
 {
     const IMAGEPROPERTYNAME = "ShopifyImageURL";
     private ShopifyQueryService $shopifyQueryService;
+    private ShopifyProductLinkingService $shopifyProductLinkingService;
     private array $updateProductArrays;
     private array $createProductArrays;
     private array $updateVariantsArrays;
@@ -36,9 +41,12 @@ class ShopifyStore extends BaseStore
 
     private AttributesService $attributeService;
 
-    public function __construct(private ConfigurationService $configurationService)
-    {
+    public function __construct(
+        private ConfigurationRepository $configurationRepository,
+        private ConfigurationService $configurationService,
+    ) {
         $this->attributeService = new AttributesService();
+        $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService);
     }
 
     public function setup(Configuration $config)
@@ -262,6 +270,7 @@ class ShopifyStore extends BaseStore
     public function commit(): Models\CommitResult
     {
         $commitResults = new Models\CommitResult();
+        $changesStartTime = new DateTime('now',  new DateTimeZone("UTC"));
 
         //upload new images and add the src to 
         if (isset($this->updateImageMap)) {
@@ -323,6 +332,7 @@ class ShopifyStore extends BaseStore
             }
         }
         $this->config->save();
+        $this->shopifyProductLinkingService->link($this->config, $changesStartTime);
         return $commitResults;
     }
 }

@@ -42,7 +42,7 @@ class ShopifyProductLinkingService
         $remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
 
         if ($afterDate) {
-            $afterDate = $afterDate->format('Y-m-d');
+            $afterDate = $afterDate->format('Y-m-d\TH:i:s\Z');
         }
         /*
         * get what variant field we are mapping on
