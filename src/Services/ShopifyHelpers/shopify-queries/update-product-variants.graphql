@@ -1,15 +1,5 @@
-mutation call($input: ProductInput!) {
-  productUpdate(input: $input) {
-    product {
-      id
-      variants(first: 100) {
-        edges {
-          node {
-            id
-          }
-        }
-      }
-    }
+mutation call($input: ProductVariantInput!) {
+  productVariantUpdate(input: $input) {
     userErrors {
       message
       field

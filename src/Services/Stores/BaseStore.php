@@ -6,25 +6,27 @@ use Exception;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use PhpParser\Node\Expr\Cast\Bool_;
-use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
 use Pimcore\Model\DataObject\Data\QuantityValue;
 use Pimcore\Model\DataObject\ClassDefinition\Data;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 
 abstract class BaseStore implements StoreInterface
 {
-    protected const PROPERTTYNAME = "Default";
+    protected string $propertyName = "Default";
     protected Configuration $config;
-    abstract public function __construct();
+    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService);
     abstract public function setup(Configuration $config);
     abstract public function getAllProducts();
-    abstract public function getProduct(string $id);
 
     abstract public function createProduct(Concrete $object): void;
     abstract public function updateProduct(Concrete $object): void;
-    abstract public function processVariant(Concrete $parent, Concrete $child): void;
+    abstract public function createVariant(Concrete $parent, Concrete $child): void;
+    abstract public function updateVariant(Concrete $parent, Concrete $child): void;
 
     /**
      * call to perform an final actions between the app and the store
@@ -36,12 +38,12 @@ abstract class BaseStore implements StoreInterface
 
     public function getStoreProductId(Concrete $object): string|null
     {
-        return $object->getProperty(static::PROPERTTYNAME);
+        return $object->getProperty($this->propertyName);
     }
 
     function setStoreProductId(Concrete $object, string $id)
     {
-        $object->setProperty(static::PROPERTTYNAME, "text", $id);
+        $object->setProperty($this->propertyName, "text", $id);
         $object->save();
     }
 

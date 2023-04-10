@@ -9,7 +9,7 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Pimcore\Bundle\DataHubBundle\Configuration\Dao;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
-use TorqIT\StoreSyndicatorBundle\Services\ConfigurationPreparationService;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 
 /**
  * @Route("/admin/storesyndicator/dataobject/config", name="pimcore_storesyndicator_configdataobject")
@@ -20,7 +20,7 @@ class ConfigDataObjectController extends FrontendController
      * @Route("/get", name="_get")
      *
      * @param Request $request
-     * @param ConfigurationPreparationService $configurationPreparationService
+     * @param ConfigurationService $configurationPreparationService
      * @param InterpreterFactory $interpreterFactory
      *
      * @return JsonResponse
@@ -29,7 +29,7 @@ class ConfigDataObjectController extends FrontendController
      */
     public function getAction(
         Request $request,
-        ConfigurationPreparationService $configurationPreparationService
+        ConfigurationService $configurationPreparationService
     ): JsonResponse {
         //$this->checkPermission(self::CONFIG_NAME);
 

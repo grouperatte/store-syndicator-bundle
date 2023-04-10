@@ -8,7 +8,7 @@ interface StoreInterface
 {
     /**
      * call to perform an final actions between the app and the store
-     * one mandatory asction is to update the webstore's product -> remoteId mapping if the remote store uses one
+     * 
      *
      * @param Webstore $webstore to webstore with the product mapping
      **/
@@ -20,7 +20,9 @@ interface StoreInterface
 
     public function updateProduct(Concrete $object): void;
 
-    public function processVariant(Concrete $parent, Concrete $child): void;
+    public function createVariant(Concrete $parent, Concrete $child): void;
+
+    public function updateVariant(Concrete $parent, Concrete $child): void;
 
     public function getStoreProductId(Concrete $object): string|null;
 

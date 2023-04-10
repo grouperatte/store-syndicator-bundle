@@ -5,11 +5,17 @@ namespace TorqIT\StoreSyndicatorBundle\Services;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
+use Pimcore\Model\Asset\Image;
 use Shopify\Auth\FileSessionStorage;
+use Pimcore\Model\DataObject\Localizedfield;
 use Pimcore\Model\DataObject\ClassDefinition;
 use Pimcore\Bundle\DataHubBundle\Configuration;
+use Pimcore\Model\DataObject\Data\BlockElement;
+use Pimcore\Model\DataObject\Data\ImageGallery;
+use Pimcore\Model\DataObject\Data\QuantityValue;
 use Pimcore\Model\DataObject\Classificationstore;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Objectbricks;
+use Pimcore\Model\DataObject\ClassDefinition\Data\Localizedfields;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Fieldcollections;
 use Pimcore\Model\DataObject\ClassDefinition\Data\AdvancedManyToManyRelation;
 use Pimcore\Model\DataObject\Objectbrick\Definition as ObjectbrickDefinition;
@@ -18,8 +24,7 @@ use Pimcore\Model\DataObject\ClassDefinition\Data\AdvancedManyToManyObjectRelati
 use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefinition;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
-use Pimcore\Model\DataObject\ClassDefinition\Data\Localizedfields;
-use Pimcore\Model\DataObject\Localizedfield;
+use Pimcore\Model\DataObject\Product\Listing;
 
 class AttributesService
 {
@@ -53,33 +58,20 @@ class AttributesService
         "base variant"
     ];
 
-    public function __construct(
-        private ShopifyGraphqlHelperService $shopifyGraphqlHelperService
-    ) {
-    }
-
     public function getRemoteFields(Graphql $client): array
     {
-        $query = $this->shopifyGraphqlHelperService->buildMetafieldsQuery();
+        $query = ShopifyGraphqlHelperService::buildMetafieldsQuery();
         $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
             $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "metafields", "fieldDefType" => $node["node"]["type"]["name"]];
         }
 
         //get variant metafields
-        $query = $this->shopifyGraphqlHelperService->buildVariantMetafieldsQuery();
+        $query = ShopifyGraphqlHelperService::buildVariantMetafieldsQuery();
         $response = $client->query(["query" => $query])->getDecodedBody();
         foreach ($response["data"]["metafieldDefinitions"]["edges"] as $node) {
             $data[] = ["name" => $node["node"]["namespace"] .  "." . $node["node"]["key"], "type" => "variant metafields", "fieldDefType" => $node["node"]["type"]["name"]];
         }
-
-        foreach (self::$baseFields as $field) {
-            if ($field != "SKU") {
-                $data[] = ["name" => $field, "type" => "base product"];
-            }
-            $data[] = ["name" => $field, "type" => "base variant"];
-        }
-        $data[] = ["name" => "Image", "type" => "Images"];
         return $data;
     }
 
@@ -159,6 +151,64 @@ class AttributesService
             } else {
                 $attributes[] = $prefix . $field->getName();
             }
+        }
+    }
+
+    //get the value(s) at the end of the fieldPath array on an object
+    public static function getObjectFieldValues($rootField, array $fieldPath)
+    {
+        $field = $fieldPath[0];
+        array_shift($fieldPath);
+        $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
+        $fieldVal = $rootField->$getter();
+        if (is_iterable($fieldVal)) { //this would be like manytomany fields
+            $vals = [];
+            foreach ($fieldVal as $singleVal) {
+                if ($singleVal && is_object($singleVal) && method_exists($singleVal, "get" . $fieldPath[0])) {
+                    $vals[] = self::getObjectFieldValues($singleVal, $fieldPath);
+                } elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
+                    $vals[] = self::processLocalValue($singleVal[$fieldPath[0]]->getData());
+                } else {
+                    $vals[] = $singleVal;
+                }
+            }
+            return count($vals) > 0 ? $vals : null;
+        } elseif (count($fieldPath) == 0) {
+            return self::processLocalValue($fieldVal);
+        } elseif ($fieldVal instanceof BlockElement) {
+            $vals = [];
+            foreach ($fieldVal as $blockItem) {
+                //assuming the next fieldname is the value we want
+                $vals[] = self::processLocalValue($blockItem[$fieldPath[0]]->getData());
+            }
+            return count($vals) > 0 ? $vals : null;
+        } else {
+            if ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
+                return self::getObjectFieldValues($fieldVal, $fieldPath);
+            }
+        }
+    }
+
+    private static function processLocalValue($field)
+    {
+        if ($field instanceof Image) {
+            return $field;
+        } elseif ($field instanceof ImageGallery) {
+            $returnArray = [];
+            foreach ($field->getItems() as $hotspot) {
+                $returnArray[] = $hotspot->getImage();
+            }
+            return $returnArray;
+        } elseif ($field instanceof QuantityValue) {
+            return self::processLocalValue($field->getValue());
+        } elseif (is_bool($field)) {
+            return $field ? "true" : "false";
+        } elseif (is_numeric($field)) {
+            return strval($field);
+        } elseif (empty($field)) {
+            return null;
+        } else {
+            return strval($field);
         }
     }
 
