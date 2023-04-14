@@ -133,23 +133,41 @@ class ShopifyQueryService
 
     public function createProducts(array $inputArray)
     {
-        $inputString = "";
+        $resultFiles = [];
+        $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            $inputString .= json_encode(["input" => $inputObj]) . PHP_EOL;
-        }
-        $file = $this->makeFile($inputString);
-        $filename = stream_get_meta_data($file)['uri'];
-        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-        $remoteFileKey = $remoteFileKeys[$filename]["key"];
-        fclose($file);
+            fwrite($file, json_encode(["metafields" => $inputObj]) . PHP_EOL);
+            if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+                $filename = stream_get_meta_data($file)['uri'];
 
-        $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
-        $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
-
-        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-            sleep(1);
+                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+                $remoteFileKey = $remoteFileKeys[$filename]["key"];
+                $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
+                $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+                fclose($file);
+                $file = tmpfile();
+                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                    sleep(1);
+                }
+                $resultFiles[] = $resultFileURL;
+            }
         }
-        return $resultFileURL;
+        if (fstat($file)["size"] > 0) {
+            $filename = stream_get_meta_data($file)['uri'];
+
+            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+            $remoteFileKey = $remoteFileKeys[$filename]["key"];
+            $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
+            $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+            fclose($file);
+            $file = tmpfile();
+            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+                sleep(1);
+            }
+            $resultFiles[] = $resultFileURL;
+        }
+
+        return $resultFiles;
     }
 
     public function updateProductMedia(array $inputArray)
