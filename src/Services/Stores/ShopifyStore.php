@@ -190,24 +190,24 @@ class ShopifyStore extends BaseStore
         ];
 
         foreach ($fields['variant metafields'] as $attribute) {
-            $graphQLInputString["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
+            $graphQLInput["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
         }
 
         foreach ($fields['base variant'] as $field => $value) {
             if ($field == 'weight') { //wants this as a non-string wrapped number
                 $value[0] = (float)$value[0];
             }
-            $graphQLInputString[$field] = $value[0];
+            $graphQLInput[$field] = $value[0];
         }
 
-        if (!isset($thisVariantArray["title"])) {
-            $thisVariantArray["title"] = $child->getKey();
+        if (!isset($graphQLInput["title"])) {
+            $graphQLInput["title"] = $child->getKey();
         }
-        if (!isset($thisVariantArray["options"])) {
-            $thisVariantArray["options"] = [$thisVariantArray["title"]];
+        if (!isset($graphQLInput["options"])) {
+            $graphQLInput["options"] = [$graphQLInput["title"]];
         }
 
-        $this->createProductArrays[$parent->getId()]["variants"][] = $thisVariantArray;
+        $this->createProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
     }
 
     public function updateVariant(Concrete $parent, Concrete $child): void
