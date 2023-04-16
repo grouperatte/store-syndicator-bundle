@@ -34,7 +34,7 @@ class AttributesService
         "compare at price",
         "tax code",
         "cost per item",
-        "SKU",
+        "sku",
         "barcode",
         "Inventory policy",
         "Available",

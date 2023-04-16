@@ -67,15 +67,17 @@ class ShopifyProductLinkingService
                 */
                 $mapOnArray = [];
                 foreach ($remoteVariants as $variantId => $remoteVariant) {
-                    foreach ($remoteVariant['metafields'] as $namespaceAndKey => $metafield) {
-                        if ($namespaceAndKey == $linkingAttribute['remote field']) {
-                            if (array_key_exists($metafield['value'], $mapOnArray)) {
-                                $mapOnArray[$metafield['value']] = 'duplicate';
+                    if (array_key_exists('metafields', $remoteVariant)) {
+                        foreach ($remoteVariant['metafields'] as $namespaceAndKey => $metafield) {
+                            if ($namespaceAndKey == $linkingAttribute['remote field']) {
+                                if (array_key_exists($metafield['value'], $mapOnArray)) {
+                                    $mapOnArray[$metafield['value']] = 'duplicate';
+                                }
+                                $mapOnArray[$metafield['value']] = [
+                                    'variantId' => $variantId,
+                                    'productId' => $remoteVariant['product']
+                                ];
                             }
-                            $mapOnArray[$metafield['value']] = [
-                                'variantId' => $variantId,
-                                'productId' => $remoteVariant['product']
-                            ];
                         }
                     }
                 }

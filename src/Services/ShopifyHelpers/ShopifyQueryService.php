@@ -136,7 +136,7 @@ class ShopifyQueryService
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            fwrite($file, json_encode(["metafields" => $inputObj]) . PHP_EOL);
+            fwrite($file, json_encode(["input" => $inputObj]) . PHP_EOL);
             if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
                 $filename = stream_get_meta_data($file)['uri'];
 
