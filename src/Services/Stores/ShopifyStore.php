@@ -308,8 +308,10 @@ class ShopifyStore extends BaseStore
 
         if ($this->createProductArrays) {
             //create unmade products
-            $resultFileURL = $this->shopifyQueryService->createProducts($this->createProductArrays);
-            $this->addLogRow("create product & variant result file", $resultFileURL);
+            $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
+            foreach ($resultFiles as $resultFileURL) {
+                $this->addLogRow("create product & variant result file", $resultFileURL);
+            }
         }
 
         //also takes care of creating variants
