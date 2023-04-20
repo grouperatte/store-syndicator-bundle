@@ -274,63 +274,83 @@ class ShopifyStore extends BaseStore
 
         //upload new images and add the src to 
         if (isset($this->updateImageMap)) {
-            $pushArray = [];
-            $mapBackArray = [];
-            //upload assets with no shopify url
-            foreach ($this->updateImageMap as $productId => $product) {
-                foreach ($product as $image) {
-                    $updateOrCreate = $image[0];
-                    $image = $image[1];
-                    if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
-                        $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
+            try {
+                $pushArray = [];
+                $mapBackArray = [];
+                //upload assets with no shopify url
+                foreach ($this->updateImageMap as $productId => $product) {
+                    foreach ($product as $image) {
+                        $updateOrCreate = $image[0];
+                        $image = $image[1];
+                        if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
+                            $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
+                        }
+                        $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
                     }
-                    $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
                 }
-            }
-            $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
-            $this->addLogRow("uploaded images", count($remoteFileKeys));
-            //and save their url's
-            foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
-                /** @var Image $image */
-                $image = $mapBackArray[$fileName][0];
-                $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
-                $image->save();
-            }
-            //add them to update/create queries
-            foreach ($mapBackArray as $mapBackImage) {
-                if ($mapBackImage[2] == "create") {
-                    $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-                } elseif ($mapBackImage[2] == "update") {
-                    $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
+                $this->addLogRow("uploaded images", count($remoteFileKeys));
+                //and save their url's
+                foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
+                    /** @var Image $image */
+                    $image = $mapBackArray[$fileName][0];
+                    $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
+                    $image->save();
                 }
+                //add them to update/create queries
+                foreach ($mapBackArray as $mapBackImage) {
+                    if ($mapBackImage[2] == "create") {
+                        $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                    } elseif ($mapBackImage[2] == "update") {
+                        $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                    }
+                }
+            } catch (Exception $e) {
+                $commitResults->addError("error during image pushing in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
         if ($this->createProductArrays) {
             //create unmade products
-            $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
-            foreach ($resultFiles as $resultFileURL) {
-                $this->addLogRow("create product & variant result file", $resultFileURL);
+            try {
+                $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
+                foreach ($resultFiles as $resultFileURL) {
+                    $this->addLogRow("create product & variant result file", $resultFileURL);
+                }
+            } catch (Exception $e) {
+                $commitResults->addError("error during product creating in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
         //also takes care of creating variants
         if ($this->updateProductArrays) {
-            $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
-            $this->addLogRow("update products result file", $resultFileURL);
+            try {
+                $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
+                $this->addLogRow("update products result file", $resultFileURL);
+            } catch (Exception $e) {
+                $commitResults->addError("error during product updating in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+            }
         }
 
         if ($this->updateVariantsArrays) {
-            $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
-            foreach ($resultFiles as $resultFileURL) {
-                $this->addLogRow("update variant result file", $resultFileURL);
+            try {
+                $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
+                foreach ($resultFiles as $resultFileURL) {
+                    $this->addLogRow("update variant result file", $resultFileURL);
+                }
+            } catch (Exception $e) {
+                $commitResults->addError("error during variant updating in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
         if ($this->metafieldSetArrays) {
-            $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
-            foreach ($resultFiles as $resultFileURL) {
-                $this->addLogRow("update metafield result file", $resultFileURL);
+            try {
+                $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
+                foreach ($resultFiles as $resultFileURL) {
+                    $this->addLogRow("update metafield result file", $resultFileURL);
+                }
+            } catch (Exception $e) {
+                $commitResults->addError("error during metafield setting in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
             }
         }
         $this->config->save();

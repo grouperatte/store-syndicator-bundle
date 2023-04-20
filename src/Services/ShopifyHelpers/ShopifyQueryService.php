@@ -2,6 +2,7 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers;
 
+use Exception;
 use GraphQL\Error\SyntaxError;
 use Shopify\Clients\Graphql;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
@@ -123,7 +124,7 @@ class ShopifyQueryService
         fclose($file);
 
         $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
-        $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+        $result = $this->runQuery($product_update_query);
 
         while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             sleep(1);
@@ -143,7 +144,7 @@ class ShopifyQueryService
                 $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
                 $remoteFileKey = $remoteFileKeys[$filename]["key"];
                 $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
-                $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+                $result = $this->runQuery($product_update_query);
                 fclose($file);
                 $file = tmpfile();
                 while (!$resultFileURL = $this->queryFinished("MUTATION")) {
@@ -158,7 +159,7 @@ class ShopifyQueryService
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
-            $result = $this->graphql->query(["query" => $product_update_query])->getDecodedBody();
+            $result = $this->runQuery($product_update_query);
             fclose($file);
             $file = tmpfile();
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
@@ -184,7 +185,7 @@ class ShopifyQueryService
         fclose($file);
         $imagesCreateQuery = ShopifyGraphqlHelperService::buildCreateMediaQuery($bulkParamsFilekey);
 
-        $results = $this->graphql->query(["query" => $imagesCreateQuery])->getDecodedBody();
+        $results = $this->runQuery($imagesCreateQuery);
         while (!$resultFileURL = $this->queryFinished("MUTATION")) {
             sleep(1);
         }
@@ -203,7 +204,7 @@ class ShopifyQueryService
                 $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
                 $remoteFileKey = $remoteFileKeys[$filename]["key"];
                 $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
-                $result = $this->graphql->query(["query" => $variantQuery])->getDecodedBody();
+                $result = $this->runQuery($variantQuery);
                 fclose($file);
                 $file = tmpfile();
                 while (!$resultFileURL = $this->queryFinished("MUTATION")) {
@@ -218,7 +219,7 @@ class ShopifyQueryService
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
-            $result = $this->graphql->query(["query" => $variantQuery])->getDecodedBody();
+            $result = $this->runQuery($variantQuery);
             fclose($file);
             $file = tmpfile();
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
@@ -241,7 +242,7 @@ class ShopifyQueryService
                 $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
                 $remoteFileKey = $remoteFileKeys[$filename]["key"];
                 $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
-                $result = $this->graphql->query(["query" => $metafieldSetQuery])->getDecodedBody();
+                $result = $this->runQuery($metafieldSetQuery);
                 fclose($file);
                 $file = tmpfile();
                 while (!$resultFileURL = $this->queryFinished("MUTATION")) {
@@ -256,7 +257,7 @@ class ShopifyQueryService
             $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
             $remoteFileKey = $remoteFileKeys[$filename]["key"];
             $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
-            $result = $this->graphql->query(["query" => $metafieldSetQuery])->getDecodedBody();
+            $result = $this->runQuery($metafieldSetQuery);
             fclose($file);
             $file = tmpfile();
             while (!$resultFileURL = $this->queryFinished("MUTATION")) {
@@ -281,7 +282,7 @@ class ShopifyQueryService
      * @return type
      * @throws conditon
      **/
-    private function runQuery($query)
+    public function runQuery($query)
     {
         try {
             $response = $this->graphql->query(["query" => $query]);
@@ -290,7 +291,9 @@ class ShopifyQueryService
             //we could do some error logging here
             return null;
         }
-
+        if (array_key_exists("errors", $response) && count($response["errors"]) > 0) {
+            throw new Exception("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response["errors"]));
+        }
         return $response;
     }
 
