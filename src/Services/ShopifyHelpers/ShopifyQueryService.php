@@ -282,7 +282,7 @@ class ShopifyQueryService
      * @return type
      * @throws conditon
      **/
-    public function runQuery($query)
+    private function runQuery($query)
     {
         try {
             $response = $this->graphql->query(["query" => $query]);
