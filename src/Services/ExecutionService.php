@@ -59,13 +59,7 @@ class ExecutionService
                 $this->recursiveExport($product, $rejects);
             }
         }
-        try {
-            $results = $this->storeInterface->commit();
-        } catch (Exception $e) {
-            $results = new CommitResult();
-            $results->addError("error during commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
-            $config->save();
-        }
+        $results = $this->storeInterface->commit();
         $results->addError("products with over 100 variants: " . json_encode($rejects));
         return $results;
     }
