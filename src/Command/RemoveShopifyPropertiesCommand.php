@@ -35,10 +35,11 @@ class RemoveShopifyPropertiesCommand extends AbstractCommand
 
         $config = Configuration::getByName($name);
         $remoteStoreName = $this->configurationService->getStoreName($config);
-        $propertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
+        $shopifyIdPropertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
+        $linkedPropertyName = "TorqSS:" . $remoteStoreName . ":linked";
         $db = Db::get();
 
-        $db->query('Delete from properties where name IN (?, ?)', [$propertyName, 'ShopifyImageURL']);
+        $result = $db->executeStatement('Delete from properties where name IN (?, ?, ?)', [$shopifyIdPropertyName, $linkedPropertyName, 'ShopifyImageURL']);
         return 0;
     }
 }
