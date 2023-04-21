@@ -306,7 +306,7 @@ class ShopifyStore extends BaseStore
                     }
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during image pushing in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError("error during image pushing in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
@@ -318,7 +318,7 @@ class ShopifyStore extends BaseStore
                     $this->addLogRow("create product & variant result file", $resultFileURL);
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during product creating in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError("error during product creating in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
@@ -328,7 +328,7 @@ class ShopifyStore extends BaseStore
                 $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
                 $this->addLogRow("update products result file", $resultFileURL);
             } catch (Exception $e) {
-                $commitResults->addError("error during product updating in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError("error during product updating in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
@@ -339,7 +339,7 @@ class ShopifyStore extends BaseStore
                     $this->addLogRow("update variant result file", $resultFileURL);
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during variant updating in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError("error during variant updating in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             }
         }
 
@@ -350,7 +350,7 @@ class ShopifyStore extends BaseStore
                     $this->addLogRow("update metafield result file", $resultFileURL);
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during metafield setting in commit: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError("error during metafield setting in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             }
         }
         $this->config->save();
