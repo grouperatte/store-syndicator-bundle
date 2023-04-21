@@ -279,34 +279,49 @@ class ShopifyStore extends BaseStore
         //upload new images and add the src to 
         if (isset($this->updateImageMap)) {
             try {
-                $pushArray = [];
-                $mapBackArray = [];
-                //upload assets with no shopify url
+                //code to add back in once we need to upload images from real files again
+
+                // $pushArray = [];
+                // $mapBackArray = [];
+                // //upload assets with no shopify url
+                // foreach ($this->updateImageMap as $productId => $product) {
+                //     foreach ($product as $image) {
+                //         $updateOrCreate = $image[0];
+                //         $image = $image[1];
+                //         if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
+                //             $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
+                //         }
+                //         $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
+                //     }
+                // }
+                // $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
+                // $this->addLogRow("uploaded images", count($remoteFileKeys));
+                // //and save their url's
+                // foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
+                //     /** @var Image $image */
+                //     $image = $mapBackArray[$fileName][0];
+                //     $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
+                //     $image->save();
+                // }
+                // //add them to update/create queries
+                // foreach ($mapBackArray as $mapBackImage) {
+                //     if ($mapBackImage[2] == "create") {
+                //         $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                //     } elseif ($mapBackImage[2] == "update") {
+                //         $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                //     }
+                // }
+
                 foreach ($this->updateImageMap as $productId => $product) {
                     foreach ($product as $image) {
                         $updateOrCreate = $image[0];
+                        /** @var Image $image */
                         $image = $image[1];
-                        if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
-                            $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
+                        if ($updateOrCreate == "create") {
+                            $this->createProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
+                        } elseif ($updateOrCreate == "update") {
+                            $this->updateProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
                         }
-                        $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
-                    }
-                }
-                $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
-                $this->addLogRow("uploaded images", count($remoteFileKeys));
-                //and save their url's
-                foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
-                    /** @var Image $image */
-                    $image = $mapBackArray[$fileName][0];
-                    $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
-                    $image->save();
-                }
-                //add them to update/create queries
-                foreach ($mapBackArray as $mapBackImage) {
-                    if ($mapBackImage[2] == "create") {
-                        $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-                    } elseif ($mapBackImage[2] == "update") {
-                        $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
                     }
                 }
             } catch (Exception $e) {
