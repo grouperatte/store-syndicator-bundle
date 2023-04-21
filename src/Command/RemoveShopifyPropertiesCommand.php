@@ -12,22 +12,33 @@ use Pimcore\Model\DataObject\Product;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 
 class RemoveShopifyPropertiesCommand extends AbstractCommand
 {
+    public function __construct(private ConfigurationService $configurationService)
+    {
+        parent::__construct();
+    }
 
     protected function configure()
     {
         $this
-            ->setName('torq:remove-shopify-properties')
-            ->setDescription('Do Shopify Stuff');
+            ->setName('torq:remove-store-properties')
+            ->addArgument('store-name', InputArgument::REQUIRED)
+            ->setDescription('removes any properties related to the imput argument configuration. unlinking the products from the store');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $name = $input->getArgument("store-name");
+
+        $config = Configuration::getByName($name);
+        $remoteStoreName = $this->configurationService->getStoreName($config);
+        $propertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $db = Db::get();
 
-        $db->query('Delete from properties where name IN (?, ?)', ['ShopifyProductId', 'ShopifyImageURL']);
+        $db->query('Delete from properties where name IN (?, ?)', [$propertyName, 'ShopifyImageURL']);
         return 0;
     }
 }
