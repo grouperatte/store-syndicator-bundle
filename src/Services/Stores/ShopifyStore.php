@@ -207,7 +207,11 @@ class ShopifyStore extends BaseStore
             $graphQLInput["options"] = [$graphQLInput["title"]];
         }
 
-        $this->createProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
+        if ($this->existsInStore($parent)) {
+            $this->updateProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
+        } else {
+            $this->createProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
+        }
     }
 
     public function updateVariant(Concrete $parent, Concrete $child): void
