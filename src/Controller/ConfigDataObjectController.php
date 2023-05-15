@@ -38,7 +38,7 @@ class ConfigDataObjectController extends FrontendController
 
         return new JsonResponse(
             [
-                'name' => 'test',
+                'name' => $name,
                 'configuration' => $config,
                 'userPermissions' => [
                     'update' => 'true',
