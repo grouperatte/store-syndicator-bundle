@@ -96,7 +96,9 @@ abstract class BaseStore implements StoreInterface
             foreach ($fieldVal as $singleVal) {
                 if ($singleVal && is_object($singleVal) && method_exists($singleVal, "get" . $fieldPath[0])) {
                     $vals[] = $this->getFieldValues($singleVal, $fieldPath);
-                } elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
+                } elseif ($singleVal && is_array($singleVal) && empty($fieldPath)) { //blocks
+                    $vals[] = $this->processLocalValue(array_values($singleVal)[0]->getData());
+                }elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
                     $vals[] = $this->processLocalValue($singleVal[$fieldPath[0]]->getData());
                 } else {
                     $vals[] = $singleVal;

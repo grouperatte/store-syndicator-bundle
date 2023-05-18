@@ -142,9 +142,7 @@ class ShopifyStore extends BaseStore
             }
             unset($fields["Images"]);
         }
-        foreach ($fields['base product'] as $field => $value) {
-            $graphQLInput[$field] = $value[0];
-        }
+        $this->processBaseProductData($fields['base product'], $graphQLInput);
         $graphQLInput["id"] = $remoteId;
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
         $this->updateProductArrays[$object->getId()] = $graphQLInput;
@@ -173,10 +171,24 @@ class ShopifyStore extends BaseStore
             }
             unset($fields["Images"]);
         }
-        foreach ($fields['base product'] as $field => $value) {
+        $this->processBaseProductData($fields['base product'], $graphQLInput);
+        $this->createProductArrays[$object->getId()] = $graphQLInput;
+    }
+
+    private function processBaseProductData($fields, &$graphQLInput)
+    {
+        foreach ($fields as $field => $value) {
+            if($field == "status"){
+                $value[0] = strtoupper($value[0]);
+                if(!in_array($value[0], ["ACTIVE", "ARCHIVED", "DRAFT"])){
+                    throw new Exception("invalid status value $value[0] not one of ACTIVE ARCHIVED or DRAFT");
+                }
+            }elseif($field == 'tags'){
+                $graphQLInput[$field] = $value;
+                continue;
+            }
             $graphQLInput[$field] = $value[0];
         }
-        $this->createProductArrays[$object->getId()] = $graphQLInput;
     }
 
     public function createVariant(Concrete $parent, Concrete $child): void
@@ -193,12 +205,8 @@ class ShopifyStore extends BaseStore
             $graphQLInput["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
         }
 
-        foreach ($fields['base variant'] as $field => $value) {
-            if ($field == 'weight') { //wants this as a non-string wrapped number
-                $value[0] = (float)$value[0];
-            }
-            $graphQLInput[$field] = $value[0];
-        }
+        $thisVariantArray = [];
+        $this->processBaseVariantData($fields['base variant'], $thisVariantArray);
 
         if (!isset($graphQLInput["title"])) {
             $graphQLInput["title"] = $child->getKey();
@@ -232,12 +240,8 @@ class ShopifyStore extends BaseStore
             $this->metafieldSetArrays[] = $metafield;
         }
 
-        foreach ($fields['base variant'] as $field => $value) {
-            if ($field == 'weight') { //wants this as a non-string wrapped number
-                $value[0] = (float)$value[0];
-            }
-            $thisVariantArray[$field] = $value[0];
-        }
+        $thisVariantArray = [];
+        $this->processBaseVariantData($fields['base variant'], $thisVariantArray);
 
         if (!isset($thisVariantArray["title"])) {
             $thisVariantArray["title"] = $child->getKey();
@@ -249,6 +253,25 @@ class ShopifyStore extends BaseStore
         $thisVariantArray["id"] = $remoteId;
 
         $this->updateVariantsArrays[] = $thisVariantArray;
+    }
+
+    private function processBaseVariantData($fields, &$thisVariantArray){
+        foreach ($fields as $field => $value) {
+            if ($field == 'weight' || $field == 'cost' || $field == 'price') { //wants this as a non-string wrapped number
+                $value[0] = (float)$value[0];
+            }
+            if($field == 'tracked'){
+                $value[0] = $value[0] == "true";
+            }
+            if($field == 'cost' || $field == 'tracked'){
+                $thisVariantArray['inventoryItem'][$field] = $value[0];
+                continue;
+            }elseif($field == 'continueSellingOutOfStock'){
+                $thisVariantArray['inventoryPolicy'] = $value[0]? "CONTINUE": "DENY";
+                continue;
+            }
+            $thisVariantArray[$field] = $value[0];
+        }
     }
 
     /**
