@@ -207,12 +207,8 @@ class ShopifyStore extends BaseStore
 
         $thisVariantArray = [];
         $this->processBaseVariantData($fields['base variant'], $thisVariantArray);
-
-        if (!isset($graphQLInput["title"])) {
-            $graphQLInput["title"] = $child->getKey();
-        }
-        if (!isset($graphQLInput["options"])) {
-            $graphQLInput["options"] = [$graphQLInput["title"]];
+        if (!isset($thisVariantArray["options"])) {
+            $thisVariantArray["options"][] = $child->getKey();
         }
 
         if ($this->existsInStore($parent)) {
@@ -242,12 +238,8 @@ class ShopifyStore extends BaseStore
 
         $thisVariantArray = [];
         $this->processBaseVariantData($fields['base variant'], $thisVariantArray);
-
-        if (!isset($thisVariantArray["title"])) {
-            $thisVariantArray["title"] = $child->getKey();
-        }
         if (!isset($thisVariantArray["options"])) {
-            $thisVariantArray["options"] = [$thisVariantArray["title"]];
+            $thisVariantArray["options"][] = $child->getKey();
         }
 
         $thisVariantArray["id"] = $remoteId;
@@ -268,6 +260,9 @@ class ShopifyStore extends BaseStore
                 continue;
             }elseif($field == 'continueSellingOutOfStock'){
                 $thisVariantArray['inventoryPolicy'] = $value[0]? "CONTINUE": "DENY";
+                continue;
+            }elseif($field == 'title'){
+                $thisVariantArray["options"][] = $value[0];
                 continue;
             }
             $thisVariantArray[$field] = $value[0];

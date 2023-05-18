@@ -57,7 +57,8 @@ class AttributesService
         "barcode",
         "continueSellingOutOfStock",//inventoryPolicy "CONTINUE" or "DENY"
         "weight",
-        "requiresShipping"
+        "requiresShipping",
+        "title",
     ];
 
     public function getRemoteFields(Graphql $client): array
