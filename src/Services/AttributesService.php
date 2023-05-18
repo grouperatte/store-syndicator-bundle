@@ -58,6 +58,7 @@ class AttributesService
         "continueSellingOutOfStock",//inventoryPolicy "CONTINUE" or "DENY"
         "weight",
         "requiresShipping",
+        "imageSrc",//variants can only have one image
         "title",
     ];
 
