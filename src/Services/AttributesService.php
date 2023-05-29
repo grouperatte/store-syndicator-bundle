@@ -106,12 +106,12 @@ class AttributesService
         }
 
         $attributes = ["Key"];
-        $this->getFieldDefinitionsRecursive($class, $attributes, "");
+        $this->getFieldDefinitionsRecursive($class, $attributes, "", []);
 
         return $attributes;
     }
 
-    private function getFieldDefinitionsRecursive($class, &$attributes, $prefix)
+    private function getFieldDefinitionsRecursive($class, &$attributes, $prefix, array $checkedClasses)
     {
         if (!method_exists($class, "getFieldDefinitions")) {
             $attributes[] = $prefix . $class->getName();
@@ -123,13 +123,13 @@ class AttributesService
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = ObjectbrickDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . ".");
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . ".", $checkedClasses);
                 }
             } elseif ($field instanceof Fieldcollections) {
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = FieldcollectionDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . ".");
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . ".", $checkedClasses);
                 }
             } elseif ($field instanceof ClassificationStoreDefinition) {
                 $fields = $this->getStoreKeys($field->getStoreId());
@@ -142,14 +142,14 @@ class AttributesService
                     if (!method_exists($childField, "getFieldDefinitions")) {
                         $attributes[] = $prefix . $childField->getName();
                     } else {
-                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . ".");
+                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . ".", $checkedClasses);
                     }
                 }
                 if ($fields = $field->getReferencedFields()) {
                     $names = [];
                     foreach ($fields as $field) {
                         if (!in_array($field->getName(), $names)) { //sometimes returns the same field multiple times...
-                            $this->getFieldDefinitionsRecursive($field, $attributes, $prefix);
+                            $this->getFieldDefinitionsRecursive($field, $attributes, $prefix, $checkedClasses);
                             $names[] = $field->getName();
                         }
                     }
@@ -162,7 +162,9 @@ class AttributesService
                 }
                 foreach ($classes as $allowedClass) {
                     $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
-                    $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ".");
+                    if(!in_array($allowedClass, $checkedClasses)){
+                        $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ".", array_merge([$allowedClass], $checkedClasses));
+                    }
                 }
             } else {
                 $attributes[] = $prefix . $field->getName();
