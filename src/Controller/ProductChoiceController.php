@@ -18,27 +18,6 @@ use Pimcore\Bundle\AdminBundle\Controller\Admin\DataObject\DataObjectController;
 class ProductChoiceController extends FrontendController
 {
     /**
-     * @Route("/getClasses", name="_get_classes")
-     *
-     * @param Request $request
-     *
-     * @return JsonResponse|null
-     */
-    public function getClassList(): JsonResponse
-    {
-        $classesList = new DataObject\ClassDefinition\Listing();
-        $classesList->setOrderKey('name');
-        $classesList->setOrder('asc');
-        $classes = $classesList->load();
-
-        $response = [];
-        foreach ($classes as $class) {
-            $response[] = ["name" => $class->getName()];
-        }
-        return $this->json($response);
-    }
-
-    /**
      * @Route("/getObjects", name="_get_objects")
      *
      * @param Request $request
