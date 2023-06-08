@@ -12,3 +12,4 @@ plugin_pimcore_datahub_configpanel_item_reload_fields: Reload Remote Field Defin
 plugin_pimcore_datahub_configpanel_item_products: Choose Products
 plugin_pimcore_datahub_configpanel_item_execution: Execution
 plugin_pimcore_datahub_configpanel_item_manual_execute: Manual Start
+plugin_pimcore_datahub_configpanel_item_products_sql: Product Query Where Clause

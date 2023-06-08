@@ -5,14 +5,15 @@ namespace Services;
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
 use Exception;
-use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\ClassDefinition;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\BaseStore;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
 
 /*
     Gets the correct StoreInterface from the config file.
@@ -36,27 +37,17 @@ class ExecutionService
         $this->config = $config;
         $configData = $this->config->getConfiguration();
         $this->storeInterface->setup($config);
-        // try {
-        //     $this->storeInterface = StoreFactory::getStore($this->config);
-        // } catch (Exception $e) {
-        //     $results = new CommitResult();
-        //     $results->addError("error during init: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
-        //     return $results;
-        // }
 
+        $classType = $configData["products"]["class"];
+        $classType = ClassDefinition::getById($classType);
+        $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
 
-        $productPaths = $configData["products"]["products"];
-        $this->classType = $configData["products"]["class"];
-
-        $this->classType = "Pimcore\\Model\\DataObject\\" . $this->classType;
+        $productListing = $this->getClassListing($configData);
 
         $rejects = []; //array of products we cant export
-        foreach ($productPaths as $pathArray) {
-            $path = $pathArray["cpath"];
-            $products = DataObject::getByPath($path);
-            $products = $products->getChildren([DataObject::OBJECT_TYPE_OBJECT, DataObject::OBJECT_TYPE_FOLDER], true);
-            foreach ($products as $product) {
-                $this->recursiveExport($product, $rejects);
+        foreach ($productListing as $product) {
+            if ($product) {
+                $this->proccess($product, $rejects);
             }
         }
         $results = $this->storeInterface->commit();
@@ -64,7 +55,7 @@ class ExecutionService
         return $results;
     }
 
-    private function recursiveExport($dataObject, &$rejects)
+    private function proccess($dataObject, &$rejects)
     {
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $this->classType)) {
@@ -85,11 +76,16 @@ class ExecutionService
                 }
             }
         }
+    }
 
-        $products = $dataObject->getChildren([DataObject::OBJECT_TYPE_OBJECT, DataObject::OBJECT_TYPE_FOLDER], true);
-
-        foreach ($products as $product) {
-            $this->recursiveExport($product, $rejects);
-        }
+    private function getClassListing($configData): Dataobject\Listing
+    {
+        $sql = $configData["products"]["sqlCondition"];
+        $listing = $this->classType . '\\Listing';
+        $listing = new $listing();
+        /** @var Dataobject\Listing $listing */
+        $listing->setObjectTypes(['object']);
+        $listing->setCondition($sql);
+        return $listing;
     }
 }
