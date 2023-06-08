@@ -17,7 +17,7 @@ Currently, this bundle is designed to work only with a Shopify store, but could 
 3. In your created Store Exporter, under the API Access tab, drag in your credentials object created in step 1.
 4. Under the Choose Products tab
    1. Under BaseClass choose the Data Object class you will be exporting
-   2. Under "Product Query Qhere Clause" you can write the SQL where clause for the pimcore object listing for the export
+   2. Under "Product Query Qhere Clause" you can write the SQL where clause for the pimcore object listing for the export.
       Some examples include:
       - `o_path LIKE "your products folder path"` for path based exports
       - `fieldName = value` for object field based export
