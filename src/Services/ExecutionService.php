@@ -43,7 +43,6 @@ class ExecutionService
         $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
 
         $productListing = $this->getClassListing($configData);
-        $count = $productListing->count(); //remove
 
         $rejects = []; //array of products we cant export
         foreach ($productListing as $product) {
