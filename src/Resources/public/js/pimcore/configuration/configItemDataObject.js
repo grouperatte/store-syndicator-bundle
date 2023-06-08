@@ -134,12 +134,6 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
       return this.generalForm;
     },
     buildProductsTab: function () {
-      if (!this.objectWorkspace) {
-        this.objectWorkspace =
-          new pimcore.plugin.storeExporterDataObject.helpers.workspace.object(
-            this
-          );
-      }
       if (!this.classStore) {
         this.classStore = pimcore.globalmanager.get("object_types_store");
       }
@@ -162,7 +156,15 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
             valueField: "id",
             displayField: "translatedText",
           },
-          this.objectWorkspace.getPanel(),
+          {
+            xtype: "textarea",
+            height: 100,
+            value: this.data ? this.data.products.sqlCondition : "",
+            name: "sqlCondition",
+            fieldLabel: t(
+              "plugin_pimcore_datahub_configpanel_item_products_sql"
+            ),
+          },
         ],
       });
       //this.objectTree = new pimcore.plugin.storeExporterDataObject.helpers.objectTree(this.productsTab, this.data.general.name)
@@ -536,9 +538,9 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
       //         gridData.push(data["id"]);
       //     }
       // });
-      let pickedDataobjects = this.objectWorkspace.getValues();
-      productsData["products"] = pickedDataobjects;
+
       productsData["class"] = this.productsTab.getValues().class;
+      productsData["sqlCondition"] = this.productsTab.getValues().sqlCondition;
 
       saveData["general"] = this.generalForm.getValues();
 

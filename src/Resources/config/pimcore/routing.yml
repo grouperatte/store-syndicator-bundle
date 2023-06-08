@@ -10,12 +10,6 @@ _store_syndicator_attributes_admin:
   options:
     expose: true
 
-_store_syndicator_classes_admin:
-  resource: "@StoreSyndicatorBundle/Controller/ProductChoiceController.php"
-  type: annotation
-  options:
-    expose: true
-
 _store_syndicator_execution_admin:
   resource: "@StoreSyndicatorBundle/Controller/ExecutionController.php"
   type: annotation
