@@ -37,6 +37,9 @@ class ShopifyQueryService
         }
         $formattedResults = [];
 
+        if ($resultFileURL == 'none') { //there were no variants returned (also not an error though)
+            return $formattedResults;
+        }
         $resultFile = fopen($resultFileURL, "r");
         while ($variantOrMetafield = fgets($resultFile)) {
             $variantOrMetafield = json_decode($variantOrMetafield, true);
@@ -68,6 +71,9 @@ class ShopifyQueryService
         }
         $formattedResults = [];
 
+        if ($resultFileURL == 'none') { //there were no products returned (also not an error though)
+            return $formattedResults;
+        }
         $resultFile = fopen($resultFileURL, "r");
         while ($productOrMetafield = fgets($resultFile)) {
             $productOrMetafield = (array)json_decode($productOrMetafield);
@@ -139,36 +145,31 @@ class ShopifyQueryService
         foreach ($inputArray as $inputObj) {
             fwrite($file, json_encode(["input" => $inputObj]) . PHP_EOL);
             if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
-                $filename = stream_get_meta_data($file)['uri'];
-
-                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-                $remoteFileKey = $remoteFileKeys[$filename]["key"];
-                $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
-                $result = $this->runQuery($product_update_query);
+                $resultFiles[] = $this->pushProductCreateFile($file);
                 fclose($file);
                 $file = tmpfile();
-                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-                    sleep(1);
-                }
-                $resultFiles[] = $resultFileURL;
             }
         }
         if (fstat($file)["size"] > 0) {
-            $filename = stream_get_meta_data($file)['uri'];
-
-            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-            $remoteFileKey = $remoteFileKeys[$filename]["key"];
-            $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
-            $result = $this->runQuery($product_update_query);
+            $resultFiles[] = $this->pushProductCreateFile($file);
             fclose($file);
-            $file = tmpfile();
-            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-                sleep(1);
-            }
-            $resultFiles[] = $resultFileURL;
         }
 
         return $resultFiles;
+    }
+
+    private function pushProductCreateFile($file): string
+    {
+        $filename = stream_get_meta_data($file)['uri'];
+
+        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+        $remoteFileKey = $remoteFileKeys[$filename]["key"];
+        $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
+        $result = $this->runQuery($product_update_query);
+        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            sleep(1);
+        }
+        return $resultFileURL;
     }
 
     public function updateProductMedia(array $inputArray)
@@ -199,35 +200,30 @@ class ShopifyQueryService
         foreach ($inputArray as $parentId => $variantMap) {
             fwrite($file, json_encode(["input" => $variantMap]) . PHP_EOL);
             if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
-                $filename = stream_get_meta_data($file)['uri'];
-
-                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-                $remoteFileKey = $remoteFileKeys[$filename]["key"];
-                $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
-                $result = $this->runQuery($variantQuery);
+                $resultFiles[] = $this->pushVariantsUpdateFile($file);
                 fclose($file);
                 $file = tmpfile();
-                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-                    sleep(1);
-                }
-                $resultFiles[] = $resultFileURL;
             }
         }
         if (fstat($file)["size"] > 0) { //if there are any variants in here
-            $filename = stream_get_meta_data($file)['uri'];
-
-            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-            $remoteFileKey = $remoteFileKeys[$filename]["key"];
-            $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
-            $result = $this->runQuery($variantQuery);
+            $resultFiles[] = $this->pushVariantsUpdateFile($file);
             fclose($file);
-            $file = tmpfile();
-            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-                sleep(1);
-            }
-            $resultFiles[] = $resultFileURL;
         }
         return $resultFiles;
+    }
+
+    private function pushVariantsUpdateFile($file): string
+    {
+        $filename = stream_get_meta_data($file)['uri'];
+
+        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+        $remoteFileKey = $remoteFileKeys[$filename]["key"];
+        $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
+        $result = $this->runQuery($variantQuery);
+        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            sleep(1);
+        }
+        return $resultFileURL;
     }
 
     public function updateMetafields(array $inputArray)
@@ -237,35 +233,30 @@ class ShopifyQueryService
         foreach ($inputArray as $metafieldArray) {
             fwrite($file, json_encode(["metafields" => $metafieldArray]) . PHP_EOL);
             if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
-                $filename = stream_get_meta_data($file)['uri'];
-
-                $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-                $remoteFileKey = $remoteFileKeys[$filename]["key"];
-                $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
-                $result = $this->runQuery($metafieldSetQuery);
+                $resultFiles[] = $this->pushMetafieldUpdateFile($file);
                 fclose($file);
                 $file = tmpfile();
-                while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-                    sleep(1);
-                }
-                $resultFiles[] = $resultFileURL;
             }
         }
         if (fstat($file)["size"] > 0) { //if there are any variants in here
-            $filename = stream_get_meta_data($file)['uri'];
-
-            $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-            $remoteFileKey = $remoteFileKeys[$filename]["key"];
-            $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
-            $result = $this->runQuery($metafieldSetQuery);
+            $resultFiles[] = $this->pushMetafieldUpdateFile($file);
             fclose($file);
-            $file = tmpfile();
-            while (!$resultFileURL = $this->queryFinished("MUTATION")) {
-                sleep(1);
-            }
-            $resultFiles[] = $resultFileURL;
         }
         return $resultFiles;
+    }
+
+    private function pushMetafieldUpdateFile($file): string
+    {
+        $filename = stream_get_meta_data($file)['uri'];
+
+        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+        $remoteFileKey = $remoteFileKeys[$filename]["key"];
+        $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
+        $result = $this->runQuery($metafieldSetQuery);
+        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+            sleep(1);
+        }
+        return $resultFileURL;
     }
 
     private function makeFile($content)
