@@ -31,11 +31,11 @@ class AttributesService
     static array $baseFields = [
         "descriptionHtml",
         "title",
-        "options",//array
+        "options", //array
         "productType",
         "vendor",
-        "tags",//array
-        "status",// "ACTIVE" "ARCHIVED" or "DRAFT"
+        "tags", //array
+        "status", // "ACTIVE" "ARCHIVED" or "DRAFT"
     ];
 
     static array $fieldTypes = [
@@ -47,20 +47,21 @@ class AttributesService
     ];
 
     static array $variantFields = [
-        "cost",//productVariantInput.inventoryItem
-        "tracked",//productVariantInput.inventoryItem
+        "cost", //productVariantInput.inventoryItem
+        "tracked", //productVariantInput.inventoryItem
         "price",
         "compareAtPrice",
         "taxCode",
         "taxable",
         "sku",
         "barcode",
-        "continueSellingOutOfStock",//inventoryPolicy "CONTINUE" or "DENY"
+        "continueSellingOutOfStock", //inventoryPolicy "CONTINUE" or "DENY"
         "weight",
-        "weightUnit",//needs to be "POUNDS" "OUNCES" "KILOGRAMS" or "GRAMS"
+        "weightUnit", //needs to be "POUNDS" "OUNCES" "KILOGRAMS" or "GRAMS"
         "requiresShipping",
-        "imageSrc",//variants can only have one image
+        "imageSrc", //variants can only have one image
         "title",
+        "stock",
     ];
 
     public function getRemoteFields(Graphql $client): array
@@ -162,7 +163,7 @@ class AttributesService
                 }
                 foreach ($classes as $allowedClass) {
                     $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
-                    if(!in_array($allowedClass, $checkedClasses)){
+                    if (!in_array($allowedClass, $checkedClasses)) {
                         $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ".", array_merge([$allowedClass], $checkedClasses));
                     }
                 }

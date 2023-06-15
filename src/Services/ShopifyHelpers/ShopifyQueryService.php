@@ -13,6 +13,8 @@ use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperSer
  */
 class ShopifyQueryService
 {
+    const MAX_QUERY_OBJS = 250;
+
     private Graphql $graphql;
     public function __construct(
         ShopifyAuthenticator $abstractAuthenticator
@@ -259,6 +261,72 @@ class ShopifyQueryService
         return $resultFileURL;
     }
 
+    public function updateStock(array $inputArray, $locationId)
+    {
+        $variantsByIdQuery = ShopifyGraphqlHelperService::buildVariantsStockByIdQuery();
+        $variantsUpdateInventoryQuery = ShopifyGraphqlHelperService::buildUpdateVariantsStockQuery();
+        $results = [];
+        $variantsQueryInput = [];
+        $variantsInventoryInput = [];
+        $changes = [];
+        $count = 0;
+        foreach ($inputArray as $id => $quantity) {
+            $variantsQueryInput["ids"][] = $id;
+            $count++;
+            if ($count >= self::MAX_QUERY_OBJS) {
+                $count = 0;
+                $changes = [];
+                $response = $this->runQuery($variantsByIdQuery, $variantsQueryInput);
+                foreach ($response["data"]["nodes"] as $variant) {
+                    $changes[] = [
+                        "delta" => $inputArray[$variant["id"]] - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
+                        "inventoryItemId" => $variant["inventoryItem"]["id"],
+                        "locationId" => $locationId,
+                    ];
+                }
+                $variantsInventoryInput = [
+                    "input" => [
+                        "changes" => $changes,
+                        "name" => "available",
+                        "reason" => "correction",
+                    ]
+                ];
+                $response = $this->runQuery($variantsUpdateInventoryQuery, $variantsInventoryInput);
+                $results[] = $response;
+                unset($variantsQueryInput);
+            }
+        }
+        if ($count > 0) {
+            $changes = [];
+            $response = $this->runQuery($variantsByIdQuery, $variantsQueryInput);
+            foreach ($response["data"]["nodes"] as $variant) {
+                $changes[] = [
+                    "delta" => $inputArray[$variant["id"]] - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
+                    "inventoryItemId" => $variant["inventoryItem"]["id"],
+                    "locationId" => $locationId,
+                ];
+            }
+            $variantsInventoryInput = [
+                "input" => [
+                    "changes" => $changes,
+                    "name" => "available",
+                    "reason" => "correction",
+                ]
+            ];
+            $response = $this->runQuery($variantsUpdateInventoryQuery, $variantsInventoryInput);
+            $results[] = $response;
+            unset($variantsQueryInput);
+        }
+        return $results;
+    }
+
+    public function getPrimaryStoreLocationId()
+    {
+        $query = ShopifyGraphqlHelperService::buildStoreLocationQuery();
+        $result = $this->runQuery($query);
+        return $result["data"]["location"]["id"];
+    }
+
     private function makeFile($content)
     {
         $file = tmpfile();
@@ -273,10 +341,14 @@ class ShopifyQueryService
      * @return type
      * @throws conditon
      **/
-    private function runQuery($query)
+    private function runQuery($query, $variables = null)
     {
         try {
-            $response = $this->graphql->query(["query" => $query]);
+            if ($variables) {
+                $response = $this->graphql->query(["query" => $query, "variables" => $variables]);
+            } else {
+                $response = $this->graphql->query(["query" => $query]);
+            }
             $response = $response->getDecodedBody();
         } catch (SyntaxError $e) {
             //we could do some error logging here
