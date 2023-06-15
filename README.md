@@ -4,7 +4,7 @@ Exports Pimcore objects into e-commerce storefronts such as Shopify.
 
 Currently, this bundle is designed to work only with a Shopify store, but could be expanded in the future to support other e-commerce frameworks.
 
-### Installation
+### Installation:
 
 1. Run `composer require torqit/store-syndicator-bundle` in your project's terminal.
 2. In the same terminal, run `bin/console pimcore:bundle:enable StoreSyndicatorBundle`
@@ -30,3 +30,7 @@ Currently, this bundle is designed to work only with a Shopify store, but could 
 ### Running an export:
 
 In a terminal, run the command `bin/console torq:push-to-shopify "your-store-name"`. If you expect this export to take longer than a few minutes (or you are exporting more than a few thousand variants), wrap the command with `nohup` as follows to ensure the process continues running if your terminal session ends unexpectedly: `nohup bin/console torq:push-to-shopify "your-store-name" &`.
+
+### Viewing Results:
+
+The tab labeled "Execution", in a Store Exporter datahub config, contains a table of logs. This table will show any files or responses returned from API calls made while exporting your products, as well as any errors that shopify returns.

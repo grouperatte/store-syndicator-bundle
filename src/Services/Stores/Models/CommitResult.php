@@ -3,10 +3,10 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores\Models;
 
 use Pimcore\Model\DataObject\Concrete;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 
 class CommitResult
 {
-
     /**
      * @var Concrete[] $updated 
      */
@@ -17,14 +17,18 @@ class CommitResult
      */
     private array $created;
 
-    /** @var String[] $errors */
+    /** @var LogRow[] $errors */
     private array $errors;
+
+    /** @var LogRow[] $logs */
+    private array $logs;
 
     public function __construct()
     {
-        $this->updated = array();
-        $this->created = array();
-        $this->errors = array();
+        $this->updated = [];
+        $this->created = [];
+        $this->errors = [];
+        $this->logs = [];
     }
 
     public function addCreated(Concrete $object)
@@ -48,11 +52,11 @@ class CommitResult
     }
 
     /**
-     * Set the value of errors
+     * Add a error
      *
-     * @param string $error
+     * @param LogRow $error
      */
-    public function addError(string $error)
+    public function addError(LogRow $error)
     {
         $this->errors[] = $error;
     }
@@ -60,10 +64,30 @@ class CommitResult
     /**
      * Get the value of errors
      *
-     * @return array
+     * @return LogRow[]
      */
     public function getErrors(): array
     {
         return $this->errors;
+    }
+
+    /**
+     * Add a logs
+     *
+     * @param LogRow $logs
+     */
+    public function addLog(LogRow $log)
+    {
+        $this->logs[] = $log;
+    }
+
+    /**
+     * Get the value of logs
+     *
+     * @return LogRow[]
+     */
+    public function getLogs(): array
+    {
+        return $this->logs;
     }
 }

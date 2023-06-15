@@ -22,6 +22,10 @@ services:
     autowire: true
     tags: ["sync.service_arguments"]
 
+  TorqIT\StoreSyndicatorBundle\Services\Stores\Models\:
+    resource: "../../Services/Stores/Models"
+    autowire: false
+
   # auto-register all commands as services
   TorqIT\StoreSyndicatorBundle\Command\:
     resource: "../../Command/*"

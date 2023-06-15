@@ -8,6 +8,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Symfony\Component\Console\Input\InputArgument;
 use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 
 class PushToShopifyCommand extends AbstractCommand
 {
@@ -38,7 +39,7 @@ class PushToShopifyCommand extends AbstractCommand
 
         $result = $this->executionService->export($config);
         foreach ($result->getErrors() as $error) {
-            $output->writeln($error);
+            $output->writeln(json_encode(array_values($error->generateRow())));
         }
         $finalTime = time();
         $diff = $finalTime - $initialTime;

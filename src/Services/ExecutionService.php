@@ -14,6 +14,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 
 /*
     Gets the correct StoreInterface from the config file.
@@ -38,6 +39,10 @@ class ExecutionService
         $configData = $this->config->getConfiguration();
         $this->storeInterface->setup($config);
 
+        $configData["ExportLogs"] = [];
+        $this->config->setConfiguration($configData);
+        $this->config->save();
+
         $classType = $configData["products"]["class"];
         $classType = ClassDefinition::getById($classType);
         $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
@@ -51,7 +56,19 @@ class ExecutionService
             }
         }
         $results = $this->storeInterface->commit();
-        $results->addError("products with over 100 variants: " . json_encode($rejects));
+        $results->addError(new LogRow("products not exported due to having over 100 variants", json_encode($rejects)));
+
+        //save errors and logs
+        $configData = $this->config->getConfiguration();
+        foreach ($results->getErrors() as $error) {
+            $configData["ExportLogs"][] = $error->generateRow();
+        }
+        foreach ($results->getLogs() as $log) {
+            $configData["ExportLogs"][] = $log->generateRow();
+        }
+        $this->config->setConfiguration($configData);
+        $this->config->save();
+
         return $results;
     }
 

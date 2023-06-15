@@ -24,6 +24,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 
 class ShopifyStore extends BaseStore
 {
@@ -56,9 +57,6 @@ class ShopifyStore extends BaseStore
         $this->propertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
 
         $configData = $this->config->getConfiguration();
-        $configData["ExportLogs"] = [];
-        $this->config->setConfiguration($configData);
-        $this->config->save();
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
         $this->shopifyQueryService = new ShopifyQueryService($authenticator);
@@ -178,12 +176,12 @@ class ShopifyStore extends BaseStore
     private function processBaseProductData($fields, &$graphQLInput)
     {
         foreach ($fields as $field => $value) {
-            if($field == "status"){
+            if ($field == "status") {
                 $value[0] = strtoupper($value[0]);
-                if(!in_array($value[0], ["ACTIVE", "ARCHIVED", "DRAFT"])){
+                if (!in_array($value[0], ["ACTIVE", "ARCHIVED", "DRAFT"])) {
                     throw new Exception("invalid status value $value[0] not one of ACTIVE ARCHIVED or DRAFT");
                 }
-            }elseif($field == 'tags'){
+            } elseif ($field == 'tags') {
                 $graphQLInput[$field] = $value;
                 continue;
             }
@@ -246,28 +244,29 @@ class ShopifyStore extends BaseStore
         $this->updateVariantsArrays[] = $thisVariantArray;
     }
 
-    private function processBaseVariantData($fields, &$thisVariantArray){
+    private function processBaseVariantData($fields, &$thisVariantArray)
+    {
         foreach ($fields as $field => $value) {
             if ($field == 'weight' || $field == 'cost' || $field == 'price') { //wants this as a non-string wrapped number
                 $value[0] = (float)$value[0];
             }
-            if($field == 'tracked'){
+            if ($field == 'tracked') {
                 $value[0] = $value[0] == "true";
             }
-            if($field == 'cost' || $field == 'tracked'){
+            if ($field == 'cost' || $field == 'tracked') {
                 $thisVariantArray['inventoryItem'][$field] = $value[0];
                 continue;
-            }elseif($field == 'continueSellingOutOfStock'){
-                $thisVariantArray['inventoryPolicy'] = $value[0]? "CONTINUE": "DENY";
+            } elseif ($field == 'continueSellingOutOfStock') {
+                $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
                 continue;
-            }elseif($field == 'weightUnit'){
+            } elseif ($field == 'weightUnit') {
                 $value[0] = strtoupper($value[0]);
-                if(!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])){
+                if (!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
                     throw new Exception("invalid weightUnit value $value[0] not one of POUNDS OUNCES KILOGRAMS or GRAMS");
                 }
-            }elseif($field == 'imageSrc'){
+            } elseif ($field == 'imageSrc') {
                 $value[0] = $value[0]->getFrontendFullPath();
-            }elseif($field == 'title'){
+            } elseif ($field == 'title') {
                 $thisVariantArray["options"][] = $value[0];
                 continue;
             }
@@ -349,7 +348,7 @@ class ShopifyStore extends BaseStore
                     }
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during image pushing in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError(new LogRow("error during image pushing in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
             }
         }
 
@@ -358,10 +357,10 @@ class ShopifyStore extends BaseStore
             try {
                 $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
                 foreach ($resultFiles as $resultFileURL) {
-                    $this->addLogRow("create product & variant result file", $resultFileURL);
+                    $commitResults->addLog(new LogRow("create product & variant result file", $resultFileURL));
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during product creating in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError(new LogRow("error during product creating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
             }
         }
 
@@ -369,9 +368,9 @@ class ShopifyStore extends BaseStore
         if ($this->updateProductArrays) {
             try {
                 $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
-                $this->addLogRow("update products result file", $resultFileURL);
+                $commitResults->addLog(new LogRow("update products result file", $resultFileURL));
             } catch (Exception $e) {
-                $commitResults->addError("error during product updating in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError(new LogRow("error during product updating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
             }
         }
 
@@ -379,10 +378,10 @@ class ShopifyStore extends BaseStore
             try {
                 $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
                 foreach ($resultFiles as $resultFileURL) {
-                    $this->addLogRow("update variant result file", $resultFileURL);
+                    $commitResults->addLog(new LogRow("update variant result file", $resultFileURL));
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during variant updating in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError(new LogRow("error during variant updating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
             }
         }
 
@@ -390,13 +389,12 @@ class ShopifyStore extends BaseStore
             try {
                 $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
                 foreach ($resultFiles as $resultFileURL) {
-                    $this->addLogRow("update metafield result file", $resultFileURL);
+                    $commitResults->addLog(new LogRow("update metafield result file", $resultFileURL));
                 }
             } catch (Exception $e) {
-                $commitResults->addError("error during metafield setting in commit: " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+                $commitResults->addError(new LogRow("error during metafield setting in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
             }
         }
-        $this->config->save();
         $this->shopifyProductLinkingService->link($this->config, $changesStartTime);
         return $commitResults;
     }

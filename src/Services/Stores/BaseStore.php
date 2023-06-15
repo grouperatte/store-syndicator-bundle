@@ -98,7 +98,7 @@ abstract class BaseStore implements StoreInterface
                     $vals[] = $this->getFieldValues($singleVal, $fieldPath);
                 } elseif ($singleVal && is_array($singleVal) && empty($fieldPath)) { //blocks
                     $vals[] = $this->processLocalValue(array_values($singleVal)[0]->getData());
-                }elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
+                } elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
                     $vals[] = $this->processLocalValue($singleVal[$fieldPath[0]]->getData());
                 } else {
                     $vals[] = $singleVal;
@@ -162,12 +162,5 @@ abstract class BaseStore implements StoreInterface
     public function existsInStore(Concrete $object): bool
     {
         return $this->getStoreProductId($object) != null;
-    }
-
-    public function addLogRow(string $comment, string $log)
-    {
-        $configData = $this->config->getConfiguration();
-        $configData["ExportLogs"][] = ["comment" => $comment, "log" => $log];
-        $this->config->setConfiguration($configData);
     }
 }
