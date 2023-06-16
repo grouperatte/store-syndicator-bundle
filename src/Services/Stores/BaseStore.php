@@ -12,6 +12,7 @@ use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
 use Pimcore\Model\DataObject\Data\QuantityValue;
 use Pimcore\Model\DataObject\ClassDefinition\Data;
+use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 
@@ -58,7 +59,11 @@ abstract class BaseStore implements StoreInterface
             //getting local value of field
             $localFieldPath = explode(".", $localAttribute);
             $remoteFieldPath = explode(".", $remoteAttribute);
-            $localValue = $this->getFieldValues($object, $localFieldPath);
+            if (in_array($localAttribute, AttributesService::$staticLocalFields)) {
+                $localValue = AttributesService::getStaticValue($localAttribute);
+            } else {
+                $localValue = $this->getFieldValues($object, $localFieldPath);
+            }
             if ($localValue !== null) {
                 if (!is_array($localValue)) {
                     $localValue = [$localValue];

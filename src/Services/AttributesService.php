@@ -2,6 +2,7 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
+use Carbon\Carbon;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
@@ -64,6 +65,11 @@ class AttributesService
         "stock",
     ];
 
+    const CURRENT_TIME_OPTION = 'Current Time';
+    static array $staticLocalFields = [
+        self::CURRENT_TIME_OPTION,
+    ];
+
     public function getRemoteFields(Graphql $client): array
     {
         //get metafields
@@ -106,7 +112,8 @@ class AttributesService
             return [];
         }
 
-        $attributes = ["Key"];
+        $attributes = self::$staticLocalFields;
+        $attributes[] = 'Key';
         $this->getFieldDefinitionsRecursive($class, $attributes, "", []);
 
         return $attributes;
@@ -239,5 +246,15 @@ class AttributesService
         $list = new Classificationstore\KeyConfig\Listing();
         $list->setCondition($condition);
         return $list->load();
+    }
+
+    public static function getStaticValue($field)
+    {
+        switch ($field) {
+            case self::CURRENT_TIME_OPTION:
+                return Carbon::now()->toISOString();
+            default:
+                return '';
+        }
     }
 }
