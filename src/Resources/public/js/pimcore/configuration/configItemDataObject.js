@@ -18,6 +18,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
         this.buildProductsTab(),
         this.buildAttributeMappingTab(),
         this.buildAccessTab(),
+        this.buildLoggerTab(),
         this.buildExecutionTab(),
       ];
     },
@@ -424,6 +425,10 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
         items: [this.APIAccessPicker.getPanel()],
       });
       return this.accessForm;
+    },
+    buildLoggerTab: function() {
+      const loggerTab = new pimcore.plugin.pimcoreDataImporterBundle.configuration.components.logTab(this.configName);
+      return loggerTab.getTabPanel();
     },
     buildExecutionTab: function () {
       let manualExecute = Ext.create("Ext.Button", {

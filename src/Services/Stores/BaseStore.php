@@ -15,12 +15,13 @@ use Pimcore\Model\DataObject\ClassDefinition\Data;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
+use Pimcore\Log\ApplicationLogger;
 
 abstract class BaseStore implements StoreInterface
 {
     protected string $propertyName = "Default";
     protected Configuration $config;
-    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService);
+    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger);
     abstract public function setup(Configuration $config);
     abstract public function getAllProducts();
 

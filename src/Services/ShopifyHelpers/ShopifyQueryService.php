@@ -15,9 +15,10 @@ class ShopifyQueryService
 {
     const MAX_QUERY_OBJS = 250;
 
+    
     private Graphql $graphql;
     public function __construct(
-        ShopifyAuthenticator $abstractAuthenticator
+        ShopifyAuthenticator $abstractAuthenticator,
     ) {
         $this->graphql = $abstractAuthenticator->connect()['client'];
     }
@@ -133,11 +134,12 @@ class ShopifyQueryService
 
         $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
         $result = $this->runQuery($product_update_query);
-
-        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+       
+        $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+        while (!$queryResult = $this->checkQueryProgress($gid)) {
             sleep(1);
         }
-        return $resultFileURL;
+        return $queryResult['status'] . ': ' . ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
     }
 
     public function createProducts(array $inputArray)
@@ -168,10 +170,11 @@ class ShopifyQueryService
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
         $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
         $result = $this->runQuery($product_update_query);
-        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+        $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+        while (!$queryResult = $this->checkQueryProgress($gid)) {
             sleep(1);
         }
-        return $resultFileURL;
+        return $queryResult['status'] . ': ' . ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
     }
 
     public function updateProductMedia(array $inputArray)
@@ -189,10 +192,11 @@ class ShopifyQueryService
         $imagesCreateQuery = ShopifyGraphqlHelperService::buildCreateMediaQuery($bulkParamsFilekey);
 
         $results = $this->runQuery($imagesCreateQuery);
-        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+        $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+        while (!$queryResult = $this->checkQueryProgress($gid)) {
             sleep(1);
         }
-        return $resultFileURL;
+        return $queryResult['status'] . ': ' . ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
     }
 
     public function updateVariants(array $inputArray)
@@ -222,10 +226,12 @@ class ShopifyQueryService
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
         $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
         $result = $this->runQuery($variantQuery);
-        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+
+        $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+        while (!$queryResult = $this->checkQueryProgress($gid)) {
             sleep(1);
         }
-        return $resultFileURL;
+        return $queryResult['status'] . ': ' . ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
     }
 
     public function updateMetafields(array $inputArray)
@@ -250,15 +256,15 @@ class ShopifyQueryService
     private function pushMetafieldUpdateFile($file): string
     {
         $filename = stream_get_meta_data($file)['uri'];
-
         $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
         $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
         $result = $this->runQuery($metafieldSetQuery);
-        while (!$resultFileURL = $this->queryFinished("MUTATION")) {
+        $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+        while (!$queryResult = $this->checkQueryProgress($gid)) {
             sleep(1);
         }
-        return $resultFileURL;
+        return $queryResult['status'] . ': ' . ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
     }
 
     public function updateStock(array $inputArray, $locationId)
@@ -279,7 +285,7 @@ class ShopifyQueryService
                 $response = $this->runQuery($variantsByIdQuery, $variantsQueryInput);
                 foreach ($response["data"]["nodes"] as $variant) {
                     $changes[] = [
-                        "delta" => $inputArray[$variant["id"]] - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
+                        "delta" => intval($inputArray[$variant["id"]]) - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
                         "inventoryItemId" => $variant["inventoryItem"]["id"],
                         "locationId" => $locationId,
                     ];
@@ -301,7 +307,7 @@ class ShopifyQueryService
             $response = $this->runQuery($variantsByIdQuery, $variantsQueryInput);
             foreach ($response["data"]["nodes"] as $variant) {
                 $changes[] = [
-                    "delta" => $inputArray[$variant["id"]] - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
+                    "delta" => intval($inputArray[$variant["id"]]) - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
                     "inventoryItemId" => $variant["inventoryItem"]["id"],
                     "locationId" => $locationId,
                 ];
@@ -458,6 +464,22 @@ class ShopifyQueryService
             if ($response['data']["currentBulkOperation"] && $response['data']["currentBulkOperation"]["completedAt"]) {
                 return $response['data']["currentBulkOperation"]["url"] ?? "none"; //if the query returns nothing
             }
+        }
+
+        return false;
+    }
+    private function checkQueryProgress($gid): bool|array
+    {
+        $query = ShopifyGraphqlHelperService::buildQueryProgressQuery($gid);
+        $response = $this->graphql->query(["query" => $query]);
+        $response->getBody()->rewind();
+        $response = $response->getBody()->getContents();
+        $response = json_decode($response, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            
+            if ($response['data'] && $response['data']["node"] && $response['data']["node"]["status"] != "RUNNING") {
+                return $response['data']["node"];
+            }   
         }
 
         return false;

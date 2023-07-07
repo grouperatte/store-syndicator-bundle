@@ -20,6 +20,8 @@ class ShopifyGraphqlHelperService
     private static $GET_STORE_LOCATION_QUERY = '/shopify-queries/store-location-query.graphql';
     private static $BULK_GET_VARIANT_STOCK_BY_ID = '/shopify-queries/variant-stock-by-id.graphql';
     private static $UPDATE_VARIANT_STOCK = '/shopify-queries/bulk-update-quantities.graphql';
+    private static $QUERY_PROGRESS_QUERY = '/shopify-queries/check-query-progress.graphql';
+
 
     public static function buildCreateProductsQuery($remoteFile)
     {
@@ -58,6 +60,12 @@ class ShopifyGraphqlHelperService
         $queryFinishedQuery = file_get_contents(dirname(__FILE__) . self::$QUERY_FINISHED_QUERY);
         $queryFinishedQuery = preg_replace("/REPLACEMEMUTATION/", $queryType, $queryFinishedQuery);
         return $queryFinishedQuery;
+    }
+    public static function buildQueryProgressQuery($gid)
+    {
+        $queryProgressQuery = file_get_contents(dirname(__FILE__) . self::$QUERY_PROGRESS_QUERY);
+        $queryProgressQuery = preg_replace("/REPLACEMEGID/", $gid, $queryProgressQuery);
+        return $queryProgressQuery;
     }
 
     public static function buildProductsQuery($afterDateString = null)

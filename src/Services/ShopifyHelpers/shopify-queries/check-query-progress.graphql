@@ -1,0 +1,16 @@
+query {
+  node(id: "REPLACEMEGID") {
+    ... on BulkOperation {
+      id
+      status
+      errorCode
+      createdAt
+      completedAt
+      objectCount
+      fileSize
+      url
+      partialDataUrl
+			rootObjectCount
+    }
+  }
+}
