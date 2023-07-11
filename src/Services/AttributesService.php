@@ -145,10 +145,12 @@ class AttributesService
                     $attributes[] = $prefix . $field->getName();
                 }
             } elseif ($field instanceof Localizedfields) {
+                $langs = \Pimcore\Tool::getValidLanguages();
                 $fields = $field->getChildren();
                 foreach ($fields as $childField) {
                     if (!method_exists($childField, "getFieldDefinitions")) {
-                        $attributes[] = $prefix . $childField->getName();
+                        $attributes = array_merge($attributes, array_map(fn ($lang) => $prefix . $childField->getName() . "." . $lang, $langs));
+                        //$attributes[] = $prefix . $childField->getName();
                     } else {
                         $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . ".", $checkedClasses);
                     }
