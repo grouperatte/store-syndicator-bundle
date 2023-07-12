@@ -211,10 +211,14 @@ class AttributesService
                 $vals[] = self::processLocalValue($blockItem[$fieldPath[0]]->getData());
             }
             return count($vals) > 0 ? $vals : null;
-        } elseif ($fieldVal instanceof Localizedfield && array_key_exists(0, $fieldPath) && $local = $fieldPath[0]) {
-            return self::processLocalValue($rootField->$getter($local));
         } else {
-            if ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
+            if ($fieldVal instanceof Localizedfield && array_key_exists(0, $fieldPath) && $local = $fieldPath[0]) {
+                array_shift($fieldPath);
+                if (count($fieldPath) == 0) {
+                    return self::processLocalValue($rootField->$getter($local));
+                }
+                return self::getObjectFieldValues($rootField->$getter($local), $fieldPath);
+            } elseif ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
                 return self::getObjectFieldValues($fieldVal, $fieldPath);
             }
         }
