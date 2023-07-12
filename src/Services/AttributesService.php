@@ -119,7 +119,7 @@ class AttributesService
         return $attributes;
     }
 
-    private function getFieldDefinitionsRecursive($class, &$attributes, $prefix, array $checkedClasses)
+    private function getFieldDefinitionsRecursive($class, &$attributes, $prefix, array $checkedClasses, string $suffix = null)
     {
         if (!method_exists($class, "getFieldDefinitions")) {
             $attributes[] = $prefix . $class->getName();
@@ -131,13 +131,13 @@ class AttributesService
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = ObjectbrickDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . ".", $checkedClasses);
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . "." . ($suffix ? $suffix . "." : ""), $checkedClasses);
                 }
             } elseif ($field instanceof Fieldcollections) {
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = FieldcollectionDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . ".", $checkedClasses);
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . ($suffix ? $suffix . "." : ""), $checkedClasses);
                 }
             } elseif ($field instanceof ClassificationStoreDefinition) {
                 $fields = $this->getStoreKeys($field->getStoreId());
@@ -150,16 +150,17 @@ class AttributesService
                 foreach ($fields as $childField) {
                     if (!method_exists($childField, "getFieldDefinitions")) {
                         $attributes = array_merge($attributes, array_map(fn ($lang) => $prefix . $childField->getName() . "." . $lang, $langs));
-                        //$attributes[] = $prefix . $childField->getName();
                     } else {
-                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . ".", $checkedClasses);
+                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . "." . ($suffix ? $suffix . "." : ""), $checkedClasses);
                     }
                 }
                 if ($fields = $field->getReferencedFields()) {
                     $names = [];
                     foreach ($fields as $field) {
                         if (!in_array($field->getName(), $names)) { //sometimes returns the same field multiple times...
-                            $this->getFieldDefinitionsRecursive($field, $attributes, $prefix, $checkedClasses);
+                            foreach ($langs as $lang) {
+                                $this->getFieldDefinitionsRecursive($field, $attributes, $prefix, $checkedClasses, $lang);
+                            }
                             $names[] = $field->getName();
                         }
                     }
@@ -177,7 +178,7 @@ class AttributesService
                     }
                 }
             } else {
-                $attributes[] = $prefix . $field->getName();
+                $attributes[] = $prefix . $field->getName() . ($suffix ? "." .  $suffix : "");
             }
         }
     }
@@ -210,6 +211,8 @@ class AttributesService
                 $vals[] = self::processLocalValue($blockItem[$fieldPath[0]]->getData());
             }
             return count($vals) > 0 ? $vals : null;
+        } elseif ($fieldVal instanceof Localizedfield && array_key_exists(0, $fieldPath) && $local = $fieldPath[0]) {
+            return self::processLocalValue($rootField->$getter($local));
         } else {
             if ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
                 return self::getObjectFieldValues($fieldVal, $fieldPath);
