@@ -427,7 +427,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
       return this.accessForm;
     },
     buildLoggerTab: function() {
-      const loggerTab = new pimcore.plugin.pimcoreDataImporterBundle.configuration.components.logTab(this.configName);
+      const loggerTab = new pimcore.plugin.storeExporterDataObject.configuration.components.logTab(this.configName);
       return loggerTab.getTabPanel();
     },
     buildExecutionTab: function () {

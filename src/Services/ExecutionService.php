@@ -50,7 +50,9 @@ class ExecutionService
 
     public function export(Configuration $config)
     {   
+        
         $db = Db::get();
+        
         $this->totalProductsToCreate = 0;
         $this->totalProductsToUpdate = 0;
         $this->totalVariantsToCreate = 0;
@@ -67,8 +69,8 @@ class ExecutionService
         $classType = $configData["products"]["class"];
         $classType = ClassDefinition::getById($classType);
         $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
-        $this->configLogName = 'DATA-IMPORTER ' . $configData["general"]["name"];
-        $result = $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
+        $this->configName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
+        $result = $db->executeStatement('Delete from application_logs where component = ?', [$this->configName]);
         $this->applicationLogger->info("*Starting import*", [
             'component' => $this->configLogName,
             null,
