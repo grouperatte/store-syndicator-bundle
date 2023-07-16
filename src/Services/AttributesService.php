@@ -119,8 +119,13 @@ class AttributesService
         return $attributes;
     }
 
+    //builds an array of "." separated paths to all fields on the $class passed into initial call
     private function getFieldDefinitionsRecursive($class, &$attributes, $prefix, array $checkedClasses, string $suffix = null)
     {
+        //the new field path to build from on the next recursion
+        $newFieldPath = $prefix;
+        //this is used if the previous field was a localized field, we need to prepend the suffix (it will be a local)
+        $newFieldPathSuffix = ($suffix ? "." . $suffix . "." : ".");
         if (!method_exists($class, "getFieldDefinitions")) {
             $attributes[] = $prefix . $class->getName();
             return;
@@ -131,13 +136,13 @@ class AttributesService
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = ObjectbrickDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . "." . ($suffix ? $suffix . "." : ""), $checkedClasses);
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . $newFieldPathSuffix, $checkedClasses);
                 }
             } elseif ($field instanceof Fieldcollections) {
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = FieldcollectionDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . ($suffix ? $suffix . "." : ""), $checkedClasses);
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . $newFieldPathSuffix, $checkedClasses);
                 }
             } elseif ($field instanceof ClassificationStoreDefinition) {
                 $fields = $this->getStoreKeys($field->getStoreId());
@@ -148,10 +153,14 @@ class AttributesService
                 $langs = \Pimcore\Tool::getValidLanguages();
                 $fields = $field->getChildren();
                 foreach ($fields as $childField) {
-                    if (!method_exists($childField, "getFieldDefinitions")) {
+                    if (($childField instanceof AbstractRelations)) {
+                        foreach ($langs as $lang) {
+                            $this->proccessRelationField($childField, $checkedClasses, $attributes, $prefix, $lang);
+                        }
+                    } elseif (!method_exists($childField, "getFieldDefinitions")) {
                         $attributes = array_merge($attributes, array_map(fn ($lang) => $prefix . $childField->getName() . "." . $lang, $langs));
                     } else {
-                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . "." . ($suffix ? $suffix . "." : ""), $checkedClasses);
+                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . $newFieldPathSuffix, $checkedClasses);
                     }
                 }
                 if ($fields = $field->getReferencedFields()) {
@@ -166,19 +175,24 @@ class AttributesService
                     }
                 }
             } elseif ($field instanceof AbstractRelations) {
-                if ($field instanceof AdvancedManyToManyRelation || $field instanceof AdvancedManyToManyObjectRelation) {
-                    $classes = [["classes" => $field->getAllowedClassId()]];
-                } else {
-                    $classes = $field->classes;
-                }
-                foreach ($classes as $allowedClass) {
-                    $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
-                    if (!in_array($allowedClass, $checkedClasses)) {
-                        $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ".", array_merge([$allowedClass], $checkedClasses));
-                    }
-                }
+                $this->proccessRelationField($field, $checkedClasses, $attributes, $prefix, $suffix);
             } else {
                 $attributes[] = $prefix . $field->getName() . ($suffix ? "." .  $suffix : "");
+            }
+        }
+    }
+
+    private function proccessRelationField($field, $checkedClasses, &$attributes, $prefix, $suffix = null)
+    {
+        if ($field instanceof AdvancedManyToManyRelation || $field instanceof AdvancedManyToManyObjectRelation) {
+            $classes = [["classes" => $field->getAllowedClassId()]];
+        } else {
+            $classes = $field->classes;
+        }
+        foreach ($classes as $allowedClass) {
+            $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
+            if (!in_array($allowedClass, $checkedClasses)) {
+                $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . "." . ($suffix ? $suffix . "." : "."), array_merge([$allowedClass], $checkedClasses));
             }
         }
     }
