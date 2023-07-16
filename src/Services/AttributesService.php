@@ -132,17 +132,20 @@ class AttributesService
         }
         $fields = $class->getFieldDefinitions();
         foreach ($fields as $field) {
+            $newFieldPath .= $field->getName();
             if ($field instanceof Objectbricks) {
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = ObjectbrickDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . "." . $allowedType . $newFieldPathSuffix, $checkedClasses);
+                    $newFieldPath .= "." . $allowedType . $newFieldPathSuffix;
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $newFieldPath, $checkedClasses);
                 }
             } elseif ($field instanceof Fieldcollections) {
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = FieldcollectionDefinition::getByKey($allowedType);
-                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $prefix . $field->getName() . $newFieldPathSuffix, $checkedClasses);
+                    $newFieldPath .= $newFieldPathSuffix;
+                    $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $newFieldPath, $checkedClasses);
                 }
             } elseif ($field instanceof ClassificationStoreDefinition) {
                 $fields = $this->getStoreKeys($field->getStoreId());
@@ -153,14 +156,15 @@ class AttributesService
                 $langs = \Pimcore\Tool::getValidLanguages();
                 $fields = $field->getChildren();
                 foreach ($fields as $childField) {
+                    $newFieldPath = $prefix . $childField->getName();
                     if (($childField instanceof AbstractRelations)) {
                         foreach ($langs as $lang) {
                             $this->proccessRelationField($childField, $checkedClasses, $attributes, $prefix, $lang);
                         }
                     } elseif (!method_exists($childField, "getFieldDefinitions")) {
-                        $attributes = array_merge($attributes, array_map(fn ($lang) => $prefix . $childField->getName() . "." . $lang, $langs));
+                        $attributes = array_merge($attributes, array_map(fn ($lang) => $newFieldPath . "." . $lang, $langs));
                     } else {
-                        $this->getFieldDefinitionsRecursive($childField, $attributes, $prefix . $childField->getName() . $newFieldPathSuffix, $checkedClasses);
+                        $this->getFieldDefinitionsRecursive($childField, $attributes, $newFieldPath . $newFieldPathSuffix, $checkedClasses);
                     }
                 }
                 if ($fields = $field->getReferencedFields()) {
