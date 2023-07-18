@@ -1,0 +1,4 @@
+productDeleteAsync(productId: REPLACEMEPRODUCTID) {
+  deleteProductId
+}
+

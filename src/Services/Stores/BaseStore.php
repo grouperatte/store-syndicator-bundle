@@ -20,6 +20,8 @@ use Pimcore\Log\ApplicationLogger;
 abstract class BaseStore implements StoreInterface
 {
     protected string $propertyName = "Default";
+    protected string $remoteLastUpdatedProperty = "Default";
+
     protected Configuration $config;
     abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger);
     abstract public function setup(Configuration $config);

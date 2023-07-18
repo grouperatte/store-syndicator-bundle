@@ -1,0 +1,18 @@
+query {
+	products{
+		edges{
+			node{
+				id
+				REPLACEMEMETAFIELD
+				variants{
+					edges{
+						node{
+							id
+							REPLACEMEMETAFIELD
+						}
+					}
+				}
+			}
+		}
+	}
+}

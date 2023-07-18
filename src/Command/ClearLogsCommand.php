@@ -32,10 +32,10 @@ class ClearLogsCommand extends AbstractCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $name = $input->getArgument("store-name");
-        $configName = "STORE_SYNDICATOR " . $name;
+        $configLogName = "STORE_SYNDICATOR " . $name;
         $db = Db::get();
 
-        $result = $db->executeStatement('Delete from application_logs where component = ?', [$configName]);
+        $result = $db->executeStatement('Delete from application_logs where component = ?', [$configLogName]);
         return 0;
     }
 }
