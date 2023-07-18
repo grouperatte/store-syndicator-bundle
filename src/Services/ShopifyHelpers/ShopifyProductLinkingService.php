@@ -17,6 +17,9 @@ use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use Pimcore\Log\ApplicationLogger;
 use Pimcore\Db\Helper as DBHelper;
+use \Pimcore\Cache;
+use Pimcore\Logger;
+
 
 class ShopifyProductLinkingService
 {
@@ -53,7 +56,9 @@ class ShopifyProductLinkingService
         $remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
 
-
+        $classType = $configData["products"]["class"];
+        $classType = ClassDefinition::getById($classType);
+        $classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
         
         $linkingAttribute = ConfigurationService::getMapOnRow($configuration);
        
@@ -98,6 +103,8 @@ class ShopifyProductLinkingService
         $toPurgeNullCount = 0;
         $toPurgeNotFoundInCount = 0;
         $toPurgeNotActiveCount = 0;
+        $toPurgeDuplicateCount = 0;
+
         foreach ($remoteProductsAndVariants as $shopifyId => $productOrVariant) {
             $pimcoreId = $productOrVariant["linkingId"]['value'] ?? null;
             $purge = false;
@@ -105,12 +112,18 @@ class ShopifyProductLinkingService
                 $pimcoreObject = $localProductsAndVariants[$pimcoreId] ?? null;
                 if($pimcoreObject){
                     if(!$pimcoreObject['ProductStatus'] || $pimcoreObject['ProductStatus'] === "active"){
-                        DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteIdProperty, 'type' => 'text', 'data' => $shopifyId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
-                        $lastUpdated = $productOrVariant["lastUpdated"]['value'] ?? null;
-                        if($lastUpdated){
-                            DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteLastUpdatedProperty, 'type' => 'text', 'data' => $lastUpdated, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
-                        }
-                        $propertySetCount++;
+                        if(!isset($pimcoreObject['linked'])){
+                            DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteIdProperty, 'type' => 'text', 'data' => $shopifyId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                            $lastUpdated = $productOrVariant["lastUpdated"]['value'] ?? null;
+                            if($lastUpdated){
+                                DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteLastUpdatedProperty, 'type' => 'text', 'data' => $lastUpdated, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                            }
+                            $pimcoreObject['linked'] = true;
+                            $propertySetCount++;
+                        }else{
+                            $purge = true;
+                            $toPurgeDuplicateCount++;
+                        }                      
                     }else{
                         $purge = true;
                         $toPurgeNotActiveCount++;
@@ -125,16 +138,25 @@ class ShopifyProductLinkingService
             }
             if($purge){
                 if(isset($productOrVariant['__parentId'])){
-                    $purgeVariantArray[] = $shopifyId;
+                    $purgeVariantArray[$shopifyId] = $productOrVariant['__parentId'];
                 }else{
                     $purgeProductArray[] = $shopifyId;
                 }
             }
         }
+       
+
         $this->applicationLogger->info("End of data processing", [
             'component' => $this->configLogName,
             null,
         ]);
+       
+        Cache::clearAll();
+        $this->applicationLogger->info("Cleared pimcore data cache", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        
         $this->applicationLogger->info("Linked " . $propertySetCount . " products and variants", [
             'component' => $this->configLogName,
             null,
@@ -151,6 +173,10 @@ class ShopifyProductLinkingService
             'component' => $this->configLogName,
             null,
         ]);
+        $this->applicationLogger->info($toPurgeDuplicateCount . " duplicate products and variants are scheduled to be deleted in shopify", [
+            'component' => $this->configLogName,
+            null,
+        ]);
         $this->applicationLogger->info("Property linking is finished", [
             'component' => $this->configLogName,
             null,
@@ -163,14 +189,16 @@ class ShopifyProductLinkingService
 
             // $purgeProductArray = ['gid:\/\/shopify\/Product\/8435237585191', '5dfsgesg', 'dawdawd'];
         if(count($purgeProductArray) > 0){
-            $shopifyQueryService->deleteProducts($purgeProductArray);
+            Logger::info(print_r($purgeProductArray, true));
+            // $shopifyQueryService->deleteProducts($purgeProductArray);
             $this->applicationLogger->info("Shopify mutations to delete products have been submitted", [
                 'component' => $this->configLogName,
                 null,
             ]);
         }
         if(count($purgeVariantArray) > 0){
-            $shopifyQueryService->deleteVariants($purgeVariantArray);
+            Logger::info(print_r($purgeVariantArray, true));
+            // $shopifyQueryService->deleteVariants($purgeVariantArray);
             $this->applicationLogger->info("Shopify mutations to delete variants have been submitted", [
                 'component' => $this->configLogName,
                 null,

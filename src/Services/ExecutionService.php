@@ -17,6 +17,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use Pimcore\Log\ApplicationLogger;
 use Pimcore\Db;
+use \Pimcore\Cache;
 
 /*
     Gets the correct StoreInterface from the config file.
@@ -77,6 +78,12 @@ class ExecutionService
             'component' => $this->configLogName,
             null,
         ]);
+        Cache::clearAll();
+        $this->applicationLogger->info("Cleared pimcore data cache", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        
         $productListing = $this->getClassObjectListing($configData);
         $variantListing = $this->getClassVariantListing($configData);
 
@@ -145,11 +152,6 @@ class ExecutionService
                     $this->totalProductsToUpdate++;
                     $this->storeInterface->updateProduct($dataObject);
                 }
-               
-                // $this->applicationLogger->info("Processing " . $dataObject->getKey() . " and its " . $variantCount . " variants" , [
-                //     'component' => $this->configLogName,
-                //     null,
-                // ]);
                 
                 foreach ($dataObject->variants as $childVariant) {
                     if ($this->storeInterface->existsInStore($childVariant)) {
@@ -162,23 +164,6 @@ class ExecutionService
                 }
             }
         }
-        // if($dataObject->getType() == "object"){
-        //     if (!$this->storeInterface->existsInStore($dataObject)) {
-        //         $this->totalProductsToCreate++;
-        //         $this->storeInterface->createProduct($dataObject);
-        //     } else {
-        //         $this->totalProductsToUpdate++;
-        //         $this->storeInterface->updateProduct($dataObject);
-        //     }
-        // }else{
-        //     if ($this->storeInterface->existsInStore($dataObject)) {
-        //         $this->totalVariantsToUpdate++;
-        //         $this->storeInterface->updateVariant($dataObject);
-        //     } else {
-        //         $this->totalVariantsToCreate++;
-        //         $this->storeInterface->createVariant($dataObject->getParentId(), $dataObject);
-        //     }
-        // }
     }
     
     private function getClassObjectListing($configData): Dataobject\Listing

@@ -14,7 +14,7 @@ use Pimcore\Logger;
  */
 class ShopifyQueryService
 {
-    const MAX_QUERY_OBJS = 250;
+    const MAX_QUERY_OBJS = 260;
 
     
     private Graphql $graphql;
@@ -209,7 +209,7 @@ class ShopifyQueryService
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
             fwrite($file, json_encode(["input" => $inputObj]) . PHP_EOL);
-            if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+            if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
                 $resultFiles[] = $this->pushProductCreateFile($file);
                 fclose($file);
                 $file = tmpfile();
@@ -278,7 +278,7 @@ class ShopifyQueryService
         $file = tmpfile();
         foreach ($inputArray as $parentId => $variantMap) {
             fwrite($file, json_encode(["input" => $variantMap]) . PHP_EOL);
-            if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+            if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
                 $resultFiles[] = $this->pushVariantsUpdateFile($file);
                 fclose($file);
                 $file = tmpfile();
@@ -318,7 +318,7 @@ class ShopifyQueryService
         $file = tmpfile();
         foreach ($inputArray as $metafieldArray) {
             fwrite($file, json_encode(["metafields" => $metafieldArray]) . PHP_EOL);
-            if (fstat($file)["size"] >= 15000000) { //at 2mb the file upload will fail
+            if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
                 $resultFiles[] = $this->pushMetafieldUpdateFile($file);
                 fclose($file);
                 $file = tmpfile();
@@ -352,63 +352,42 @@ class ShopifyQueryService
 
     public function updateStock(array $inputArray, $locationId)
     {
-        $variantsByIdQuery = ShopifyGraphqlHelperService::buildVariantsStockByIdQuery();
-        $variantsUpdateInventoryQuery = ShopifyGraphqlHelperService::buildUpdateVariantsStockQuery();
+        $variantsSetInventoryQuery = ShopifyGraphqlHelperService::buildSetVariantsStockQuery();
         $results = [];
-        $variantsQueryInput = [];
         $variantsInventoryInput = [];
         $changes = [];
         $count = 0;
         foreach ($inputArray as $id => $quantity) {
-            $variantsQueryInput["ids"][] = $id;
             $count++;
+            $changes[] = [
+                "quantity" => intval($quantity),
+                "inventoryItemId" => $id,
+                "locationId" => $locationId,
+            ];
             if ($count >= self::MAX_QUERY_OBJS) {
-                $count = 0;
-                $changes = [];
-                $response = $this->runQuery($variantsByIdQuery, $variantsQueryInput);
-                Logger::error(print_r($response, true));
-                foreach ($response["data"]["nodes"] as $variant) {
-                    if(isset($variant["id"])){
-                        $changes[] = [
-                            "delta" => intval($inputArray[$variant["id"]]) - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
-                            "inventoryItemId" => $variant["inventoryItem"]["id"],
-                            "locationId" => $locationId,
-                        ];
-                    }
-                    
-                }
                 $variantsInventoryInput = [
                     "input" => [
-                        "changes" => $changes,
-                        "name" => "available",
+                        "setQuantities" => $changes,
                         "reason" => "correction",
                     ]
                 ];
-                $response = $this->runQuery($variantsUpdateInventoryQuery, $variantsInventoryInput);
+                Logger::info("Stock: ". print_r( $changes, true));
+                $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
                 $results[] = $response;
-                unset($variantsQueryInput);
+                $changes = [];
+                $count = 0;
             }
         }
         if ($count > 0) {
-            $changes = [];
-            $response = $this->runQuery($variantsByIdQuery, $variantsQueryInput);
-            foreach ($response["data"]["nodes"] as $variant) {
-                $changes[] = [
-                    "delta" => intval($inputArray[$variant["id"]]) - ($variant["inventoryItem"]["inventoryLevels"]["edges"][0]["node"]["available"] ?? 0),
-                    "inventoryItemId" => $variant["inventoryItem"]["id"],
-                    "locationId" => $locationId,
-                ];
-            }
             $variantsInventoryInput = [
                 "input" => [
-                    "changes" => $changes,
-                    "name" => "available",
+                    "setQuantities" => $changes,
                     "reason" => "correction",
                 ]
             ];
-            $response = $this->runQuery($variantsUpdateInventoryQuery, $variantsInventoryInput);
+            Logger::info("Stock: ". print_r( $changes, true));
+            $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
             $results[] = $response;
-            unset($variantsQueryInput);
         }
         return $results;
     }
