@@ -7,6 +7,7 @@ use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use PhpParser\Node\Expr\Cast\Bool_;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\DataObject\Localizedfield;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
@@ -91,12 +92,17 @@ abstract class BaseStore implements StoreInterface
     }
 
     //get the value(s) at the end of the fieldPath array on an object
-    private function getFieldValues($rootField, array $fieldPath)
+    private function getFieldValues(Concrete $rootField, array $fieldPath)
     {
         $field = $fieldPath[0];
         array_shift($fieldPath);
         $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
-        $fieldVal = $rootField->$getter();
+        if (array_key_exists(0, $fieldPath) && $local = self::isLocalizedField($fieldPath[0])) {
+            array_shift($fieldPath);
+            $fieldVal = $rootField->$getter($local);
+        } else {
+            $fieldVal = $rootField->$getter();
+        }
         if (is_iterable($fieldVal)) { //this would be like manytomany fields
             $vals = [];
             foreach ($fieldVal as $singleVal) {
@@ -149,6 +155,16 @@ abstract class BaseStore implements StoreInterface
             return strval($field);
         }
     }
+
+    private static function isLocalizedField($nextField): string|null
+    {
+        $langs = \Pimcore\Tool::getValidLanguages();
+        if (in_array($nextField, $langs)) {
+            return $nextField;
+        }
+        return null;
+    }
+
     public function getVariantsOptions(Concrete $object, array $fields): array
     {
         $variants = $object->getChildren([Concrete::OBJECT_TYPE_VARIANT]);
