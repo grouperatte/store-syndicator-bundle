@@ -24,7 +24,7 @@ abstract class BaseStore implements StoreInterface
     protected string $remoteLastUpdatedProperty = "Default";
 
     protected Configuration $config;
-    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger);
+    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger, \Psr\Log\LoggerInterface $customLogLogger);
     abstract public function setup(Configuration $config);
     abstract public function getAllProducts();
 

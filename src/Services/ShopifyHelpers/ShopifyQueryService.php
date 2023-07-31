@@ -20,6 +20,7 @@ class ShopifyQueryService
     private Graphql $graphql;
     public function __construct(
         ShopifyAuthenticator $abstractAuthenticator,
+        private \Psr\Log\LoggerInterface $customLogLogger
     ) {
         $this->graphql = $abstractAuthenticator->connect()['client'];
     }
@@ -39,7 +40,7 @@ class ShopifyQueryService
 
         if(!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])){
             $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
-            Logger::info("queryVariants: ".$gid);
+            $this->customLogLogger->info("queryVariants: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -80,13 +81,13 @@ class ShopifyQueryService
 
         if(!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])){
             $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
-            Logger::info("queryForLinking : " . $gid);
+            $this->customLogLogger->info("queryForLinking : " . $gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
             $resultFileURL = ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
         }else{
-            Logger::info(print_r($result, true));
+            $this->customLogLogger->info(print_r($result, true));
             throw new Exception("Error during query");
             return [];
         }
@@ -99,7 +100,12 @@ class ShopifyQueryService
         $resultFile = fopen($resultFileURL, "r");
         while ($productOrVariant = fgets($resultFile)) {
             $productOrVariant = json_decode($productOrVariant, true);
-            $formattedResults[$productOrVariant["id"]] = $productOrVariant;
+            if(isset($productOrVariant["__parentId"]) && isset($formattedResults[$productOrVariant["__parentId"]])){
+                $formattedResults[$productOrVariant["__parentId"]]['variants'][] = $productOrVariant;
+            }else{
+                $formattedResults[$productOrVariant["id"]] = $productOrVariant;
+            }
+         
         }
         return $formattedResults;
     }
@@ -119,7 +125,7 @@ class ShopifyQueryService
 
         if(!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])){
             $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
-            Logger::info("queryProducts: ".$gid);
+            $this->customLogLogger->info("queryProducts: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -193,7 +199,7 @@ class ShopifyQueryService
        
         if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            Logger::info("updateProducts: ".$gid);
+            $this->customLogLogger->info("updateProducts: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -234,7 +240,7 @@ class ShopifyQueryService
 
         if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            Logger::info("createProducts: ".$gid);
+            $this->customLogLogger->info("createProducts: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -262,7 +268,7 @@ class ShopifyQueryService
         $result = $this->runQuery($imagesCreateQuery);
         if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            Logger::info("productMedia: ".$gid);
+            $this->customLogLogger->info("productMedia: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -302,7 +308,7 @@ class ShopifyQueryService
 
         if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            Logger::info("variantUpdate: ".$gid);
+            $this->customLogLogger->info("variantUpdate: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -340,7 +346,7 @@ class ShopifyQueryService
         $result = $this->runQuery($metafieldSetQuery);
         if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            Logger::info("metafieldUpdate: ".$gid);
+            $this->customLogLogger->info("metafieldUpdate: ".$gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -371,7 +377,7 @@ class ShopifyQueryService
                         "reason" => "correction",
                     ]
                 ];
-                Logger::info("Stock: ". print_r( $changes, true));
+                $this->customLogLogger->info("Stock: ". print_r( $changes, true));
                 $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
                 $results[] = $response;
                 $changes = [];
@@ -385,7 +391,7 @@ class ShopifyQueryService
                     "reason" => "correction",
                 ]
             ];
-            Logger::info("Stock: ". print_r( $changes, true));
+            $this->customLogLogger->info("Stock: ". print_r( $changes, true));
             $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
             $results[] = $response;
         }
@@ -423,11 +429,11 @@ class ShopifyQueryService
             }
             $response = $response->getDecodedBody();
         } catch (SyntaxError $e) {
-            Logger::error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             return null;
         }
         if(array_key_exists('data', $response) && array_key_exists('bulkOperationRunMutation', $response['data']) && count($response['data']['bulkOperationRunMutation']['userErrors']) > 0 ){
-            Logger::error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
+            $this->customLogLogger->error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
             throw new Exception("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
         }
         return $response;
@@ -583,9 +589,9 @@ class ShopifyQueryService
 
         try {
             $result = $this->runQuery("mutation {".$queryString."}");
-            Logger::info(print_r($result, true));
+            $this->customLogLogger->info(print_r($result, true));
         }catch (Exception $e) {
-            Logger::error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
 
@@ -618,9 +624,9 @@ class ShopifyQueryService
 
         try {
             $result = $this->runQuery("mutation {".$queryString."}");
-            Logger::info(print_r($result, true));
+            $this->customLogLogger->info(print_r($result, true));
         }catch (Exception $e) {
-            Logger::error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
 

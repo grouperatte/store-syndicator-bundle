@@ -27,7 +27,8 @@ class ShopifyProductLinkingService
     public function __construct(
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
-        protected ApplicationLogger $applicationLogger
+        protected ApplicationLogger $applicationLogger,
+        private \Psr\Log\LoggerInterface $customLogLogger
     ) {
 
     }
@@ -50,7 +51,7 @@ class ShopifyProductLinkingService
             null,
         ]);
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($configuration);
-        $shopifyQueryService = new ShopifyQueryService($authenticator);
+        $shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
         $remoteStoreName = $this->configurationService->getStoreName($configuration);
         $linkedProperty = "TorqSS:" . $remoteStoreName . ":linked";
         $remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
@@ -64,6 +65,7 @@ class ShopifyProductLinkingService
        
         $remoteProductsAndVariants = $shopifyQueryService->queryForLinking(ShopifyGraphqlHelperService::buildProductLinkingQuery( $linkingAttribute['remote field']));
         
+        $this->customLogLogger->info(print_r($remoteProductsAndVariants, true));
         
         $this->applicationLogger->info(count($remoteProductsAndVariants) . " products and variants queried from the Shopify Store", [
             'component' => $this->configLogName,
@@ -106,35 +108,39 @@ class ShopifyProductLinkingService
         $toPurgeDuplicateCount = 0;
 
         foreach ($remoteProductsAndVariants as $shopifyId => $productOrVariant) {
-            $pimcoreId = $productOrVariant["linkingId"]['value'] ?? null;
             $purge = false;
-            if($pimcoreId){
-                $pimcoreObject = $localProductsAndVariants[$pimcoreId] ?? null;
-                if($pimcoreObject){
-                    if(!$pimcoreObject['ProductStatus'] || $pimcoreObject['ProductStatus'] === "active"){
-                        if(!isset($pimcoreObject['linked'])){
-                            DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteIdProperty, 'type' => 'text', 'data' => $shopifyId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
-                            $lastUpdated = $productOrVariant["lastUpdated"]['value'] ?? null;
-                            if($lastUpdated){
-                                DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteLastUpdatedProperty, 'type' => 'text', 'data' => $lastUpdated, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
-                            }
-                            $pimcoreObject['linked'] = true;
-                            $propertySetCount++;
+            if(!isset($productOrVariant["title"]) || $productOrVariant["title"] !== "Default Title"){
+                $pimcoreId = $productOrVariant["linkingId"]['value'] ?? null;
+                if($pimcoreId){
+                    $pimcoreObject = $localProductsAndVariants[$pimcoreId] ?? null;
+                    if($pimcoreObject){
+                        if(!$pimcoreObject['ProductStatus'] || $pimcoreObject['ProductStatus'] === "active"){
+                            if(!isset($pimcoreObject['linked'])){
+                                DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteIdProperty, 'type' => 'text', 'data' => $shopifyId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                                $lastUpdated = $productOrVariant["lastUpdated"]['value'] ?? null;
+                                if($lastUpdated){
+                                    DBHelper::upsert($db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $remoteLastUpdatedProperty, 'type' => 'text', 'data' => $lastUpdated, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                                }
+                                $pimcoreObject['linked'] = true;
+                                $propertySetCount++;
+                            }else{
+                                $purge = true;
+                                $toPurgeDuplicateCount++;
+                            }                      
                         }else{
                             $purge = true;
-                            $toPurgeDuplicateCount++;
-                        }                      
+                            $toPurgeNotActiveCount++;
+                        }
                     }else{
                         $purge = true;
-                        $toPurgeNotActiveCount++;
+                        $toPurgeNotFoundInCount++;
                     }
-                }else{
+                }else {
                     $purge = true;
-                    $toPurgeNotFoundInCount++;
+                    $toPurgeNullCount++;
                 }
-            }else {
-                $purge = true;
-                $toPurgeNullCount++;
+            }elseif(isset($productOrVariant["title"]) && $productOrVariant["title"] === "Default Title"){
+                $purgeProductArray[] = $productOrVariant['__parentId'];
             }
             if($purge){
                 if(isset($productOrVariant['__parentId'])){

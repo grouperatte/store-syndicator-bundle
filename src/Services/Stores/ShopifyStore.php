@@ -51,10 +51,11 @@ class ShopifyStore extends BaseStore
     public function __construct(
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
-        private ApplicationLogger $applicationLogger
+        private ApplicationLogger $applicationLogger,
+        private \Psr\Log\LoggerInterface $customLogLogger
     ) {
         $this->attributeService = new AttributesService();
-        $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService, $applicationLogger);
+        $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService, $applicationLogger, $customLogLogger);
     }
 
     public function setup(Configuration $config)
@@ -68,7 +69,7 @@ class ShopifyStore extends BaseStore
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
-        $this->shopifyQueryService = new ShopifyQueryService($authenticator);
+        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
         $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
         $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
 
@@ -224,12 +225,12 @@ class ShopifyStore extends BaseStore
     private function processBaseProductData($fields, &$graphQLInput)
     {
         foreach ($fields as $field => $value) {
-            if ($field == "status") {
+            if ($field === "status") {
                 $value[0] = strtoupper($value[0]);
                 if (!in_array($value[0], ["ACTIVE", "ARCHIVED", "DRAFT"])) {
                     throw new Exception("invalid status value $value[0] not one of ACTIVE ARCHIVED or DRAFT");
                 }
-            } elseif ($field == 'tags') {
+            } elseif ($field === 'tags') {
                 $graphQLInput[$field] = $value;
                 continue;
             }
@@ -332,29 +333,29 @@ class ShopifyStore extends BaseStore
     private function processBaseVariantData($fields, &$thisVariantArray)
     {
         foreach ($fields as $field => $value) {
-            if ($field == "stock") { // special cases
+            if ($field === "stock") { // special cases
                 continue;
             }
-            if ($field == 'weight' || $field == 'cost' || $field == 'price') { //wants this as a non-string wrapped number
+            if ($field === 'weight' || $field === 'cost' || $field === 'price') { //wants this as a non-string wrapped number
                 $value[0] = (float)$value[0];
             }
-            if ($field == 'tracked') {
+            if ($field === 'tracked') {
                 $value[0] = $value[0] == "true";
             }
-            if ($field == 'cost' || $field == 'tracked') {
+            if ($field === 'cost' || $field === 'tracked') {
                 $thisVariantArray['inventoryItem'][$field] = $value[0];
                 continue;
-            } elseif ($field == 'continueSellingOutOfStock') {
+            } elseif ($field === 'continueSellingOutOfStock') {
                 $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
                 continue;
-            } elseif ($field == 'weightUnit') {
+            } elseif ($field === 'weightUnit') {
                 $value[0] = strtoupper($value[0]);
                 if (!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
                     throw new Exception("invalid weightUnit value $value[0] not one of POUNDS OUNCES KILOGRAMS or GRAMS");
                 }
-            } elseif ($field == 'imageSrc') {
+            } elseif ($field === 'imageSrc') {
                 $value[0] = $value[0]->getFrontendFullPath();
-            } elseif ($field == 'title') {
+            } elseif ($field === 'title') {
                 $thisVariantArray["options"][] = $value[0];
                 continue;
             }
@@ -390,173 +391,180 @@ class ShopifyStore extends BaseStore
             'component' => $this->configLogName,
             null,
         ]);
-        //upload new images and add the src to 
-        // if (isset($this->updateImageMap)) {
-        //     $this->applicationLogger->info("Has image maps: ". count($this->updateImageMap), [
-        //         'component' => $this->configLogName,
-        //         null,
-        //     ]);
-        //     try {
-        //         //code to add back in once we need to upload images from real files again
-
-        //         // $pushArray = [];
-        //         // $mapBackArray = [];
-        //         // //upload assets with no shopify url
-        //         // foreach ($this->updateImageMap as $productId => $product) {
-        //         //     foreach ($product as $image) {
-        //         //         $updateOrCreate = $image[0];
-        //         //         $image = $image[1];
-        //         //         if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
-        //         //             $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
-        //         //         }
-        //         //         $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
-        //         //     }
-        //         // }
-        //         // $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
-        //         // $this->addLogRow("uploaded images", count($remoteFileKeys));
-        //         // //and save their url's
-        //         // foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
-        //         //     /** @var Image $image */
-        //         //     $image = $mapBackArray[$fileName][0];
-        //         //     $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
-        //         //     $image->save();
-        //         // }
-        //         // //add them to update/create queries
-        //         // foreach ($mapBackArray as $mapBackImage) {
-        //         //     if ($mapBackImage[2] == "create") {
-        //         //         $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-        //         //     } elseif ($mapBackImage[2] == "update") {
-        //         //         $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-        //         //     }
-        //         // }
-        //         foreach ($this->updateImageMap as $productId => $product) {
-        //             foreach ($product as $image) {
-        //                 $updateOrCreate = $image[0];
-        //                 /** @var Image $image */
-        //                 $image = $image[1];
-        //                 if ($updateOrCreate == "create") {
-        //                     $this->createProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
-        //                 } elseif ($updateOrCreate == "update") {
-        //                     $this->updateProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
-        //                 }
-        //             }
-        //         }
-              
-        //     } catch (Exception $e) {
-        //         $commitResults->addError(new LogRow("error during image pushing in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
-        //         $this->applicationLogger->error("error during image pushing in commit : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //     }
-        // }
-
-        // if ($this->createProductArrays) {
-        //     //create unmade products
-        //     try {
-        //         $this->applicationLogger->info("Start of Shopify mutation to create products and variants", [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //         $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
-        //         foreach ($resultFiles as $resultFileURL) {
-        //             $commitResults->addLog(new LogRow("create product & variant result file", $resultFileURL));
-        //             $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
-        //                 'component' => $this->configLogName,
-        //                 'fileObject' => $resultFileURL,
-        //                 null,
-        //             ]);
-        //         }
-        //     } catch (Exception $e) {
-        //         $commitResults->addError(new LogRow("Error during product creating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
-        //         $this->applicationLogger->error("Error during Shopify mutation to create products and variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //     }
-        // }
-
-        // //also takes care of creating variants
-        // if ($this->updateProductArrays) {
-        //     foreach($this->updateProductArrays as $index => $product){
-        //         if(!isset($product['hasUpdate']) && count($product['variants']) > 0){
-        //             unset($this->updateProductArrays[$index]);
-        //         }
-        //     }
-        //     try {
-        //         $this->applicationLogger->info("Start of Shopify mutation to update products", [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //         $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
-        //         $commitResults->addLog(new LogRow("update products result file", $resultFileURL));
-        //         $this->applicationLogger->info("Shopify mutation to update products is finished " . $resultFileURL, [
-        //             'component' => $this->configLogName,
-        //             'fileObject' => $resultFileURL,
-        //             null,
-        //         ]);
-        //     } catch (Exception $e) {
-        //         $commitResults->addError(new LogRow("error during product updating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
-        //         $this->applicationLogger->error("Error during Shopify mutation to update products : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //     }
-        // }
-
-        // if ($this->updateVariantsArrays) {
-        //     try {
-        //         $this->applicationLogger->info("Start of Shopify mutation to update variants", [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //         $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
-        //         foreach ($resultFiles as $resultFileURL) {
-        //             $commitResults->addLog(new LogRow("update variant result file", $resultFileURL));
-        //             $this->applicationLogger->info("Shopify mutation to update variants is finished " . $resultFileURL, [
-        //                 'component' => $this->configLogName,
-        //                 'fileObject' => $resultFileURL,
-        //                 null,
-        //             ]);
-        //         }
-        //     } catch (Exception $e) {
-        //         $commitResults->addError(new LogRow("error during variant updating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
-        //         $this->applicationLogger->error("Error during Shopify mutation to update variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //     }
-        // }
-
-        // if ($this->metafieldSetArrays) {
-        //     try {
-        //         $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //         $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
-        //         foreach ($resultFiles as $resultFileURL) {
-        //             $commitResults->addLog(new LogRow("update metafield result file", $resultFileURL));
-        //             $this->applicationLogger->info("A Shopify mutation to update metafields is finished " . $resultFileURL, [
-        //                 'component' => $this->configLogName,
-        //                 'fileObject' => $resultFileURL,
-        //                 null,
-        //             ]);
-        //         }
-        //     } catch (Exception $e) {
-        //         $commitResults->addError(new LogRow("error during metafield setting in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
-        //         $this->applicationLogger->error("Error during Shopify mutations to update metafields : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
-        //             'component' => $this->configLogName,
-        //             null,
-        //         ]);
-        //     }
-        // }
-        if ($this->updateStock) {
+        // upload new images and add the src to 
+        if (isset($this->updateImageMap)) {
+            $this->applicationLogger->info("Has image maps: ". count($this->updateImageMap), [
+                'component' => $this->configLogName,
+                null,
+            ]);
             try {
-                $this->applicationLogger->info("Start of Shopify mutation to update inventory", [
+                //code to add back in once we need to upload images from real files again
+
+                // $pushArray = [];
+                // $mapBackArray = [];
+                // //upload assets with no shopify url
+                // foreach ($this->updateImageMap as $productId => $product) {
+                //     foreach ($product as $image) {
+                //         $updateOrCreate = $image[0];
+                //         $image = $image[1];
+                //         if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
+                //             $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
+                //         }
+                //         $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
+                //     }
+                // }
+                // $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
+                // $this->addLogRow("uploaded images", count($remoteFileKeys));
+                // //and save their url's
+                // foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
+                //     /** @var Image $image */
+                //     $image = $mapBackArray[$fileName][0];
+                //     $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
+                //     $image->save();
+                // }
+                // //add them to update/create queries
+                // foreach ($mapBackArray as $mapBackImage) {
+                //     if ($mapBackImage[2] == "create") {
+                //         $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                //     } elseif ($mapBackImage[2] == "update") {
+                //         $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
+                //     }
+                // }
+                foreach ($this->updateImageMap as $productId => $product) {
+                    foreach ($product as $image) {
+                        $updateOrCreate = $image[0];
+                        /** @var Image $image */
+                        $image = $image[1];
+                        if ($updateOrCreate === "create") {
+                            $this->createProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
+                        } elseif ($updateOrCreate === "update") {
+                            $this->updateProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
+                        }
+                    }
+                }
+              
+            } catch (Exception $e) {
+                $commitResults->addError(new LogRow("error during image pushing in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
+                $this->applicationLogger->error("error during image pushing in commit : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
                     'component' => $this->configLogName,
                     null,
                 ]);
+            }
+        }
+
+        if ($this->createProductArrays) {
+            foreach($this->createProductArrays as $index => $product){
+                if(isset($product['variants']) && count($product['variants']) == 0){
+                    unset($this->createProductArrays[$index]);
+                }
+            }
+            //create unmade products
+            try {
+                $this->applicationLogger->info("Start of Shopify mutation to create products and variants", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
+                foreach ($resultFiles as $resultFileURL) {
+                    $commitResults->addLog(new LogRow("create product & variant result file", $resultFileURL));
+                    $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
+                        'component' => $this->configLogName,
+                        'fileObject' => $resultFileURL,
+                        null,
+                    ]);
+                }
+            } catch (Exception $e) {
+                $commitResults->addError(new LogRow("Error during product creating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
+                $this->applicationLogger->error("Error during Shopify mutation to create products and variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            }
+        }
+
+        //also takes care of creating variants
+        if ($this->updateProductArrays) {
+            foreach($this->updateProductArrays as $index => $product){
+                if(!isset($product['hasUpdate']) && (isset($product['variants']) && count($product['variants']) > 0)){
+                    unset($this->updateProductArrays[$index]);
+                }
+                unset($product['hasUpdate']);
+            }
+            try {
+                $this->applicationLogger->info("Start of Shopify mutation to update products", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
+                $commitResults->addLog(new LogRow("update products result file", $resultFileURL));
+                $this->applicationLogger->info("Shopify mutation to update products is finished " . $resultFileURL, [
+                    'component' => $this->configLogName,
+                    'fileObject' => $resultFileURL,
+                    null,
+                ]);
+            } catch (Exception $e) {
+                $commitResults->addError(new LogRow("error during product updating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
+                $this->applicationLogger->error("Error during Shopify mutation to update products : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            }
+        }
+
+        if ($this->updateVariantsArrays) {
+            try {
+                $this->applicationLogger->info("Start of Shopify mutation to update variants", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
+                foreach ($resultFiles as $resultFileURL) {
+                    $commitResults->addLog(new LogRow("update variant result file", $resultFileURL));
+                    $this->applicationLogger->info("Shopify mutation to update variants is finished " . $resultFileURL, [
+                        'component' => $this->configLogName,
+                        'fileObject' => $resultFileURL,
+                        null,
+                    ]);
+                }
+            } catch (Exception $e) {
+                $commitResults->addError(new LogRow("error during variant updating in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
+                $this->applicationLogger->error("Error during Shopify mutation to update variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            }
+        }
+
+        if ($this->metafieldSetArrays) {
+            try {
+                $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
+                foreach ($resultFiles as $resultFileURL) {
+                    $commitResults->addLog(new LogRow("update metafield result file", $resultFileURL));
+                    $this->applicationLogger->info("A Shopify mutation to update metafields is finished " . $resultFileURL, [
+                        'component' => $this->configLogName,
+                        'fileObject' => $resultFileURL,
+                        null,
+                    ]);
+                }
+            } catch (Exception $e) {
+                $commitResults->addError(new LogRow("error during metafield setting in commit", $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString()));
+                $this->applicationLogger->error("Error during Shopify mutations to update metafields : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            }
+        }
+        if ($this->updateStock) {
+            try {
+                $this->applicationLogger->info("Start of Shopify mutation to update inventory: " . $this->storeLocationId, [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                
                 $results = $this->shopifyQueryService->updateStock($this->updateStock, $this->storeLocationId);
                 $commitResults->addLog(new LogRow("update stock results", json_encode($results)));
                 $this->applicationLogger->info("Shopify mutation to update inventory is finished " . json_encode($results), [
