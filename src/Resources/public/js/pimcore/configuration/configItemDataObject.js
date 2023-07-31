@@ -174,7 +174,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
     buildAttributeMappingTab: function () {
       if (!this.attributeStore) {
         this.attributeStore = Ext.create("Ext.data.Store", {
-          fields: ["local field", "field type", "remote field", "map on"],
+          fields: ["local field", "field type", "remote field"],
           data: this.data.attributeMap,
           pageSize: 0,
         });
@@ -326,47 +326,6 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
             },
           },
           {
-            xtype: "checkcolumn",
-            text: "map on",
-            dataIndex: "map on",
-            width: 70,
-            tooltip: t(
-              "plugin_pimcore_datahub_configpanel_item_map_on_header_tip"
-            ),
-            listeners: {
-              beforecheckchange: function (
-                checkboxColumn,
-                rowIndex,
-                checked,
-                record,
-                e,
-                eOpts
-              ) {
-                var allowedMapOnTypes = ["variant metafields", "base variant"];
-                if (!allowedMapOnTypes.includes(record.get("field type"))) {
-                  Ext.toast("Please Select a variant property");
-                  return false;
-                }
-              },
-              checkchange: function (
-                checkboxColumn,
-                rowIndex,
-                checked,
-                record,
-                e,
-                eOpts
-              ) {
-                var store = checkboxColumn.up("grid");
-                store = store.getStore();
-                store.each(function (allRecords) {
-                  if (allRecords.id != record.id) {
-                    allRecords.set("map on", false);
-                  }
-                });
-              },
-            },
-          },
-          {
             xtype: "actioncolumn",
             width: 30,
             items: [
@@ -427,7 +386,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
       return this.accessForm;
     },
     buildLoggerTab: function() {
-      const loggerTab = new pimcore.plugin.pimcoreDataImporterBundle.configuration.components.logTab(this.configName);
+      const loggerTab = new pimcore.plugin.storeExporterDataObject.configuration.components.logTab(this.configName);
       return loggerTab.getTabPanel();
     },
     buildExecutionTab: function () {

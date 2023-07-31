@@ -17,6 +17,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use Pimcore\Log\ApplicationLogger;
 use Pimcore\Db;
+use \Pimcore\Cache;
 
 /*
     Gets the correct StoreInterface from the config file.
@@ -28,7 +29,7 @@ class ExecutionService
 {
     private Configuration $config;
     private string $classType;
-    private string $configName;
+    private string $configLogName;
     private int $totalProductsToCreate;
     private int $totalProductsToUpdate;
     private int $totalVariantsToCreate;
@@ -40,7 +41,7 @@ class ExecutionService
      /**
      * @var ApplicationLogger
      */
-    protected $applicationLogger;
+    protected ApplicationLogger $applicationLogger;
 
     public function __construct(ShopifyStore $storeInterface,  ApplicationLogger $applicationLogger)
     {
@@ -50,7 +51,9 @@ class ExecutionService
 
     public function export(Configuration $config)
     {   
+        
         $db = Db::get();
+        
         $this->totalProductsToCreate = 0;
         $this->totalProductsToUpdate = 0;
         $this->totalVariantsToCreate = 0;
@@ -67,25 +70,46 @@ class ExecutionService
         $classType = $configData["products"]["class"];
         $classType = ClassDefinition::getById($classType);
         $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
-        $this->configName = 'DATA-IMPORTER ' . $configData["general"]["name"];
-        $result = $db->executeStatement('Delete from application_logs where component = ?', [$this->configName]);
+
+        $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
+        $result = $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
+        
         $this->applicationLogger->info("*Starting import*", [
-            'component' => $this->configName,
+            'component' => $this->configLogName,
             null,
         ]);
-        $productListing = $this->getClassListing($configData);
-        $this->applicationLogger->info("Processing " . count($productListing) . " products", [
-            'component' => $this->configName,
+        Cache::clearAll();
+        $this->applicationLogger->info("Cleared pimcore data cache", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        
+        $productListing = $this->getClassObjectListing($configData);
+        $variantListing = $this->getClassVariantListing($configData);
+
+        $productsAndVariants = [];
+        foreach ($productListing as $product) {
+            if ($product) {
+                $product->variants = [];
+                $productsAndVariants[$product->getId()] = $product;
+            }
+        }
+        foreach ($variantListing as $variant) {
+            if ($variant && array_key_exists($variant->getParentId(), $productsAndVariants)) {
+                $productsAndVariants[$variant->getParentId()]->variants[] = $variant;
+            }
+        }
+
+        $this->applicationLogger->info("Processing " . count($productsAndVariants) . " products", [
+            'component' => $this->configLogName,
             null,
         ]);
         $rejects = []; //array of products we cant export
-        foreach ($productListing as $product) {
-            if ($product) {
-                $this->proccess($product, $rejects);
-            }
+        foreach ($productsAndVariants as $product) {
+            $this->proccess($product, $rejects);
         }
         $this->applicationLogger->info("Ready to create " .  $this->totalProductsToCreate . " products and " . $this->totalVariantsToCreate . " variants, and to update " . $this->totalProductsToUpdate . " products and " . $this->totalVariantsToUpdate . " variants", [
-            'component' => $this->configName,
+            'component' => $this->configLogName,
             null,
         ]);
         $results = $this->storeInterface->commit();
@@ -102,7 +126,7 @@ class ExecutionService
         $this->config->setConfiguration($configData);
         $this->config->save();
         $this->applicationLogger->info("*End of import*", [
-            'component' => $this->configName,
+            'component' => $this->configLogName,
             null,
         ]);
 
@@ -113,12 +137,11 @@ class ExecutionService
     {
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $this->classType)) {
-            $variants = $dataObject->getChildren([Concrete::OBJECT_TYPE_VARIANT], true);
-            $variantCount = count($variants);
+            $variantCount = count($dataObject->variants);
             if ($variantCount > 100) {
                 $rejects[] = $dataObject->getId();
                 $this->applicationLogger->error("Product ".  $dataObject->getKey() ." not exported due to having over 100 variants", [
-                    'component' => $this->configName,
+                    'component' => $this->configLogName,
                     null,
                 ]);
             } else {
@@ -129,13 +152,8 @@ class ExecutionService
                     $this->totalProductsToUpdate++;
                     $this->storeInterface->updateProduct($dataObject);
                 }
-                if($variantCount > 0){
-                    $this->applicationLogger->info("Processing " . $dataObject->getKey() . " and its " . $variantCount . " variants" , [
-                        'component' => $this->configName,
-                        null,
-                    ]);
-                }
-                foreach ($variants as $childVariant) {
+                
+                foreach ($dataObject->variants as $childVariant) {
                     if ($this->storeInterface->existsInStore($childVariant)) {
                         $this->totalVariantsToUpdate++;
                         $this->storeInterface->updateVariant($dataObject, $childVariant);
@@ -148,7 +166,7 @@ class ExecutionService
         }
     }
     
-    private function getClassListing($configData): Dataobject\Listing
+    private function getClassObjectListing($configData): Dataobject\Listing
     {
         $sql = $configData["products"]["sqlCondition"];
         $listing = $this->classType . '\\Listing';
@@ -158,4 +176,15 @@ class ExecutionService
         $listing->setCondition($sql);
         return $listing;
     }
+    private function getClassVariantListing($configData): Dataobject\Listing
+    {
+        $sql = $configData["products"]["sqlCondition"];
+        $listing = $this->classType . '\\Listing';
+        $listing = new $listing();
+        /** @var Dataobject\Listing $listing */
+        $listing->setObjectTypes(['variant']);
+        $listing->setCondition($sql);
+        return $listing;
+    }
+
 }

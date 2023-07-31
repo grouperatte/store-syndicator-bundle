@@ -40,7 +40,8 @@ class StoreSyndicatorBundle extends AbstractPimcoreBundle implements DependentBu
             '/bundles/storesyndicator/js/pimcore/configuration/configItemDataObject.js',
             '/bundles/storesyndicator/js/pimcore/helpers/objectTree.js',
             '/bundles/storesyndicator/js/pimcore/helpers/workspacePicker.js',
-            '/bundles/storesyndicator/js/pimcore/helpers/APIObjectsPicker.js'
+            '/bundles/storesyndicator/js/pimcore/helpers/APIObjectsPicker.js',
+            '/bundles/storesyndicator/js/pimcore/configuration/components/logTab.js',
         ];
     }
 
@@ -51,6 +52,9 @@ class StoreSyndicatorBundle extends AbstractPimcoreBundle implements DependentBu
     public static function registerDependentBundles(BundleCollection $collection): void
     {
         $collection->addBundle(new FlysystemBundle());
+        if (\Pimcore\Version::getMajorVersion() >= 11) {
+            $collection->addBundle(\Pimcore\Bundle\ApplicationLoggerBundle\PimcoreApplicationLoggerBundle::class);
+        }
     }
 
     public function getInstaller(): ?InstallerInterface

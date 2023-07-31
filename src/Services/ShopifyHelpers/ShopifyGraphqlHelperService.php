@@ -16,10 +16,12 @@ class ShopifyGraphqlHelperService
     private static $GET_METAFIELDS_QUERY = '/shopify-queries/metafield-query.graphql';
     private static $UPDATE_VARIANTS_QUERY = '/shopify-queries/update-product-variants.graphql';
     private static $GET_VARIANTS_QUERY = '/shopify-queries/variants-query.graphql';
+    private static $GET_LINKING_QUERY = '/shopify-queries/products-linking-query.graphql';
     private static $SET_METAFIELD_QUERY = '/shopify-queries/metafield-set-value.graphql';
     private static $GET_STORE_LOCATION_QUERY = '/shopify-queries/store-location-query.graphql';
     private static $BULK_GET_VARIANT_STOCK_BY_ID = '/shopify-queries/variant-stock-by-id.graphql';
     private static $UPDATE_VARIANT_STOCK = '/shopify-queries/bulk-update-quantities.graphql';
+    private static $SET_VARIANT_STOCK = '/shopify-queries/bulk-set-quantities.graphql';
     private static $QUERY_PROGRESS_QUERY = '/shopify-queries/check-query-progress.graphql';
 
 
@@ -120,10 +122,25 @@ class ShopifyGraphqlHelperService
         } else {
             $variantsQuery = preg_replace("/\(REPLACEMEPARAMS\)/", '', $variantsQuery);
         }
-
+        
         return self::bulkQueryWrap($variantsQuery);
     }
 
+    public static function buildProductLinkingQuery($metafield)
+    {
+        $linkingQuery = file_get_contents(dirname(__FILE__) . self::$GET_LINKING_QUERY);
+        if ($metafield) {
+            $metafieldArray = explode(".", $metafield);
+            $linkingQuery = preg_replace("/REPLACEMEMETAFIELD/", 'linkingId: metafield(namespace: \"'. $metafieldArray[0].'\", key: \"' . $metafieldArray[1] . '\"){
+                value
+            }
+            lastUpdated: metafield(namespace: \"custom\", key: \"last_updated\"){
+                value
+            }', $linkingQuery);
+        } 
+        
+        return self::bulkQueryWrap($linkingQuery);
+    }
     public static function buildMetafieldSetQuery($remoteFile)
     {
         $updateVariantsQuery = file_get_contents(dirname(__FILE__) . self::$SET_METAFIELD_QUERY);
@@ -144,5 +161,9 @@ class ShopifyGraphqlHelperService
     public static function buildUpdateVariantsStockQuery()
     {
         return file_get_contents(dirname(__FILE__) . self::$UPDATE_VARIANT_STOCK);
+    }
+    public static function buildSetVariantsStockQuery()
+    {
+        return file_get_contents(dirname(__FILE__) . self::$SET_VARIANT_STOCK);
     }
 }

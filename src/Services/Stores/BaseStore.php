@@ -21,8 +21,10 @@ use Pimcore\Log\ApplicationLogger;
 abstract class BaseStore implements StoreInterface
 {
     protected string $propertyName = "Default";
+    protected string $remoteLastUpdatedProperty = "Default";
+
     protected Configuration $config;
-    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger);
+    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger, \Psr\Log\LoggerInterface $customLogLogger);
     abstract public function setup(Configuration $config);
     abstract public function getAllProducts();
 
@@ -164,7 +166,6 @@ abstract class BaseStore implements StoreInterface
         }
         return null;
     }
-
     public function getVariantsOptions(Concrete $object, array $fields): array
     {
         $variants = $object->getChildren([Concrete::OBJECT_TYPE_VARIANT]);
