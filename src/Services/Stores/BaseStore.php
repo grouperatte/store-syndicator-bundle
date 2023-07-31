@@ -94,7 +94,7 @@ abstract class BaseStore implements StoreInterface
     }
 
     //get the value(s) at the end of the fieldPath array on an object
-    private function getFieldValues($rootField, array $fieldPath)
+    private function getFieldValues(Concrete $rootField, array $fieldPath)
     {
         $field = $fieldPath[0];
         array_shift($fieldPath);
@@ -166,7 +166,6 @@ abstract class BaseStore implements StoreInterface
         }
         return null;
     }
-    
     public function getVariantsOptions(Concrete $object, array $fields): array
     {
         $variants = $object->getChildren([Concrete::OBJECT_TYPE_VARIANT]);
