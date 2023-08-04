@@ -100,12 +100,14 @@ class ShopifyQueryService
         $resultFile = fopen($resultFileURL, "r");
         while ($productOrVariant = fgets($resultFile)) {
             $productOrVariant = json_decode($productOrVariant, true);
-            if(isset($productOrVariant["__parentId"]) && isset($formattedResults[$productOrVariant["__parentId"]])){
-                $formattedResults[$productOrVariant["__parentId"]]['variants'][] = $productOrVariant;
-            }else{
-                $formattedResults[$productOrVariant["id"]] = $productOrVariant;
+            if(!isset($productOrVariant["title"]) || $productOrVariant["title"] !== "Default Title"){
+                if(isset($productOrVariant["__parentId"]) && isset($formattedResults[$productOrVariant["__parentId"]]) ){
+                    $formattedResults[$productOrVariant["__parentId"]]['variants'][$productOrVariant["id"]] = $productOrVariant;
+                }else{
+                    $formattedResults[$productOrVariant["id"]] = $productOrVariant;
+                }
+               
             }
-         
         }
         return $formattedResults;
     }
@@ -599,8 +601,8 @@ class ShopifyQueryService
     {
         $queryCount = 0;
         $queryString = "";
-        foreach ($inputArray as $id) {
-            $queryString .= "delete".$queryCount.": productVariantDelete(id: \"".$id."\") {
+        foreach ($inputArray as $index => $id) {
+            $queryString .= "delete".$queryCount.": productVariantDelete(id: \"".$index."\") {
                 deletedProductVariantId
                 product{
                     id

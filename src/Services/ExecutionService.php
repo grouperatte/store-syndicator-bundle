@@ -13,8 +13,6 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\BaseStore;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\CommitResult;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use Pimcore\Log\ApplicationLogger;
 use Pimcore\Db;
 use \Pimcore\Cache;
@@ -51,7 +49,6 @@ class ExecutionService
 
     public function export(Configuration $config)
     {   
-        
         $db = Db::get();
         
         $this->totalProductsToCreate = 0;
@@ -112,25 +109,13 @@ class ExecutionService
             'component' => $this->configLogName,
             null,
         ]);
-        $results = $this->storeInterface->commit();
-        $results->addError(new LogRow("products not exported due to having over 100 variants", json_encode($rejects)));
 
-        //save errors and logs
-        $configData = $this->config->getConfiguration();
-        foreach ($results->getErrors() as $error) {
-            $configData["ExportLogs"][] = $error->generateRow();
-        }
-        foreach ($results->getLogs() as $log) {
-            $configData["ExportLogs"][] = $log->generateRow();
-        }
-        $this->config->setConfiguration($configData);
-        $this->config->save();
+        $this->storeInterface->commit();
+        
         $this->applicationLogger->info("*End of import*", [
             'component' => $this->configLogName,
             null,
         ]);
-
-        return $results;
     }
 
     private function proccess($dataObject, &$rejects)
@@ -155,8 +140,9 @@ class ExecutionService
                 
                 foreach ($dataObject->variants as $childVariant) {
                     if ($this->storeInterface->existsInStore($childVariant)) {
-                        $this->totalVariantsToUpdate++;
-                        $this->storeInterface->updateVariant($dataObject, $childVariant);
+                        if($this->storeInterface->updateVariant($dataObject, $childVariant)){
+                            $this->totalVariantsToUpdate++;
+                        }
                     } else {
                         $this->totalVariantsToCreate++;
                         $this->storeInterface->createVariant($dataObject, $childVariant);

@@ -26,12 +26,11 @@ abstract class BaseStore implements StoreInterface
     protected Configuration $config;
     abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger, \Psr\Log\LoggerInterface $customLogLogger);
     abstract public function setup(Configuration $config);
-    abstract public function getAllProducts();
 
     abstract public function createProduct(Concrete $object): void;
     abstract public function updateProduct(Concrete $object): void;
     abstract public function createVariant(Concrete $parent, Concrete $child): void;
-    abstract public function updateVariant(Concrete $parent, Concrete $child): void;
+    abstract public function updateVariant(Concrete $parent, Concrete $child): bool;
 
     /**
      * call to perform an final actions between the app and the store
@@ -39,7 +38,7 @@ abstract class BaseStore implements StoreInterface
      *
      * @param Webstore $webstore to webstore with the product mapping
      **/
-    abstract public function commit(): Models\CommitResult;
+    abstract public function commit();
 
     public function getStoreProductId(Concrete $object): string|null
     {
