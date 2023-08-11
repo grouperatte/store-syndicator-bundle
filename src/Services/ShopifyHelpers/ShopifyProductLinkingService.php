@@ -29,6 +29,8 @@ class ShopifyProductLinkingService
     private array $localProductsAndVariants;
     private string $remoteIdProperty;
     private string $remoteLastUpdatedProperty;
+    private string $remoteInventoryIdProperty;
+
     private int $propertySetCount = 0;
     private int $toPurgeNullCount = 0;
     private int $toPurgeNotFoundInCount = 0;
@@ -67,7 +69,9 @@ class ShopifyProductLinkingService
         $remoteStoreName = $this->configurationService->getStoreName($configuration);
         $this->remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
+        $this->remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
 
+        
         $classType = $configData["products"]["class"];
         $classType = ClassDefinition::getById($classType);
         $classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
@@ -75,7 +79,7 @@ class ShopifyProductLinkingService
         $linkingAttribute = ConfigurationService::getMapOnRow($configuration);
        
         $remoteProducts = $shopifyQueryService->queryForLinking(ShopifyGraphqlHelperService::buildProductLinkingQuery( $linkingAttribute['remote field']));
-        
+        $this->customLogLogger->info(json_encode($remoteProducts));
         $this->applicationLogger->info(count($remoteProducts) . " products queried from the Shopify Store", [
             'component' => $this->configLogName,
             null,
@@ -223,6 +227,10 @@ class ShopifyProductLinkingService
                         $lastUpdated = $product["lastUpdated"]['value'] ?? null;
                         if($lastUpdated){
                             DBHelper::upsert($this->db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $this->remoteLastUpdatedProperty, 'type' => 'text', 'data' => $lastUpdated, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                        }
+                        $inventoryItemId = $product["inventoryItem"]['id'] ?? null;
+                        if($inventoryItemId){
+                            DBHelper::upsert($this->db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $this->remoteInventoryIdProperty, 'type' => 'text', 'data' => $inventoryItemId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
                         }
                         $this->localProductsAndVariants[$pimcoreId]['linked'] = true;
                         $this->propertySetCount++;

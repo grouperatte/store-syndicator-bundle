@@ -64,6 +64,8 @@ class ShopifyStore extends BaseStore
         $remoteStoreName = $this->configurationService->getStoreName($config);
         $this->propertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
+        $this->remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
+
 
         $configData = $this->config->getConfiguration();
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
@@ -107,22 +109,25 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        if (isset($fields["Images"])) {
-            /** @var Image $image */
-            foreach ($fields["Images"] as $image) {
-                $graphQLMedia[] = array(
-                    "originalSource" => $image->getFrontendFullPath(),
-                    "mediaContentType"=> "IMAGE"
-                );
-            }
-            unset($fields["Images"]);
-        }
+        // if (isset($fields["Images"])) {
+        //     /** @var Image $image */
+        //     // foreach ($fields["Images"] as $image) {
+        //     //     $graphQLMedia[] = array(
+        //     //         "originalSource" => $image->getFrontendFullPath(),
+        //     //         "mediaContentType"=> "IMAGE"
+        //     //     );
+        //     // }
+        //     unset($fields["Images"]);
+        // }
+        unset($fields["Images"]);
+
         $this->processBaseProductData($fields['base product'], $graphQLInput);
-        $this->createProductArrays[$object->getId()] = [$graphQLInput, $graphQLMedia];
+        $this->createProductArrays[$object->getId()] = $graphQLInput;
     }
 
     public function createVariant(Concrete $parent, Concrete $child): void
     {
+
         $fields = $this->getAttributes($child);
 
         foreach ($fields['variant metafields'] as $attribute) {
@@ -140,7 +145,17 @@ class ShopifyStore extends BaseStore
             "type" => "single_line_text_field",
             "value" => strval($child->getId()),
         );
+        $graphQLMedia = null;
+        // if (!empty($fields["imageSrc"])) {
+        //     // $graphQLMedia = array(
+        //     //     "originalSource" => $fields["imageSrc"][0]->getFrontendFullPath(),
+        //     //     "mediaContentType"=> "IMAGE"
+        //     // );
+        //     // $graphQLInput['mediaSrc'] = $fields["imageSrc"][0]->getFrontendFullPath();
 
+        //     unset($fields["imageSrc"]);
+        // }
+        unset($fields["imageSrc"]);
         $this->processBaseVariantData($fields['base variant'], $graphQLInput);
         if (isset($fields['base variant']['stock'])) {
             $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
@@ -149,11 +164,17 @@ class ShopifyStore extends BaseStore
         if (!isset($graphQLInput["options"])) {
             $graphQLInput["options"][] = $child->getKey();
         }
-
+       
         if ($this->existsInStore($parent)) {
-            $this->updateProductArrays[$parent->getId()][0]["variants"][] = $graphQLInput;
+            $this->updateProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
+            // if($graphQLMedia){
+            //     $this->updateProductArrays[$parent->getId()][1][] = $graphQLMedia;
+            // }
         } else {
-            $this->createProductArrays[$parent->getId()][0]["variants"][] = $graphQLInput;
+            $this->createProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
+            // if($graphQLMedia){
+            //     $this->createProductArrays[$parent->getId()][1][] = $graphQLMedia;
+            // }
         }
     }
 
@@ -208,16 +229,17 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        if (isset($fields["Images"])) {
-            /** @var Image $image */
-            foreach ($fields["Images"] as $image) {
-                $graphQLMedia[] = array(
-                    "originalSource" => $image->getFrontendFullPath(),
-                    "mediaContentType"=> "IMAGE"
-                );
-            }
-            unset($fields["Images"]);
-        }
+        // if (isset($fields["Images"])) {
+        //     /** @var Image $image */
+        //     foreach ($fields["Images"] as $image) {
+        //         $graphQLMedia[] = array(
+        //             "originalSource" => $image->getFrontendFullPath(),
+        //             "mediaContentType"=> "IMAGE"
+        //         );
+        //     }
+        //     unset($fields["Images"]);
+        // }
+        unset($fields["Images"]);
         $this->processBaseProductData($fields['base product'], $graphQLInput);
         $graphQLInput["id"] = $remoteId;
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
@@ -280,6 +302,8 @@ class ShopifyStore extends BaseStore
         return true;
     }
 
+   
+
     private function processBaseProductData($fields, &$graphQLInput)
     {
         foreach ($fields as $field => $value) {
@@ -319,6 +343,8 @@ class ShopifyStore extends BaseStore
                 if (!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
                     throw new Exception("invalid weightUnit value $value[0] not one of POUNDS OUNCES KILOGRAMS or GRAMS");
                 }
+            } elseif ($field === 'imageSrc') {
+                $value[0] = $value[0]->getFrontendFullPath();
             } elseif ($field === 'title') {
                 $thisVariantArray["options"][] = $value[0];
                 continue;
@@ -347,15 +373,27 @@ class ShopifyStore extends BaseStore
         return $tmpMetafield;
     }
 
+    public function updateVariantStock(Concrete $object): bool
+    {
+        $inventoryId = $this->getStoreInventoryId($object);
+
+        $fields = $this->getAttributes($object);
+       
+        if (isset($fields['base variant']['stock'])) {
+            $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
+        }
+    
+        return true;
+    }
+
     public function commit()
     {
-
         $this->applicationLogger->info("Start of Shopify mutations", [
             'component' => $this->configLogName,
             null,
         ]);
         // upload new images and add the src to 
-        if (isset($this->updateImageMap)) {
+        if (false && isset($this->updateImageMap)) {
             $this->applicationLogger->info("Has image maps: ". count($this->updateImageMap), [
                 'component' => $this->configLogName,
                 null,
@@ -414,21 +452,21 @@ class ShopifyStore extends BaseStore
             }
         }
 
-        if ($this->createProductArrays[0]) {
+        if (!empty($this->createProductArrays)) {
             $excludedCount = 0;
-            foreach($this->createProductArrays[0] as $index => $product){
+            foreach($this->createProductArrays as $index => $product){
                 if(!isset($product['variants']) || count($product['variants']) == 0){
-                    unset($this->createProductArrays[0][$index]);
+                    unset($this->createProductArrays[$index]);
                     $excludedCount++;
                 }
             }
             //create unmade products
             try {
-                $this->applicationLogger->info("Start of Shopify mutation to create ". count($this->createProductArrays[0]) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
+                $this->applicationLogger->info("Start of Shopify mutation to create ". count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
                     'component' => $this->configLogName,
                     null,
                 ]);
-                if(count($this->createProductArrays[0]) > 0){
+                if(count($this->createProductArrays) > 0){
                     $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
                     foreach ($resultFiles as $resultFileURL) {
                         $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
@@ -447,7 +485,7 @@ class ShopifyStore extends BaseStore
         }
 
         //also takes care of creating variants
-        if ($this->updateProductArrays[0]) {
+        if (!empty($this->updateProductArrays)) {
             // $excludedCount = 0;
             // foreach($this->updateProductArrays as $index => $product){            
             //     if(!isset($product['hasUpdate']) && (!isset($product['variants']) || count($product['variants']) > 0)){
@@ -462,11 +500,11 @@ class ShopifyStore extends BaseStore
                 //     'component' => $this->configLogName,
                 //     null,
                 // ]);
-                $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays[0]) . " products.", [
+                $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays) . " products.", [
                     'component' => $this->configLogName,
                     null,
                 ]);
-                if(count($this->updateProductArrays[0]) > 0){
+                if(count($this->updateProductArrays) > 0){
                     $resultFileURL = $this->shopifyQueryService->updateProducts($this->updateProductArrays);
                     $this->applicationLogger->info("Shopify mutation to update products is finished " . $resultFileURL, [
                         'component' => $this->configLogName,
@@ -549,8 +587,42 @@ class ShopifyStore extends BaseStore
             null,
         ]);
         
-        if ($this->createProductArrays[0] || $this->updateProductArrays[0] || $this->updateVariantsArrays || $this->metafieldSetArrays) {
+        if (!empty($this->createProductArrays) || !empty($this->updateProductArrays) || $this->updateVariantsArrays || $this->metafieldSetArrays) {
             $this->shopifyProductLinkingService->link($this->config);
         }
+    }
+
+    public function commitStock()
+    {
+
+        $this->applicationLogger->info("Start of Shopify mutations", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        if ($this->updateStock) {
+            try {
+                $this->applicationLogger->info("Start of Shopify mutation to update inventory: " . $this->storeLocationId, [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                
+                $results = $this->shopifyQueryService->updateStock($this->updateStock, $this->storeLocationId);
+                $this->applicationLogger->info("Shopify mutation to update inventory is finished " . json_encode($results), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            } catch (Exception $e) {
+                $this->applicationLogger->error("Error during Shopify mutation to update inventory : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            }
+        }
+
+        $this->applicationLogger->info("End of Shopify mutations", [
+            'component' => $this->configLogName,
+            null,
+        ]);
     }
 }

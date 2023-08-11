@@ -14,7 +14,7 @@ use Pimcore\Logger;
  */
 class ShopifyQueryService
 {
-    const MAX_QUERY_OBJS = 260;
+    const MAX_QUERY_OBJS = 250;
 
     
     private Graphql $graphql;
@@ -217,7 +217,7 @@ class ShopifyQueryService
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
             fwrite($file, json_encode(["input" => $inputObj]) . PHP_EOL);
-            if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
+            if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
                 $resultFiles[] = $this->pushProductCreateFile($file);
                 fclose($file);
                 $file = tmpfile();
@@ -379,7 +379,7 @@ class ShopifyQueryService
                         "reason" => "correction",
                     ]
                 ];
-                $this->customLogLogger->info("Stock: ". print_r( $changes, true));
+                $this->customLogLogger->info(json_encode( $variantsInventoryInput));
                 $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
                 $results[] = $response;
                 $changes = [];
@@ -393,7 +393,7 @@ class ShopifyQueryService
                     "reason" => "correction",
                 ]
             ];
-            $this->customLogLogger->info("Stock: ". print_r( $changes, true));
+            $this->customLogLogger->info(json_encode( $variantsInventoryInput));
             $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
             $results[] = $response;
         }

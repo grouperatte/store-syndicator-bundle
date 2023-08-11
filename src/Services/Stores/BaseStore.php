@@ -22,6 +22,7 @@ abstract class BaseStore implements StoreInterface
 {
     protected string $propertyName = "Default";
     protected string $remoteLastUpdatedProperty = "Default";
+    protected string $remoteInventoryIdProperty = "Default";
 
     protected Configuration $config;
     abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger, \Psr\Log\LoggerInterface $customLogLogger);
@@ -43,6 +44,11 @@ abstract class BaseStore implements StoreInterface
     public function getStoreProductId(Concrete $object): string|null
     {
         return $object->getProperty($this->propertyName);
+    }
+
+    public function getStoreInventoryId(Concrete $object): string|null
+    {
+        return $object->getProperty($this->remoteInventoryIdProperty);
     }
 
     function setStoreProductId(Concrete $object, string $id)
@@ -93,7 +99,7 @@ abstract class BaseStore implements StoreInterface
     }
 
     //get the value(s) at the end of the fieldPath array on an object
-    private function getFieldValues(Concrete $rootField, array $fieldPath)
+    private function getFieldValues($rootField, array $fieldPath)
     {
         $field = $fieldPath[0];
         array_shift($fieldPath);
@@ -185,4 +191,9 @@ abstract class BaseStore implements StoreInterface
     {
         return $this->getStoreProductId($object) != null;
     }
+    public function hasInventoryInStore(Concrete $object): bool
+    {
+        return $this->getStoreInventoryId($object) != null;
+    }
+    
 }
