@@ -288,8 +288,9 @@ class ShopifyStore extends BaseStore
         
         $thisVariantArray = [];
         $this->processBaseVariantData($fields['base variant'], $thisVariantArray);
-        if (isset($fields['base variant']['stock'])) {
-            $this->updateStock[$remoteId] = $fields['base variant']['stock'][0];
+        $inventoryId = $this->getStoreInventoryId($object);
+        if (isset($fields['base variant']['stock']) && $inventoryId != null ) {
+            $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
         }
         if (!isset($thisVariantArray["options"])) {
             $thisVariantArray["options"][] = $child->getKey();
