@@ -379,7 +379,7 @@ class ShopifyQueryService
                         "reason" => "correction",
                     ]
                 ];
-                $this->customLogLogger->info(json_encode( $variantsInventoryInput));
+                // $this->customLogLogger->info(json_encode( $variantsInventoryInput));
                 $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
                 $results[] = $response;
                 $changes = [];
@@ -393,7 +393,7 @@ class ShopifyQueryService
                     "reason" => "correction",
                 ]
             ];
-            $this->customLogLogger->info(json_encode( $variantsInventoryInput));
+            // $this->customLogLogger->info(json_encode( $variantsInventoryInput));
             $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
             $results[] = $response;
         }
