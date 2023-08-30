@@ -23,6 +23,9 @@ class ShopifyGraphqlHelperService
     private static $UPDATE_VARIANT_STOCK = '/shopify-queries/bulk-update-quantities.graphql';
     private static $SET_VARIANT_STOCK = '/shopify-queries/bulk-set-quantities.graphql';
     private static $QUERY_PROGRESS_QUERY = '/shopify-queries/check-query-progress.graphql';
+    private static $CREATE_BULK_VARIANTS = '/shopify-queries/create-bulk-variants.graphql';
+    private static $UPDATE_BULK_VARIANTS = '/shopify-queries/update-bulk-variants.graphql';
+
 
 
     public static function buildCreateProductsQuery($remoteFile)
@@ -165,5 +168,31 @@ class ShopifyGraphqlHelperService
     public static function buildSetVariantsStockQuery()
     {
         return file_get_contents(dirname(__FILE__) . self::$SET_VARIANT_STOCK);
+    }
+
+    public static function buildCreateBulkVariantQuery($hasMedia)
+    {
+        $query = file_get_contents(dirname(__FILE__) . self::$CREATE_BULK_VARIANTS);
+        if($hasMedia){
+            $query = str_replace("/MEDIAPARENTINPUT/", ', $media: [CreateMediaInput!]', $query);
+            $query = str_replace("/MEDIAINPUT/", ', media: $media', $query);
+        }else{
+            $query = str_replace("/MEDIAPARENTINPUT/", '', $query);
+            $query = str_replace("/MEDIAINPUT/", '', $query);
+        }
+        return $query;
+    }
+
+    public static function buildUpdateBulkVariantQuery($hasMedia)
+    {
+        $query = file_get_contents(dirname(__FILE__) . self::$UPDATE_BULK_VARIANTS);
+        if($hasMedia){
+            $query = str_replace("/MEDIAPARENTINPUT/", ', $media: [CreateMediaInput!]', $query);
+            $query = str_replace("/MEDIAINPUT/", ', media: $media', $query);
+        }else{
+            $query = str_replace("/MEDIAPARENTINPUT/", '', $query);
+            $query = str_replace("/MEDIAINPUT/", '', $query);
+        }
+        return $query;
     }
 }

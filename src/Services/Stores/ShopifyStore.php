@@ -36,6 +36,7 @@ class ShopifyStore extends BaseStore
     private array $updateProductArrays;
     private array $createProductArrays;
     private array $updateVariantsArrays;
+    private array $createVariantsArrays;
     private array $metafieldSetArrays;
     private array $updateImageMap;
     private array $metafieldTypeDefinitions;
@@ -62,10 +63,10 @@ class ShopifyStore extends BaseStore
     {
         $this->config = $config;
         $remoteStoreName = $this->configurationService->getStoreName($config);
+        
         $this->propertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
         $this->remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
-
 
         $configData = $this->config->getConfiguration();
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
@@ -78,6 +79,7 @@ class ShopifyStore extends BaseStore
         $this->updateProductArrays = [];
         $this->createProductArrays = [];
         $this->updateVariantsArrays = [];
+        $this->createVariantsArrays = [];
         $this->metafieldSetArrays = [];
         $this->updateImageMap = [];
         $this->updateStock = [];
@@ -109,75 +111,23 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        // if (isset($fields["Images"])) {
-        //     /** @var Image $image */
-        //     // foreach ($fields["Images"] as $image) {
-        //     //     $graphQLMedia[] = array(
-        //     //         "originalSource" => $image->getFrontendFullPath(),
-        //     //         "mediaContentType"=> "IMAGE"
-        //     //     );
-        //     // }
-        //     unset($fields["Images"]);
-        // }
+        if (isset($fields["Images"])) {
+            /** @var Image $image */
+            foreach ($fields["Images"] as $image) {
+                $graphQLMedia[] = array(
+                    "originalSource" => $image->getFrontendFullPath(),
+                    "mediaContentType"=> "IMAGE"
+                );
+            }
+            unset($fields["Images"]);
+        }
         unset($fields["Images"]);
 
         $this->processBaseProductData($fields['base product'], $graphQLInput);
-        $this->createProductArrays[$object->getId()] = $graphQLInput;
+        $this->createProductArrays[$object->getId()]['input'] = $graphQLInput;
+        $this->createProductArrays[$object->getId()]['media'] = $graphQLMedia;
     }
-
-    public function createVariant(Concrete $parent, Concrete $child): void
-    {
-
-        $fields = $this->getAttributes($child);
-
-        foreach ($fields['variant metafields'] as $attribute) {
-            $graphQLInput["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
-        }
-        $graphQLInput["metafields"][] = array(
-            "namespace" => "custom",
-            "key" => "last_updated",
-            "type" => "single_line_text_field",
-            "value" => strval(time()),
-        );
-        $graphQLInput["metafields"][] = array(
-            "namespace" => "custom",
-            "key" => "pimcore_id",
-            "type" => "single_line_text_field",
-            "value" => strval($child->getId()),
-        );
-        $graphQLMedia = null;
-        // if (!empty($fields["imageSrc"])) {
-        //     // $graphQLMedia = array(
-        //     //     "originalSource" => $fields["imageSrc"][0]->getFrontendFullPath(),
-        //     //     "mediaContentType"=> "IMAGE"
-        //     // );
-        //     // $graphQLInput['mediaSrc'] = $fields["imageSrc"][0]->getFrontendFullPath();
-
-        //     unset($fields["imageSrc"]);
-        // }
-        unset($fields["imageSrc"]);
-        $this->processBaseVariantData($fields['base variant'], $graphQLInput);
-        if (isset($fields['base variant']['stock'])) {
-            $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
-            $graphQLInput["inventoryQuantities"]["locationId"] = $this->storeLocationId;
-        }
-        if (!isset($graphQLInput["options"])) {
-            $graphQLInput["options"][] = $child->getKey();
-        }
-       
-        if ($this->existsInStore($parent)) {
-            $this->updateProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
-            // if($graphQLMedia){
-            //     $this->updateProductArrays[$parent->getId()][1][] = $graphQLMedia;
-            // }
-        } else {
-            $this->createProductArrays[$parent->getId()]["variants"][] = $graphQLInput;
-            // if($graphQLMedia){
-            //     $this->createProductArrays[$parent->getId()][1][] = $graphQLMedia;
-            // }
-        }
-    }
-
+    
     public function updateProduct(Concrete $object): void
     {
         $graphQLInput = [];
@@ -188,7 +138,7 @@ class ShopifyStore extends BaseStore
         // }
 
         //Skip if no new changes
-        if(intval($child->getProperty($this->remoteLastUpdatedProperty)) > $child->getModificationDate()){
+        if(intval($object->getProperty($this->remoteLastUpdatedProperty)) > $object->getModificationDate()){
             return;
         }
 
@@ -229,25 +179,88 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        // if (isset($fields["Images"])) {
-        //     /** @var Image $image */
-        //     foreach ($fields["Images"] as $image) {
-        //         $graphQLMedia[] = array(
-        //             "originalSource" => $image->getFrontendFullPath(),
-        //             "mediaContentType"=> "IMAGE"
-        //         );
-        //     }
-        //     unset($fields["Images"]);
-        // }
+        if (isset($fields["Images"])) {
+            /** @var Image $image */
+            foreach ($fields["Images"] as $image) {
+                $graphQLMedia[] = array(
+                    "originalSource" => $image->getFrontendFullPath(),
+                    "mediaContentType"=> "IMAGE"
+                );
+            }
+            unset($fields["Images"]);
+        }
         unset($fields["Images"]);
         $this->processBaseProductData($fields['base product'], $graphQLInput);
         $graphQLInput["id"] = $remoteId;
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
-        $this->updateProductArrays[$object->getId()] = $graphQLInput;
+        $this->updateProductArrays[$object->getId()]['input'] = $graphQLInput;
+        $this->updateProductArrays[$object->getId()]['media'] = $graphQLMedia;
+
     }
 
+    public function createVariant(Concrete $parent, Concrete $child): void
+    {
+        $graphQLInput = [];
+        $fields = $this->getAttributes($child);
+
+        foreach ($fields['variant metafields'] as $attribute) {
+            $graphQLInput["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
+        }
+        $graphQLInput["metafields"][] = array(
+            "namespace" => "custom",
+            "key" => "last_updated",
+            "type" => "single_line_text_field",
+            "value" => strval(time()),
+        );
+        $graphQLInput["metafields"][] = array(
+            "namespace" => "custom",
+            "key" => "pimcore_id",
+            "type" => "single_line_text_field",
+            "value" => strval($child->getId()),
+        );
+        $graphQLMedia = null;
+        if (!empty($fields["imageSrc"])) {
+            $imageUrl = $fields["imageSrc"][0]->getFrontendFullPath();
+            $graphQLMedia = array(
+                "originalSource" => $imageUrl,
+                "mediaContentType"=> "IMAGE"
+            );
+            $graphQLInput['mediaSrc'] = $imageUrl;
+
+            unset($fields["imageSrc"]);
+        }
+        unset($fields["imageSrc"]);
+        $this->processBaseVariantData($fields['base variant'], $graphQLInput);
+        if (isset($fields['base variant']['stock'])) {
+            $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
+            $graphQLInput["inventoryQuantities"]["locationId"] = $this->storeLocationId;
+        }
+        if (!isset($graphQLInput["options"])) {
+            $graphQLInput["options"][] = $child->getKey();
+        }
+
+        $parentRemoteId = $this->getStoreProductId($parent);
+       
+        if ($this->existsInStore($parent)) {
+            if(!isset($this->createVariantsArrays[$parentRemoteId])){
+                $this->createVariantsArrays[$parentRemoteId] = ["variants" => [], "media" => []];
+            }
+            $this->createVariantsArrays[$parentRemoteId]["variants"][] = $graphQLInput;
+            if($graphQLMedia){
+                $this->createVariantsArrays[$parentRemoteId]['media'][] = $graphQLMedia;
+            }
+        } else {
+            $this->createProductArrays[$parent->getId()]['input']["variants"][] = $graphQLInput;
+            if($graphQLMedia){
+                $this->createProductArrays[$parent->getId()]['media'][] = $graphQLMedia;
+            }
+        }
+    }
+
+  
     public function updateVariant(Concrete $parent, Concrete $child): bool
     {
+        
         //Skip if no new changes
         if(intval($child->getProperty($this->remoteLastUpdatedProperty)) > $child->getModificationDate()){
             return false;
@@ -286,24 +299,41 @@ class ShopifyStore extends BaseStore
             $this->metafieldSetArrays[] = $batchArray;
         }
         
-        $thisVariantArray = [];
-        $this->processBaseVariantData($fields['base variant'], $thisVariantArray);
-        $inventoryId = $this->getStoreInventoryId($object);
+        $graphQLInput = [];
+        $graphQLMedia = null;
+        if (!empty($fields["imageSrc"])) {
+            $imageUrl = $fields["imageSrc"][0]->getFrontendFullPath();
+            $graphQLMedia = array(
+                "originalSource" => $imageUrl,
+                "mediaContentType"=> "IMAGE"
+            );
+            $graphQLInput['mediaSrc'] = $imageUrl;
+
+            unset($fields["imageSrc"]);
+        }
+        unset($fields["imageSrc"]);
+        $this->processBaseVariantData($fields['base variant'], $graphQLInput);
+        $inventoryId = $this->getStoreInventoryId($child);
         if (isset($fields['base variant']['stock']) && $inventoryId != null ) {
             $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
         }
-        if (!isset($thisVariantArray["options"])) {
-            $thisVariantArray["options"][] = $child->getKey();
+        if (!isset($graphQLInput["options"])) {
+            $graphQLInput["options"][] = $child->getKey();
         }
 
-        $thisVariantArray["id"] = $remoteId;
-
-        $this->updateVariantsArrays[] = $thisVariantArray;
+        $graphQLInput["id"] = $remoteId;
         
+        $parentRemoteId = $this->getStoreProductId($parent);
+
+        if(!isset($this->updateVariantsArrays[$parentRemoteId])){
+            $this->updateVariantsArrays[$parentRemoteId] = ["variants" => [], "media" => []];
+        }
+        $this->updateVariantsArrays[$parentRemoteId]["variants"][] = $graphQLInput;
+        if($graphQLMedia){
+            $this->updateVariantsArrays[$parentRemoteId]['media'][] = $graphQLMedia;
+        }
         return true;
     }
-
-   
 
     private function processBaseProductData($fields, &$graphQLInput)
     {
@@ -393,70 +423,11 @@ class ShopifyStore extends BaseStore
             'component' => $this->configLogName,
             null,
         ]);
-        // upload new images and add the src to 
-        if (false && isset($this->updateImageMap)) {
-            $this->applicationLogger->info("Has image maps: ". count($this->updateImageMap), [
-                'component' => $this->configLogName,
-                null,
-            ]);
-            try {
-                //code to add back in once we need to upload images from real files again
-
-                // $pushArray = [];
-                // $mapBackArray = [];
-                // //upload assets with no shopify url
-                // foreach ($this->updateImageMap as $productId => $product) {
-                //     foreach ($product as $image) {
-                //         $updateOrCreate = $image[0];
-                //         $image = $image[1];
-                //         if (!$image->getProperty(self::IMAGEPROPERTYNAME)) {
-                //             $pushArray[] = ["filename" => $image->getLocalFile(), "resource" => "PRODUCT_IMAGE"];
-                //         }
-                //         $mapBackArray[$image->getLocalFile()] = [$image, $productId, $updateOrCreate];
-                //     }
-                // }
-                // $remoteFileKeys = $this->shopifyQueryService->uploadFiles($pushArray);
-                // $this->addLogRow("uploaded images", count($remoteFileKeys));
-                // //and save their url's
-                // foreach ($remoteFileKeys as $fileName => $remoteFileKey) {
-                //     /** @var Image $image */
-                //     $image = $mapBackArray[$fileName][0];
-                //     $image->setProperty(self::IMAGEPROPERTYNAME, "text", $remoteFileKey["url"]);
-                //     $image->save();
-                // }
-                // //add them to update/create queries
-                // foreach ($mapBackArray as $mapBackImage) {
-                //     if ($mapBackImage[2] == "create") {
-                //         $this->createProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-                //     } elseif ($mapBackImage[2] == "update") {
-                //         $this->updateProductArrays[$mapBackImage[1]]["images"][] = ["src" => $mapBackImage[0]->getProperty(self::IMAGEPROPERTYNAME)];
-                //     }
-                // }
-
-                // foreach ($this->updateImageMap as $productId => $product) {
-                //     foreach ($product as $image) {
-                //         $updateOrCreate = $image[0];
-                //         /** @var Image $image */
-                //         $image = $image[1];
-                //         if ($updateOrCreate === "create") {
-                //             $this->createProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
-                //         } elseif ($updateOrCreate === "update") {
-                //             $this->updateProductArrays[$productId]["images"][] = ["src" => $image->getFrontendFullPath()];
-                //         }
-                //     }
-                // }
-            } catch (Exception $e) {
-                $this->applicationLogger->error("error during image pushing in commit : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
-                    'component' => $this->configLogName,
-                    null,
-                ]);
-            }
-        }
 
         if (!empty($this->createProductArrays)) {
             $excludedCount = 0;
             foreach($this->createProductArrays as $index => $product){
-                if(!isset($product['variants']) || count($product['variants']) == 0){
+                if(!isset($product['input']['variants']) || count($product['input']['variants']) == 0){
                     unset($this->createProductArrays[$index]);
                     $excludedCount++;
                 }
@@ -487,20 +458,7 @@ class ShopifyStore extends BaseStore
 
         //also takes care of creating variants
         if (!empty($this->updateProductArrays)) {
-            // $excludedCount = 0;
-            // foreach($this->updateProductArrays as $index => $product){            
-            //     if(!isset($product['hasUpdate']) && (!isset($product['variants']) || count($product['variants']) > 0)){
-            //         unset($this->updateProductArrays[$index]);
-            //         $excludedCount++;
-            //     }
-            //     unset($this->updateProductArrays[$index]['hasUpdate']);
-            // }
-
             try {
-                // $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays) . " products. " . $excludedCount . " have been excluded because they don't have any changes to synchronize.", [
-                //     'component' => $this->configLogName,
-                //     null,
-                // ]);
                 $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays) . " products.", [
                     'component' => $this->configLogName,
                     null,
@@ -520,21 +478,49 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-
+        if ($this->createVariantsArrays) {
+            try {
+                $this->applicationLogger->info("Start of Shopify mutation to create variants", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                $resultFiles = $this->shopifyQueryService->createBulkVariants($this->createVariantsArrays);
+                $this->applicationLogger->info("Shopify mutations to create variants have been submitted", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                // foreach ($resultFiles as $resultFileURL) {
+                //     $this->applicationLogger->info("Shopify mutation to create variants is finished " . $resultFileURL, [
+                //         'component' => $this->configLogName,
+                //         'fileObject' => $resultFileURL,
+                //         null,
+                //     ]);
+                // }
+            } catch (Exception $e) {
+                $this->applicationLogger->error("Error during Shopify mutation to create variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+            }
+        }
         if ($this->updateVariantsArrays) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutation to update variants", [
                     'component' => $this->configLogName,
                     null,
                 ]);
-                $resultFiles = $this->shopifyQueryService->updateVariants($this->updateVariantsArrays);
-                foreach ($resultFiles as $resultFileURL) {
-                    $this->applicationLogger->info("Shopify mutation to update variants is finished " . $resultFileURL, [
-                        'component' => $this->configLogName,
-                        'fileObject' => $resultFileURL,
-                        null,
-                    ]);
-                }
+                $resultFile = $this->shopifyQueryService->updateBulkVariants($this->updateVariantsArrays);
+                // foreach ($resultFiles as $resultFileURL) {
+                //     $this->applicationLogger->info("Shopify mutation to update variants is finished " . $resultFileURL, [
+                //         'component' => $this->configLogName,
+                //         'fileObject' => $resultFileURL,
+                //         null,
+                //     ]);
+                // }
+                $this->applicationLogger->info("Shopify mutations to update variants have been submitted", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
             } catch (Exception $e) {
                 $this->applicationLogger->error("Error during Shopify mutation to update variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
                     'component' => $this->configLogName,
