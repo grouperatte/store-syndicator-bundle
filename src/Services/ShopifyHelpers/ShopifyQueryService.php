@@ -216,6 +216,7 @@ class ShopifyQueryService
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
+            $this->customLogLogger->info(print_r($inputObj, true));
             fwrite($file, json_encode($inputObj) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
                 $resultFiles[] = $this->pushProductCreateFile($file);

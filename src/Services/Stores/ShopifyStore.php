@@ -125,7 +125,8 @@ class ShopifyStore extends BaseStore
 
         $this->processBaseProductData($fields['base product'], $graphQLInput);
         $this->createProductArrays[$object->getId()]['input'] = $graphQLInput;
-        $this->createProductArrays[$object->getId()]['media'] = $graphQLMedia;
+         $this->createProductArrays[$object->getId()]['media'] = $graphQLMedia;
+       
     }
     
     public function updateProduct(Concrete $object): void
@@ -195,7 +196,6 @@ class ShopifyStore extends BaseStore
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
         $this->updateProductArrays[$object->getId()]['input'] = $graphQLInput;
         $this->updateProductArrays[$object->getId()]['media'] = $graphQLMedia;
-
     }
 
     public function createVariant(Concrete $parent, Concrete $child): void
@@ -219,17 +219,18 @@ class ShopifyStore extends BaseStore
             "value" => strval($child->getId()),
         );
         $graphQLMedia = null;
-        if (!empty($fields["imageSrc"])) {
-            $imageUrl = $fields["imageSrc"][0]->getFrontendFullPath();
+        if (!empty($fields['base variant']["imageSrc"])) {
+            $imageUrl = $fields['base variant']["imageSrc"][0]->getFrontendFullPath();
+          
             $graphQLMedia = array(
                 "originalSource" => $imageUrl,
-                "mediaContentType"=> "IMAGE"
+                "mediaContentType" => "IMAGE"
             );
+            // $this->customLogLogger->info("graphQLMedia: ".$parent->getId() . "  " . print_r($graphQLMedia, true));
             $graphQLInput['mediaSrc'] = $imageUrl;
 
-            unset($fields["imageSrc"]);
         }
-        unset($fields["imageSrc"]);
+        unset($fields['base variant']["imageSrc"]);
         $this->processBaseVariantData($fields['base variant'], $graphQLInput);
         if (isset($fields['base variant']['stock'])) {
             $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
@@ -251,6 +252,7 @@ class ShopifyStore extends BaseStore
             }
         } else {
             $this->createProductArrays[$parent->getId()]['input']["variants"][] = $graphQLInput;
+            // $this->customLogLogger->info("Variant: ".$parent->getId() . "  " . print_r($graphQLMedia, true));
             if($graphQLMedia){
                 $this->createProductArrays[$parent->getId()]['media'][] = $graphQLMedia;
             }
@@ -301,17 +303,16 @@ class ShopifyStore extends BaseStore
         
         $graphQLInput = [];
         $graphQLMedia = null;
-        if (!empty($fields["imageSrc"])) {
-            $imageUrl = $fields["imageSrc"][0]->getFrontendFullPath();
+        if (!empty($fields['base variant']["imageSrc"])) {
+            $imageUrl = $fields['base variant']["imageSrc"][0]->getFrontendFullPath();
             $graphQLMedia = array(
                 "originalSource" => $imageUrl,
                 "mediaContentType"=> "IMAGE"
             );
             $graphQLInput['mediaSrc'] = $imageUrl;
 
-            unset($fields["imageSrc"]);
         }
-        unset($fields["imageSrc"]);
+        unset($fields['base variant']["imageSrc"]);
         $this->processBaseVariantData($fields['base variant'], $graphQLInput);
         $inventoryId = $this->getStoreInventoryId($child);
         if (isset($fields['base variant']['stock']) && $inventoryId != null ) {
@@ -374,8 +375,8 @@ class ShopifyStore extends BaseStore
                 if (!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
                     throw new Exception("invalid weightUnit value $value[0] not one of POUNDS OUNCES KILOGRAMS or GRAMS");
                 }
-            } elseif ($field === 'imageSrc') {
-                $value[0] = $value[0]->getFrontendFullPath();
+            // } elseif ($field === 'imageSrc') {
+            //     $value[0] = $value[0]->getFrontendFullPath();
             } elseif ($field === 'title') {
                 $thisVariantArray["options"][] = $value[0];
                 continue;
