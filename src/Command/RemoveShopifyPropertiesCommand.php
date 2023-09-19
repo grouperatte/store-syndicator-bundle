@@ -39,9 +39,10 @@ class RemoveShopifyPropertiesCommand extends AbstractCommand
         $shopifyIdPropertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $linkedPropertyName = "TorqSS:" . $remoteStoreName . ":linked";
         $remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
+        $remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
         $db = Db::get();
 
-        $result = $db->executeStatement('Delete from properties where name IN (?, ?, ?, ?)', [$shopifyIdPropertyName, $linkedPropertyName, 'ShopifyImageURL', $remoteLastUpdatedProperty]);
+        $result = $db->executeStatement('Delete from properties where name IN (?, ?, ?, ?, ?)', [$shopifyIdPropertyName, $linkedPropertyName, 'ShopifyImageURL', $remoteLastUpdatedProperty, $remoteInventoryIdProperty]);
         Cache::clearAll();
         return 0;
     }

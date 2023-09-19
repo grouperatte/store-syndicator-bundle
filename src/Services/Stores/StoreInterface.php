@@ -12,7 +12,7 @@ interface StoreInterface
      *
      * @param Webstore $webstore to webstore with the product mapping
      **/
-    public function commit(): Models\CommitResult;
+    public function commit();
 
     public function existsInStore(Concrete $object): bool;
 
@@ -22,7 +22,7 @@ interface StoreInterface
 
     public function createVariant(Concrete $parent, Concrete $child): void;
 
-    public function updateVariant(Concrete $parent, Concrete $child): void;
+    public function updateVariant(Concrete $parent, Concrete $child): bool;
 
     public function getStoreProductId(Concrete $object): string|null;
 

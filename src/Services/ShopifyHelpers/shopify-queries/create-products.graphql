@@ -1,5 +1,5 @@
-mutation call($input: ProductInput!) {
-  productCreate(input: $input) {
+mutation call($input: ProductInput!, $media: [CreateMediaInput!]) {
+  productCreate(input: $input, media: $media) {
     product {
       id
       title

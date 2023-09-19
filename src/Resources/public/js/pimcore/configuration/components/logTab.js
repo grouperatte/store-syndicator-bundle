@@ -19,11 +19,12 @@ pimcore.registerNS('pimcore.plugin.storeExporterDataObject.configuration.compone
  */
 
 if(pimcore.log) {
-    baseClass = pimcore.log.admin;
-}
-else {
+    // baseClass = pimcore.log.admin;
+    baseClass = pimcore.plugin.storeExporterDataObject.configuration.components.admin;
+}else {
     baseClass = pimcore.bundle.applicationlogger.log.admin;
 }
+
 pimcore.plugin.storeExporterDataObject.configuration.components.logTab = Class.create(baseClass, {
 
     componentPrefix: 'STORE_SYNDICATOR ',
@@ -58,18 +59,6 @@ pimcore.plugin.storeExporterDataObject.configuration.components.logTab = Class.c
 
         this.store.getProxy().setExtraParam('component', this.searchParams.component);
 
-
-        const fileObjectColumn = this.resultpanel.columns[4];
-        fileObjectColumn.renderer = function(value, p, record){
-            if (value && record.data.fileobject != 'none') {
-                return Ext.String.format('<a href="{0}" target="_blank">{1}</a>', record.data.fileobject,  t("plugin_pimcore_datahub_configpanel_item_logs_openlog"));
-            }
-
-            return '';
-        },
-        console.log(fileObjectColumn);
-
-
         return this.panel;
     },
 
@@ -90,6 +79,12 @@ pimcore.plugin.storeExporterDataObject.configuration.components.logTab = Class.c
         });
     },
 
+    arrayMove: function(arr, fromIndex, toIndex) {
+        var element = arr[fromIndex];
+        arr.splice(fromIndex, 1);
+        arr.splice(toIndex, 0, element);
+    },
+    
     find: function() {
         var formValues = this.searchpanel.getForm().getFieldValues();
 

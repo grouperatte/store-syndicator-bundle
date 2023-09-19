@@ -41,6 +41,7 @@ class StoreSyndicatorBundle extends AbstractPimcoreBundle implements DependentBu
             '/bundles/storesyndicator/js/pimcore/helpers/objectTree.js',
             '/bundles/storesyndicator/js/pimcore/helpers/workspacePicker.js',
             '/bundles/storesyndicator/js/pimcore/helpers/APIObjectsPicker.js',
+            '/bundles/storesyndicator/js/pimcore/configuration/components/admin.js',
             '/bundles/storesyndicator/js/pimcore/configuration/components/logTab.js',
         ];
     }

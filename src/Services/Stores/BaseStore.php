@@ -22,16 +22,16 @@ abstract class BaseStore implements StoreInterface
 {
     protected string $propertyName = "Default";
     protected string $remoteLastUpdatedProperty = "Default";
+    protected string $remoteInventoryIdProperty = "Default";
 
     protected Configuration $config;
     abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger, \Psr\Log\LoggerInterface $customLogLogger);
     abstract public function setup(Configuration $config);
-    abstract public function getAllProducts();
 
     abstract public function createProduct(Concrete $object): void;
     abstract public function updateProduct(Concrete $object): void;
     abstract public function createVariant(Concrete $parent, Concrete $child): void;
-    abstract public function updateVariant(Concrete $parent, Concrete $child): void;
+    abstract public function updateVariant(Concrete $parent, Concrete $child): bool;
 
     /**
      * call to perform an final actions between the app and the store
@@ -39,11 +39,16 @@ abstract class BaseStore implements StoreInterface
      *
      * @param Webstore $webstore to webstore with the product mapping
      **/
-    abstract public function commit(): Models\CommitResult;
+    abstract public function commit();
 
     public function getStoreProductId(Concrete $object): string|null
     {
         return $object->getProperty($this->propertyName);
+    }
+
+    public function getStoreInventoryId(Concrete $object): string|null
+    {
+        return $object->getProperty($this->remoteInventoryIdProperty);
     }
 
     function setStoreProductId(Concrete $object, string $id)
@@ -94,7 +99,7 @@ abstract class BaseStore implements StoreInterface
     }
 
     //get the value(s) at the end of the fieldPath array on an object
-    private function getFieldValues(Concrete $rootField, array $fieldPath)
+    private function getFieldValues($rootField, array $fieldPath)
     {
         $field = $fieldPath[0];
         array_shift($fieldPath);
@@ -186,4 +191,9 @@ abstract class BaseStore implements StoreInterface
     {
         return $this->getStoreProductId($object) != null;
     }
+    public function hasInventoryInStore(Concrete $object): bool
+    {
+        return $this->getStoreInventoryId($object) != null;
+    }
+    
 }

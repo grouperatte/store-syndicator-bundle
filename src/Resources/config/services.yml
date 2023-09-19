@@ -9,6 +9,14 @@ services:
     # if you need to do this, you can override this setting on individual services
     public: false
 
+  TorqIT\StoreSyndicatorBundle\EventListener\onPreSaveListener:
+    tags:
+      - { name: kernel.event_listener, event: pimcore.dataobject.preUpdate, method: onPreUpdate }
+      
+  TorqIT\StoreSyndicatorBundle\EventListener\onBeforeListLoad:
+    tags:
+      - { name: kernel.event_listener, event: pimcore.admin.object.list.beforeListLoad, method: onBeforeListLoad }
+
   # controllers are imported separately to make sure they're public
   # and have a tag that allows actions to type-hint services
   TorqIT\StoreSyndicatorBundle\Controller\:

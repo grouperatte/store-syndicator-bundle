@@ -10,7 +10,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 
-class PushToShopifyCommand extends AbstractCommand
+class PushStockToShopifyCommand extends AbstractCommand
 {
     private ExecutionService $executionService;
 
@@ -24,7 +24,7 @@ class PushToShopifyCommand extends AbstractCommand
     protected function configure()
     {
         $this
-            ->setName('torq:push-to-shopify')
+            ->setName('torq:push-stock-to-shopify')
             ->addArgument('store-name', InputArgument::REQUIRED)
             ->setDescription('Do Shopify Stuff');
     }
@@ -37,7 +37,7 @@ class PushToShopifyCommand extends AbstractCommand
 
         $config = Configuration::getByName($name);
 
-        $this->executionService->export($config);
+        $this->executionService->pushStock($config);
 
         $finalTime = time();
         $diff = $finalTime - $initialTime;

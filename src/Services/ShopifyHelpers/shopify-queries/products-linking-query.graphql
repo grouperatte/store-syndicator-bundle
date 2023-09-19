@@ -10,6 +10,9 @@ query {
 						node{
 							id
 							title
+							inventoryItem{
+								id
+							}
 							REPLACEMEMETAFIELD
 						}
 					}
