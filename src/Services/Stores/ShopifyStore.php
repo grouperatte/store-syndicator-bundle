@@ -196,7 +196,7 @@ class ShopifyStore extends BaseStore
         $graphQLInput["id"] = $remoteId;
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
         $this->updateProductArrays[$object->getId()]['input'] = $graphQLInput;
-        // $this->updateProductArrays[$object->getId()]['media'] = $graphQLMedia;
+        $this->updateProductArrays[$object->getId()]['media'] = $graphQLMedia;
     }
 
     public function createVariant(Concrete $parent, Concrete $child): void
