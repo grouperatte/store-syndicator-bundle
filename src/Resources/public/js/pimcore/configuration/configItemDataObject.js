@@ -268,7 +268,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
           {
             text: "local field",
             dataIndex: "local field",
-            width: 200,
+            width: 350,
             editor: {
               xtype: "combobox",
               queryMode: "local",
@@ -302,7 +302,7 @@ pimcore.plugin.storeExporterDataObject.configuration.configItemDataObject =
           {
             text: "remote field",
             dataIndex: "remote field",
-            width: 200,
+            width: 350,
             tooltip: t(
               "plugin_pimcore_datahub_configpanel_item_remote_header_tip"
             ),

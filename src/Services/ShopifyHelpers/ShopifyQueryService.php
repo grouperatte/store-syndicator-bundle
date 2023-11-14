@@ -186,16 +186,30 @@ class ShopifyQueryService
 
     public function updateProducts(array $inputArray)
     {
-        $inputString = "";
+        $resultFiles = [];
+        $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            $inputString .= json_encode($inputObj) . PHP_EOL;
+            // $this->customLogLogger->info(json_encode($inputObj));
+            fwrite($file, json_encode($inputObj) . PHP_EOL);
+            if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
+                $resultFiles[] = $this->pushProductUpdateFile($file);
+                fclose($file);
+                $file = tmpfile();
+            }
         }
-        $file = $this->makeFile($inputString);
+        if (fstat($file)["size"] > 0) {
+            $resultFiles[] = $this->pushProductUpdateFile($file);
+            fclose($file);
+        }
+
+        return $resultFiles;
+    }
+    private function pushProductUpdateFile($file): string
+    {
         $filename = stream_get_meta_data($file)['uri'];
+
         $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
-        fclose($file);
-
         $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
         $result = $this->runQuery($product_update_query);
        
@@ -209,14 +223,41 @@ class ShopifyQueryService
         }else{
             return "Error in query";
         }
+        
     }
+    // public function updateProducts(array $inputArray)
+    // {
+    //     $inputString = "";
+    //     foreach ($inputArray as $inputObj) {
+    //         $inputString .= json_encode($inputObj) . PHP_EOL;
+    //     }
+    //     $file = $this->makeFile($inputString);
+    //     $filename = stream_get_meta_data($file)['uri'];
+    //     $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+    //     $remoteFileKey = $remoteFileKeys[$filename]["key"];
+    //     fclose($file);
+
+    //     $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
+    //     $result = $this->runQuery($product_update_query);
+       
+    //     if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
+    //         $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+    //         $this->customLogLogger->info("updateProducts: ".$gid);
+    //         while (!$queryResult = $this->checkQueryProgress($gid)) {
+    //             sleep(1);
+    //         }
+    //         return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
+    //     }else{
+    //         return "Error in query";
+    //     }
+    // }
 
     public function createProducts(array $inputArray)
     {
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            $this->customLogLogger->info(print_r($inputObj, true));
+            // $this->customLogLogger->info(json_encode($inputObj));
             fwrite($file, json_encode($inputObj) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
                 $resultFiles[] = $this->pushProductCreateFile($file);
@@ -284,20 +325,15 @@ class ShopifyQueryService
     public function updateBulkVariants(array $inputArray)
     {
         foreach ($inputArray as $key => $input) {
-            $variables = ['productId' => $key, 'variants' => $input['variants']];
-            $hasMedia = false;
-            if(!empty($input['media'])){
-                $hasMedia = true;
-                $variables['media'] = $input['media'];
-            }
-            $this->pushUpdateBulkVariantQuery(ShopifyGraphqlHelperService::buildUpdateBulkVariantQuery($hasMedia), $variables);      
+            $variables = ['productId' => $key, 'variants' => $input];
+            $this->pushUpdateBulkVariantQuery(ShopifyGraphqlHelperService::buildUpdateBulkVariantQuery(), $variables);      
         }
     }
 
     private function pushUpdateBulkVariantQuery($queryString, $input)
     {
         try {
-            $this->customLogLogger->info(print_r($input, true));
+            // $this->customLogLogger->info(print_r($input, true));
             $result = $this->runQuery($queryString, $input);
             $this->customLogLogger->info(print_r($result, true));
         }catch (Exception $e) {
@@ -308,20 +344,15 @@ class ShopifyQueryService
     public function createBulkVariants(array $inputArray)
     {
         foreach ($inputArray as $key => $input) {
-            $variables = ['productId' => $key, 'variants' => $input['variants']];
-            $hasMedia = false;
-            if(!empty($input['media'])){
-                $hasMedia = true;
-                $variables['media'] = $input['media'];
-            }
-            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery($hasMedia), $variables);      
+            $variables = ['productId' => $key, 'variants' => $input];
+            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery(), $variables);      
         }
     }
 
     private function pushCreateBulkVariantQueries($queryString, $input)
     {
         try {
-            $this->customLogLogger->info($queryString);
+            // $this->customLogLogger->info($queryString);
             $result = $this->runQuery($queryString, $input);
             $this->customLogLogger->info(print_r($result, true));
         }catch (Exception $e) {
@@ -374,6 +405,8 @@ class ShopifyQueryService
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $metafieldArray) {
+            // $this->customLogLogger->info( json_encode(["metafields" => $metafieldArray]));
+         
             fwrite($file, json_encode(["metafields" => $metafieldArray]) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
                 $resultFiles[] = $this->pushMetafieldUpdateFile($file);

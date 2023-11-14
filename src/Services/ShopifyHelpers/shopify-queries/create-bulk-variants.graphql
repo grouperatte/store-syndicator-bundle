@@ -1,5 +1,5 @@
-mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]! /MEDIAPARENTINPUT/) {
-  productVariantsBulkCreate(productId: $productId, variants: $variants /MEDIAINPUT/) {
+mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+  productVariantsBulkCreate(productId: $productId, variants: $variants) {
     userErrors {
       field
       message

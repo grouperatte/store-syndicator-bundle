@@ -170,29 +170,13 @@ class ShopifyGraphqlHelperService
         return file_get_contents(dirname(__FILE__) . self::$SET_VARIANT_STOCK);
     }
 
-    public static function buildCreateBulkVariantQuery($hasMedia)
+    public static function buildCreateBulkVariantQuery()
     {
-        $query = file_get_contents(dirname(__FILE__) . self::$CREATE_BULK_VARIANTS);
-        if($hasMedia){
-            $query = str_replace("/MEDIAPARENTINPUT/", ', $media: [CreateMediaInput!]', $query);
-            $query = str_replace("/MEDIAINPUT/", ', media: $media', $query);
-        }else{
-            $query = str_replace("/MEDIAPARENTINPUT/", '', $query);
-            $query = str_replace("/MEDIAINPUT/", '', $query);
-        }
-        return $query;
+        return file_get_contents(dirname(__FILE__) . self::$CREATE_BULK_VARIANTS);
     }
 
-    public static function buildUpdateBulkVariantQuery($hasMedia)
+    public static function buildUpdateBulkVariantQuery()
     {
-        $query = file_get_contents(dirname(__FILE__) . self::$UPDATE_BULK_VARIANTS);
-        if($hasMedia){
-            $query = str_replace("/MEDIAPARENTINPUT/", ', $media: [CreateMediaInput!]', $query);
-            $query = str_replace("/MEDIAINPUT/", ', media: $media', $query);
-        }else{
-            $query = str_replace("/MEDIAPARENTINPUT/", '', $query);
-            $query = str_replace("/MEDIAINPUT/", '', $query);
-        }
-        return $query;
+        return file_get_contents(dirname(__FILE__) . self::$UPDATE_BULK_VARIANTS);
     }
 }
