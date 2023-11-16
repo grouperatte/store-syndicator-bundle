@@ -255,7 +255,7 @@ class AttributesService
     //     }elseif ($fieldValue instanceof QuantityValue) {
     //         return $this->processLocalValue($fieldValue->getValue(), $field);
     //     }elseif(is_array($fieldValue)){
-    //         return implode(', ', $fieldValue);
+    //         return implode('|', $fieldValue);
     //     } elseif (is_bool($fieldValue)) {
     //         return $fieldValue ? $fieldName : "";
     //     } elseif (is_numeric($fieldValue)) {
