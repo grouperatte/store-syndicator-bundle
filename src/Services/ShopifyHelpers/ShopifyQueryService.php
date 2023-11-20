@@ -26,50 +26,6 @@ class ShopifyQueryService
     }
 
     /**
-     * query all variants and their metafields
-     *
-     * @param string $query will run this query if provided to allow for custom variant queries like created_at.
-     * @return array
-     **/
-    public function queryVariants($query = null): array
-    {
-        if (!$query) {
-            $query = ShopifyGraphqlHelperService::buildVariantsQuery();
-        }
-        $result = $this->runQuery($query);
-
-        if(!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])){
-            $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
-            $this->customLogLogger->info("queryVariants: ".$gid);
-            while (!$queryResult = $this->checkQueryProgress($gid)) {
-                sleep(1);
-            }
-            $resultFileURL = ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-        }else{
-            throw new Exception("Error during query");
-            return [];
-        }
-        
-        $formattedResults = [];
-
-        if ($resultFileURL == 'none') { //there were no variants returned (also not an error though)
-            return $formattedResults;
-        }
-        $resultFile = fopen($resultFileURL, "r");
-        while ($variantOrMetafield = fgets($resultFile)) {
-            $variantOrMetafield = json_decode($variantOrMetafield, true);
-            if (array_key_exists("key", $variantOrMetafield)) {
-                $formattedResults[$variantOrMetafield["__parentId"]]['metafields'][$variantOrMetafield["namespace"] . "." . $variantOrMetafield["key"]] = $variantOrMetafield;
-            } else {
-                $formattedResults[$variantOrMetafield["id"]] = $formattedResults[$variantOrMetafield["id"]] ?? [];
-                $formattedResults[$variantOrMetafield["id"]]['title'] = $variantOrMetafield["title"];
-                $formattedResults[$variantOrMetafield["id"]]['product'] = $variantOrMetafield["product"]['id'];
-            }
-        }
-        return $formattedResults;
-    }
-
-    /**
      * query all products and variants and the requested metafield
      *
      * @param string $query will run this query if provided to allow for custom variant queries like created_at.
@@ -107,48 +63,6 @@ class ShopifyQueryService
                     $formattedResults[$productOrVariant["id"]] = $productOrVariant;
                 }
                
-            }
-        }
-        return $formattedResults;
-    }
-
-    /**
-     * query all variants and their metafields
-     *
-     * @param string $query will run this query if provided to allow for custom product queries like created_at.
-     * @return array
-     **/
-    public function queryProducts($query = null): array
-    {
-        if (!$query) {
-            $query = ShopifyGraphqlHelperService::buildProductsQuery();
-        }
-        $result = $this->runQuery($query);
-
-        if(!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])){
-            $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
-            $this->customLogLogger->info("queryProducts: ".$gid);
-            while (!$queryResult = $this->checkQueryProgress($gid)) {
-                sleep(1);
-            }
-            $resultFileURL = ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-        }else{
-            throw new Exception("Error during query");
-            return [];
-        }
-        $formattedResults = [];
-
-        if ($resultFileURL == 'none') { //there were no products returned (also not an error though)
-            return $formattedResults;
-        }
-        $resultFile = fopen($resultFileURL, "r");
-        while ($productOrMetafield = fgets($resultFile)) {
-            $productOrMetafield = (array)json_decode($productOrMetafield);
-            if (array_key_exists("key", $productOrMetafield)) {
-                $formattedResults[$productOrMetafield["__parentId"]]['metafields'][$productOrMetafield["namespace"] . "." . $productOrMetafield["key"]] = $productOrMetafield;
-            } else {
-                $formattedResults[$productOrMetafield["id"]] = $formattedResults[$productOrMetafield["id"]] ?? [];
-                $formattedResults[$productOrMetafield["id"]]['title'] = $productOrMetafield["title"];
             }
         }
         return $formattedResults;
@@ -295,32 +209,6 @@ class ShopifyQueryService
         
     }
 
-    // public function updateProductMedia(array $inputArray)
-    // {
-    //     $inputString = "";
-    //     foreach ($inputArray as $inputObj) {
-    //         $inputString .= json_encode(["input" => $inputObj]) . PHP_EOL;
-    //     }
-    //     $file = $this->makeFile($inputString);
-    //     $filename = stream_get_meta_data($file)['uri'];
-    //     $remoteKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-
-    //     $bulkParamsFilekey = $remoteKeys[$filename]["key"];
-    //     fclose($file);
-    //     $imagesCreateQuery = ShopifyGraphqlHelperService::buildCreateMediaQuery($bulkParamsFilekey);
-
-    //     $result = $this->runQuery($imagesCreateQuery);
-    //     if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
-    //         $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-    //         $this->customLogLogger->info("productMedia: ".$gid);
-    //         while (!$queryResult = $this->checkQueryProgress($gid)) {
-    //             sleep(1);
-    //         }
-    //         return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-    //     }else{
-    //         return "Error in query";
-    //     }
-    // }
 
     public function updateBulkVariants(array $inputArray)
     {
@@ -359,46 +247,6 @@ class ShopifyQueryService
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
-
-    // public function updateVariants(array $inputArray)
-    // {
-    //     $resultFiles = [];
-    //     $file = tmpfile();
-    //     foreach ($inputArray as $parentId => $variantMap) {
-    //         fwrite($file, json_encode(["input" => $variantMap]) . PHP_EOL);
-    //         if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
-    //             $resultFiles[] = $this->pushVariantsUpdateFile($file);
-    //             fclose($file);
-    //             $file = tmpfile();
-    //         }
-    //     }
-    //     if (fstat($file)["size"] > 0) { //if there are any variants in here
-    //         $resultFiles[] = $this->pushVariantsUpdateFile($file);
-    //         fclose($file);
-    //     }
-    //     return $resultFiles;
-    // }
-
-    // private function pushVariantsUpdateFile($file): string
-    // {
-    //     $filename = stream_get_meta_data($file)['uri'];
-
-    //     $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
-    //     $remoteFileKey = $remoteFileKeys[$filename]["key"];
-    //     $variantQuery = ShopifyGraphqlHelperService::buildUpdateVariantsQuery($remoteFileKey);
-    //     $result = $this->runQuery($variantQuery);
-
-    //     if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
-    //         $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-    //         $this->customLogLogger->info("variantUpdate: ".$gid);
-    //         while (!$queryResult = $this->checkQueryProgress($gid)) {
-    //             sleep(1);
-    //         }
-    //         return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-    //     }else{
-    //         return "Error in query";
-    //     }
-    // }
 
     public function updateMetafields(array $inputArray)
     {

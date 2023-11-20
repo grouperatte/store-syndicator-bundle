@@ -1,4 +1,0 @@
-productDeleteAsync(productId: REPLACEMEPRODUCTID) {
-  deleteProductId
-}
-

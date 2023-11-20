@@ -1,8 +1,0 @@
-mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
-  inventoryAdjustQuantities(input: $input) {
-    userErrors {
-      field
-      message
-    }
-  }
-}

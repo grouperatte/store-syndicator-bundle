@@ -10,17 +10,10 @@ class ShopifyGraphqlHelperService
     private static $BULK_QUERY_WRAPPER = '/shopify-queries/bulk-query-wrapper.graphql';
     private static $FILE_UPLOAD_QUERY = '/shopify-queries/file-upload.graphql';
     private static $QUERY_FINISHED_QUERY = '/shopify-queries/check-query-finished.graphql';
-    private static $GET_PRODUCTS_QUERY = '/shopify-queries/products-query.graphql';
-    private static $CREATE_MEDIA_QUERY = '/shopify-queries/create-media.graphql';
-    private static $UPDATE_MEDIA_QUERY = '/shopify-queries/update-media.graphql';
     private static $GET_METAFIELDS_QUERY = '/shopify-queries/metafield-query.graphql';
-    private static $UPDATE_VARIANTS_QUERY = '/shopify-queries/update-product-variants.graphql';
-    private static $GET_VARIANTS_QUERY = '/shopify-queries/variants-query.graphql';
     private static $GET_LINKING_QUERY = '/shopify-queries/products-linking-query.graphql';
     private static $SET_METAFIELD_QUERY = '/shopify-queries/metafield-set-value.graphql';
     private static $GET_STORE_LOCATION_QUERY = '/shopify-queries/store-location-query.graphql';
-    private static $BULK_GET_VARIANT_STOCK_BY_ID = '/shopify-queries/variant-stock-by-id.graphql';
-    private static $UPDATE_VARIANT_STOCK = '/shopify-queries/bulk-update-quantities.graphql';
     private static $SET_VARIANT_STOCK = '/shopify-queries/bulk-set-quantities.graphql';
     private static $QUERY_PROGRESS_QUERY = '/shopify-queries/check-query-progress.graphql';
     private static $CREATE_BULK_VARIANTS = '/shopify-queries/create-bulk-variants.graphql';
@@ -73,30 +66,6 @@ class ShopifyGraphqlHelperService
         return $queryProgressQuery;
     }
 
-    public static function buildProductsQuery($afterDateString = null)
-    {
-        $getProductsQuery = file_get_contents(dirname(__FILE__) . self::$GET_PRODUCTS_QUERY);
-        if ($afterDateString) {
-            $getProductsQuery = preg_replace("/REPLACEMEPARAMS/", 'query: \"created_at:>' . "'" . $afterDateString . "' OR " . 'updated_at:>' . "'" . $afterDateString . "'" . '\"', $getProductsQuery);
-        } else {
-            $getProductsQuery = preg_replace("/\(REPLACEMEPARAMS\)/", '', $getProductsQuery);
-        }
-
-        return self::bulkQueryWrap($getProductsQuery);
-    }
-
-    public static function buildCreateMediaQuery($remoteFile)
-    {
-        $createMediaQuery = file_get_contents(dirname(__FILE__) . self::$CREATE_MEDIA_QUERY);
-        return self::bulkwrap($createMediaQuery, $remoteFile);
-    }
-
-    public static function buildUpdateMediaQuery($remoteFile)
-    {
-        $updateMediaQuery = file_get_contents(dirname(__FILE__) . self::$UPDATE_MEDIA_QUERY);
-        return self::bulkwrap($updateMediaQuery, $remoteFile);
-    }
-
     public static function buildMetafieldsQuery()
     {
         $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_METAFIELDS_QUERY);
@@ -109,24 +78,6 @@ class ShopifyGraphqlHelperService
         $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_METAFIELDS_QUERY);
         $getMetafieldsQuery = preg_replace("/REPLACEMETYPE/", "PRODUCTVARIANT", $getMetafieldsQuery);
         return $getMetafieldsQuery;
-    }
-
-    public static function buildUpdateVariantsQuery($remoteFile)
-    {
-        $updateVariantsQuery = file_get_contents(dirname(__FILE__) . self::$UPDATE_VARIANTS_QUERY);
-        return self::bulkwrap($updateVariantsQuery, $remoteFile);
-    }
-
-    public static function buildVariantsQuery($afterDateString = null)
-    {
-        $variantsQuery = file_get_contents(dirname(__FILE__) . self::$GET_VARIANTS_QUERY);
-        if ($afterDateString) {
-            $variantsQuery = preg_replace("/REPLACEMEPARAMS/", 'query: \"created_at:>' . "'" . $afterDateString . "' OR " . 'updated_at:>' . "'" . $afterDateString . "'" . '\"', $variantsQuery);
-        } else {
-            $variantsQuery = preg_replace("/\(REPLACEMEPARAMS\)/", '', $variantsQuery);
-        }
-        
-        return self::bulkQueryWrap($variantsQuery);
     }
 
     public static function buildProductLinkingQuery($metafield)
@@ -156,15 +107,6 @@ class ShopifyGraphqlHelperService
         return $storeLocationQuery;
     }
 
-    public static function buildVariantsStockByIdQuery()
-    {
-        return file_get_contents(dirname(__FILE__) . self::$BULK_GET_VARIANT_STOCK_BY_ID);
-    }
-
-    public static function buildUpdateVariantsStockQuery()
-    {
-        return file_get_contents(dirname(__FILE__) . self::$UPDATE_VARIANT_STOCK);
-    }
     public static function buildSetVariantsStockQuery()
     {
         return file_get_contents(dirname(__FILE__) . self::$SET_VARIANT_STOCK);

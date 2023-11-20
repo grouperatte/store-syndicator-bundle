@@ -1,8 +1,0 @@
-mutation call($input: ProductVariantInput!) {
-  productVariantUpdate(input: $input) {
-    userErrors {
-      message
-      field
-    }
-  }
-}
