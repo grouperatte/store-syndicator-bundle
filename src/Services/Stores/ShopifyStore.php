@@ -203,9 +203,10 @@ class ShopifyStore extends BaseStore
     {
         $graphQLInput = [];
         $fields = $this->getAttributes($child);
-
-        foreach ($fields['variant metafields'] as $attribute) {
-            $graphQLInput["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
+        if(isset($fields['variant metafields'])){
+            foreach ($fields['variant metafields'] as $attribute) {
+                $graphQLInput["metafields"][] = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
+            }
         }
         $graphQLInput["metafields"][] = array(
             "namespace" => "custom",
@@ -269,14 +270,16 @@ class ShopifyStore extends BaseStore
             "value" => strval($child->getId()),
             "ownerId" => $remoteId
         ]];
-        foreach ($fields['variant metafields'] as $attribute) {
-            $metafield = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
-            $metafield["ownerId"] = $remoteId;
-            if(count($batchArray) < 25){
-                $batchArray[] = $metafield;
-            }else{
-                $this->metafieldSetArrays[] = $batchArray;
-                $batchArray = [$metafield];
+        if(isset($fields['variant metafields'])){
+            foreach ($fields['variant metafields'] as $attribute) {
+                $metafield = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
+                $metafield["ownerId"] = $remoteId;
+                if(count($batchArray) < 25){
+                    $batchArray[] = $metafield;
+                }else{
+                    $this->metafieldSetArrays[] = $batchArray;
+                    $batchArray = [$metafield];
+                }
             }
         }
         if(!empty($batchArray)){

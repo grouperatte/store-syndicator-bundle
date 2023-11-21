@@ -16,6 +16,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
 use Pimcore\Log\ApplicationLogger;
 use Pimcore\Db;
 use \Pimcore\Cache;
+use Carbon\Carbon;
 
 /*
     Gets the correct StoreInterface from the config file.
@@ -121,15 +122,25 @@ class ExecutionService
 
         $this->config = $config;
         $configData = $this->config->getConfiguration();
+        
         $this->storeInterface->setup($config);
-
         $classType = $configData["products"]["class"];
         $classType = ClassDefinition::getById($classType);
         $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
 
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
+
+        //Clears logs
         $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
-        
+
+        //Retrieves the last update timestamp for this config
+        $lastUpdateSetting = \Pimcore\Model\WebsiteSetting::getByName($configData["general"]["name"], null, null);
+        if(isset($lastUpdateSetting) && !empty($lastUpdateSetting->getData())){
+            $lastUpdate = $lastUpdateSetting->getData();
+        }else{
+            $lastUpdate = 0;
+        }
+
         $this->applicationLogger->info("*Starting stock update*", [
             'component' => $this->configLogName,
             null,
@@ -140,7 +151,9 @@ class ExecutionService
             null,
         ]);
         
-        $variantListing = $this->getClassVariantListing($configData);
+        $variantListing = $this->getClassVariantListingForStocks($configData, $lastUpdate);
+        // $variantListing = $this->getClassVariantListing($configData);
+
 
         $this->applicationLogger->info("Processing " . count($variantListing) . " variants", [
             'component' => $this->configLogName,
@@ -160,6 +173,11 @@ class ExecutionService
             'component' => $this->configLogName,
             null,
         ]);
+
+        //Sets the last update timestamp for this config
+        $lastUpdateSetting->setData(Carbon::now()->timestamp);
+        $lastUpdateSetting->save();
+
     }
 
     private function proccess($dataObject)
@@ -221,6 +239,17 @@ class ExecutionService
     private function getClassVariantListing($configData): Dataobject\Listing
     {
         $sql = $configData["products"]["sqlCondition"];
+        $listing = $this->classType . '\\Listing';
+        $listing = new $listing();
+        /** @var Dataobject\Listing $listing */
+        $listing->setObjectTypes(['variant']);
+        $listing->setCondition($sql);
+        return $listing;
+    }
+
+    private function getClassVariantListingForStocks($configData, $lastUpdate): Dataobject\Listing
+    {
+        $sql = $configData["products"]["sqlCondition"] . " AND (InventoryModificationDate is NULL OR InventoryModificationDate >= " . $lastUpdate . ")";
         $listing = $this->classType . '\\Listing';
         $listing = new $listing();
         /** @var Dataobject\Listing $listing */
