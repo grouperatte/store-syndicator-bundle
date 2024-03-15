@@ -107,8 +107,8 @@ class AttributesService
     {
         $config = $configuration->getConfiguration();
 
-        $class = $config["products"]["class"];
-        if (!$class = ClassDefinition::getByName($class)) {
+        $class = $config["products"] ?? null ? $config["products"]["class"] : null;
+        if (!$class || !$class = ClassDefinition::getByName($class)) {
             return [];
         }
 
