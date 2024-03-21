@@ -26,6 +26,7 @@ use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefini
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
 use Pimcore\Model\DataObject\Product\Listing;
+use Pimcore\Logger;
 
 class AttributesService
 {
@@ -41,7 +42,7 @@ class AttributesService
 
     static array $fieldTypes = [
         "base product",
-        "Images",
+        "image",
         "metafields",
         "variant metafields",
         "base variant",
@@ -60,9 +61,12 @@ class AttributesService
         "weight",
         "weightUnit", //needs to be "POUNDS" "OUNCES" "KILOGRAMS" or "GRAMS"
         "requiresShipping",
-        "imageSrc", //variants can only have one image
         "title",
         "stock",
+    ];
+
+    static array $allowedRelationsClasses = [
+        "Brand",
     ];
 
     const CURRENT_TIME_OPTION = 'Current Time';
@@ -137,7 +141,7 @@ class AttributesService
                 $allowedTypes = $field->getAllowedTypes();
                 foreach ($allowedTypes as $allowedType) {
                     $allowedTypeClass = ObjectbrickDefinition::getByKey($allowedType);
-                    $newFieldPath .= "." . $allowedType . $newFieldPathSuffix;
+                    $newFieldPath = $field->getName() . "." . $allowedType . $newFieldPathSuffix;
                     $this->getFieldDefinitionsRecursive($allowedTypeClass, $attributes, $newFieldPath, $checkedClasses);
                 }
             } elseif ($field instanceof Fieldcollections) {
@@ -194,76 +198,74 @@ class AttributesService
             $classes = $field->classes;
         }
         foreach ($classes as $allowedClass) {
-            $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
-            if (!in_array($allowedClass, $checkedClasses)) {
-                $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . "." . ($suffix ? $suffix . "." : "."), array_merge([$allowedClass], $checkedClasses));
+            if(in_array($allowedClass["classes"], self::$allowedRelationsClasses)){
+                $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
+                if (!in_array($allowedClass, $checkedClasses)) {
+                    $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ($suffix ? "." . $suffix . "." : "."), array_merge([$allowedClass], $checkedClasses));
+                }
             }
         }
     }
 
     //get the value(s) at the end of the fieldPath array on an object
-    public static function getObjectFieldValues($rootField, array $fieldPath)
-    {
-        $field = $fieldPath[0];
-        array_shift($fieldPath);
-        $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
-        $fieldVal = $rootField->$getter();
-        if (is_iterable($fieldVal)) { //this would be like manytomany fields
-            $vals = [];
-            foreach ($fieldVal as $singleVal) {
-                if ($singleVal && is_object($singleVal) && method_exists($singleVal, "get" . $fieldPath[0])) {
-                    $vals[] = self::getObjectFieldValues($singleVal, $fieldPath);
-                } elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
-                    $vals[] = self::processLocalValue($singleVal[$fieldPath[0]]->getData());
-                } else {
-                    $vals[] = $singleVal;
-                }
-            }
-            return count($vals) > 0 ? $vals : null;
-        } elseif (count($fieldPath) == 0) {
-            return self::processLocalValue($fieldVal);
-        } elseif ($fieldVal instanceof BlockElement) {
-            $vals = [];
-            foreach ($fieldVal as $blockItem) {
-                //assuming the next fieldname is the value we want
-                $vals[] = self::processLocalValue($blockItem[$fieldPath[0]]->getData());
-            }
-            return count($vals) > 0 ? $vals : null;
-        } else {
-            if ($fieldVal instanceof Localizedfield && array_key_exists(0, $fieldPath) && $local = $fieldPath[0]) {
-                array_shift($fieldPath);
-                if (count($fieldPath) == 0) {
-                    return self::processLocalValue($rootField->$getter($local));
-                }
-                return self::getObjectFieldValues($rootField->$getter($local), $fieldPath);
-            } elseif ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
-                return self::getObjectFieldValues($fieldVal, $fieldPath);
-            }
-        }
-    }
+    // public static function getObjectFieldValues($rootField, array $fieldPath)
+    // {
+    //     $field = $fieldPath[0];
+    //     array_shift($fieldPath);
+    //     $getter = "get$field"; //need to do this instead of getValueForFieldName for bricks
+    //     $fieldVal = $rootField->$getter();
+    //     if (is_iterable($fieldVal)) { //this would be like manytomany fields
+    //         $vals = [];
+    //         foreach ($fieldVal as $singleVal) {
+    //             if ($singleVal && is_object($singleVal) && method_exists($singleVal, "get" . $fieldPath[0])) {
+    //                 $vals[] = self::getObjectFieldValues($singleVal, $fieldPath);
+    //             } elseif ($singleVal && is_array($singleVal) && array_key_exists($fieldPath[0], $singleVal)) { //blocks
+    //                 $vals[] = self::processLocalValue($singleVal[$fieldPath[0]]->getData(), $field);
+    //             } else {
+    //                 $vals[] = $singleVal;
+    //             }
+    //         }
+    //         return count($vals) > 0 ? $vals : null;
+    //     } elseif (count($fieldPath) == 0) {
+    //         return self::processLocalValue($fieldVal, $field);
+    //     } elseif ($fieldVal instanceof BlockElement) {
+    //         $vals = [];
+    //         foreach ($fieldVal as $blockItem) {
+    //             //assuming the next fieldname is the value we want
+    //             $vals[] = self::processLocalValue($blockItem[$fieldPath[0]]->getData(), $field);
+    //         }
+    //         return count($vals) > 0 ? $vals : null;
+    //     } else {
+    //         if ($fieldVal instanceof Localizedfield && array_key_exists(0, $fieldPath) && $local = $fieldPath[0]) {
+    //             array_shift($fieldPath);
+    //             if (count($fieldPath) == 0) {
+    //                 return self::processLocalValue($rootField->$getter($local), $field);
+    //             }
+    //             return self::getObjectFieldValues($rootField->$getter($local), $fieldPath);
+    //         } elseif ($fieldVal && method_exists($fieldVal, "get" . $fieldPath[0])) {
+    //             return self::getObjectFieldValues($fieldVal, $fieldPath);
+    //         }
+    //     }
+    // }
 
-    private static function processLocalValue($field)
-    {
-        if ($field instanceof Image) {
-            return $field;
-        } elseif ($field instanceof ImageGallery) {
-            $returnArray = [];
-            foreach ($field->getItems() as $hotspot) {
-                $returnArray[] = $hotspot->getImage();
-            }
-            return $returnArray;
-        } elseif ($field instanceof QuantityValue) {
-            return self::processLocalValue($field->getValue());
-        } elseif (is_bool($field)) {
-            return $field ? "true" : "false";
-        } elseif (is_numeric($field)) {
-            return strval($field);
-        } elseif (empty($field)) {
-            return null;
-        } else {
-            return strval($field);
-        }
-    }
+    // private static function processLocalValue($fieldValue, $field)
+    // {
+    //     if ($fieldValue instanceof Image) {
+    //         return $fieldValue;
+    //     }elseif ($fieldValue instanceof QuantityValue) {
+    //         return $this->processLocalValue($fieldValue->getValue(), $field);
+    //     }elseif(is_array($fieldValue)){
+    //         return implode('|', $fieldValue);
+    //     } elseif (is_bool($fieldValue)) {
+    //         return $fieldValue ? $fieldName : "";
+    //     } elseif (is_numeric($fieldValue)) {
+    //         return strval($fieldValue);
+    //     } elseif (empty($fieldValue)) {
+    //         return null;
+    //     } else {
+    //         return strval($fieldValue);
+    //     }
+    // }
 
     private function getStoreKeys($storeId)
     {

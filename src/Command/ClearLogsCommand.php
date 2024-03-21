@@ -13,9 +13,8 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
-use \Pimcore\Cache;
 
-class RemoveShopifyPropertiesCommand extends AbstractCommand
+class ClearLogsCommand extends AbstractCommand
 {
     public function __construct(private ConfigurationService $configurationService)
     {
@@ -25,25 +24,18 @@ class RemoveShopifyPropertiesCommand extends AbstractCommand
     protected function configure()
     {
         $this
-            ->setName('torq:remove-store-properties')
+            ->setName('torq:clear-logs')
             ->addArgument('store-name', InputArgument::REQUIRED)
-            ->setDescription('removes any properties related to the imput argument configuration. unlinking the products from the store');
+            ->setDescription('Deletes the logs for export');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $name = $input->getArgument("store-name");
-
-        $config = Configuration::getByName($name);
-        $remoteStoreName = $this->configurationService->getStoreName($config);
-        $shopifyIdPropertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
-        $linkedPropertyName = "TorqSS:" . $remoteStoreName . ":linked";
-        $remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
-        $remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
+        $configLogName = "STORE_SYNDICATOR " . $name;
         $db = Db::get();
 
-        $result = $db->executeStatement('Delete from properties where name IN (?, ?, ?, ?, ?)', [$shopifyIdPropertyName, $linkedPropertyName, 'ShopifyImageURL', $remoteLastUpdatedProperty, $remoteInventoryIdProperty]);
-        Cache::clearAll();
+        $result = $db->executeStatement('Delete from application_logs where component = ?', [$configLogName]);
         return 0;
     }
 }

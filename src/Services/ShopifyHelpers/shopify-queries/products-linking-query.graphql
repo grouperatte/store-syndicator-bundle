@@ -1,0 +1,23 @@
+query {
+	products{
+		edges{
+			node{
+				id
+				totalVariants
+				REPLACEMEMETAFIELD
+				variants{
+					edges{
+						node{
+							id
+							title
+							inventoryItem{
+								id
+							}
+							REPLACEMEMETAFIELD
+						}
+					}
+				}
+			}
+		}
+	}
+}

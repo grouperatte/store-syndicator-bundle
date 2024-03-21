@@ -9,19 +9,43 @@ use Shopify\Clients\Graphql;
 use Pimcore\Model\DataObject;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Db;
+use Pimcore\Db\Connection;
 use Pimcore\Model\DataObject\ClassDefinition;
 use Pimcore\Model\DataObject\Product;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
+use Pimcore\Log\ApplicationLogger;
+use Pimcore\Db\Helper as DBHelper;
+use \Pimcore\Cache;
+use Pimcore\Logger;
+
 
 class ShopifyProductLinkingService
 {
+    private string $configLogName;
+    private Connection $db;
+    private array $localProductsAndVariants;
+    private string $remoteIdProperty;
+    private string $remoteLastUpdatedProperty;
+    private string $remoteInventoryIdProperty;
+
+    private int $propertySetCount = 0;
+    private int $toPurgeNullCount = 0;
+    private int $toPurgeNotFoundInCount = 0;
+    private int $toPurgeNotActiveCount = 0;
+    private int $toPurgeDuplicateCount = 0;
+    private int $toPurgeChildlessProduct = 0;
+
+
     public function __construct(
         private ConfigurationRepository $configurationRepository,
-        private ConfigurationService $configurationService
+        private ConfigurationService $configurationService,
+        protected ApplicationLogger $applicationLogger,
+        private \Psr\Log\LoggerInterface $customLogLogger
     ) {
+
     }
 
     /**
@@ -30,113 +54,204 @@ class ShopifyProductLinkingService
      * places the remoteProduct ID in the products TorqSS:*storename*:shopifyId property 
      * sets the TorqSS:*storename*:linked property to true
      *
-     * @param DateTime $afterDate OPTIONAL. If present, only looks up objects modified / created after a certain date
-     * @throws conditon
      **/
-    public function link(Configuration $configuration, DateTime $afterDate = null)
+    public function link(Configuration $configuration)
     {
+        $configData = $configuration->getConfiguration();
+        $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
+
+        $this->applicationLogger->info("Start of property linking and shopify cleanup", [
+            'component' => $this->configLogName,
+            null,
+        ]);
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($configuration);
-        $shopifyQueryService = new ShopifyQueryService($authenticator);
+        $shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
         $remoteStoreName = $this->configurationService->getStoreName($configuration);
-        $linkedProperty = "TorqSS:" . $remoteStoreName . ":linked";
-        $remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
+        $this->remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
+        $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
+        $this->remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
 
-        if ($afterDate) {
-            $afterDate = $afterDate->format('Y-m-d\TH:i:s\Z');
-        }
-        /*
-        * get what variant field we are mapping on
-        * if no marked field return failed message
-        */
-
-        /*
-        * check here if we are linking based off variant or product, metafield or base value
-        * hardcoded for testing
-        */
+        
+        $classType = $configData["products"]["class"];
+        $classType = ClassDefinition::getById($classType);
+        $classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
+        
         $linkingAttribute = ConfigurationService::getMapOnRow($configuration);
+       
+        $remoteProducts = $shopifyQueryService->queryForLinking(ShopifyGraphqlHelperService::buildProductLinkingQuery( $linkingAttribute['remote field']));
+        // $this->customLogLogger->info(json_encode($remoteProducts));
+        $this->applicationLogger->info(count($remoteProducts) . " products queried from the Shopify Store", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        
+        
+        $this->db = Db::get();
+        $query = 'select oo_id, ProductStatus, o_path from pimcore.object_' . $this->configurationService->getDataobjectClass($configuration)->getId();
 
-        /*
-        *   run variant query
-        */
-        switch ($linkingAttribute['field type']) {
-            case 'variant metafields':
-                $remoteVariants = $shopifyQueryService->queryVariants(ShopifyGraphqlHelperService::buildVariantsQuery($afterDate));
-                /*
-                * array that contains only the field we are mapping off of
-                * [remote&localval => 'variantId', 'productId']
-                */
-                $mapOnArray = [];
-                foreach ($remoteVariants as $variantId => $remoteVariant) {
-                    if (array_key_exists('metafields', $remoteVariant)) {
-                        foreach ($remoteVariant['metafields'] as $namespaceAndKey => $metafield) {
-                            if ($namespaceAndKey == $linkingAttribute['remote field']) {
-                                if (array_key_exists($metafield['value'], $mapOnArray)) {
-                                    $mapOnArray[$metafield['value']] = 'duplicate';
-                                }
-                                $mapOnArray[$metafield['value']] = [
-                                    'variantId' => $variantId,
-                                    'productId' => $remoteVariant['product']
-                                ];
-                            }
-                        }
+        $this->localProductsAndVariants = [];
+        foreach ($this->db->query($query) as $product) {
+            if ($product) {
+                $this->localProductsAndVariants[$product['oo_id']] = $product;
+            }
+        }
+
+        $this->applicationLogger->info(count($this->localProductsAndVariants) . " products and variants queried from Pimcore", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $result = $this->db->executeStatement('Delete from properties where name IN (?)', [$this->remoteIdProperty]);
+        $this->applicationLogger->info("Deleted properties from products and variants", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info("Start of data processing", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        $purgeVariantArray = [];
+        $purgeProductArray = [];
+
+        foreach ($remoteProducts as $shopifyId => $product) {
+            if(isset($product["variants"])){
+                foreach($product["variants"] as $shopifyVariantId => $variant){
+                    if(!$this->linkOrCleanup($variant, $shopifyVariantId)){
+                        $purgeVariantArray[$shopifyVariantId] = $shopifyId;
+                        unset($product["variants"][$shopifyVariantId]);
                     }
                 }
-                break;
-            default:
-                throw new Exception("invalid or null remote field type in attribute mapping");
-        }
-
-        /*
-        *   get all unlinked objects in the database for each configuration for this store and merge them to one array
-        *   like ["id" => true, "id" => true]
-        */
-        $unlinkeds = [];
-        foreach ($this->configurationRepository->getSameStoreConfigurations($configuration) as $configuration) {
-            /*  
-            *   get all *objectType* variants that are unlinked
-            */
-            foreach ($this->getUnlinkedProducts($linkedProperty, $this->configurationService->getDataobjectClass($configuration)) as $toMergeUnlinked) {
-                if ($toMergeUnlinked['oo_id']) {
-                    $unlinkeds[$toMergeUnlinked['oo_id']] = true;
+                if(count($product["variants"]) > 0){
+                    if(!$this->linkOrCleanup($product, $shopifyId)){
+                        $purgeProductArray[] = $shopifyId;
+                    }
+                }else{
+                    $purgeProductArray[] = $shopifyId;
+                    $this->toPurgeChildlessProduct++;
                 }
+               
+            }else {
+                $purgeProductArray[] = $shopifyId;
+                $this->toPurgeChildlessProduct++;
             }
         }
 
-        /*
-        *   link them together
-        */
-        //parent Id's we have already mapped
-        $mappedParentIds = [];
+        $this->applicationLogger->info("End of data processing", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+       
+        Cache::clearAll();
 
-        foreach ($unlinkeds as $unlinked => $value) {
-            if (!$object = DataObject::getById($unlinked)) {
-                throw new Exception('tried to get object with id= ' . $unlinked);
-            }
-            if (!$localFieldValue = AttributesService::getObjectFieldValues($object, explode('.', $linkingAttribute['local field']))) {
-                continue;
-            }
-            if (array_key_exists($localFieldValue, $mapOnArray)) {
-                $baseProduct = $object->getParent();
-                $object->setProperty($linkedProperty, "Checkbox", true);
-                $object->setProperty($remoteIdProperty, "Text", $mapOnArray[$localFieldValue]['variantId']);
-                $object->save();
-                if (!array_key_exists($baseProduct->getId(), $mappedParentIds)) {
-                    $baseProduct->setProperty($linkedProperty, "Checkbox", true);
-                    $baseProduct->setProperty($remoteIdProperty, "Text", $mapOnArray[$localFieldValue]['productId']);
-                    $baseProduct->save();
-                    $mappedParentIds[$baseProduct->getId()] = true;
-                }
-                unset($mapOnArray[$localFieldValue]); //dont map multiple products to this value
-            }
+        $this->applicationLogger->info("Cleared pimcore data cache", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        
+        $this->applicationLogger->info("Linked " . $this->propertySetCount . " products and variants", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info($this->toPurgeNullCount . " products and variants are scheduled to be deleted in shopify because they do not have a Pimcore ID", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info($this->toPurgeNotFoundInCount . " products and variants are scheduled to be deleted in shopify because their Pimcore ID didn't match any product in Pimcore", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+        
+        $this->applicationLogger->info($this->toPurgeNotActiveCount . " products and variants are scheduled to be deleted in shopify because the Pimcore product is not active", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info($this->toPurgeDuplicateCount . " duplicate products and variants are scheduled to be deleted in shopify", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info($this->toPurgeChildlessProduct . " products without a variant are scheduled to be deleted in shopify", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info("Property linking is finished", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info("Start of Shopify mutations to purge products and variants. " . ($this->toPurgeNullCount + $this->toPurgeNotFoundInCount + $this->toPurgeNotActiveCount + $this->toPurgeDuplicateCount + $this->toPurgeChildlessProduct) . " products and variants to be deleted." , [
+            'component' => $this->configLogName,
+            null,
+        ]);
+       
+        if(count($purgeProductArray) > 0){
+            // $this->customLogLogger->info(print_r($purgeProductArray, true));
+            $shopifyQueryService->deleteProducts($purgeProductArray);
+            $this->applicationLogger->info("Shopify mutations to delete products have been submitted", [
+                'component' => $this->configLogName,
+                null,
+            ]);
         }
+        if(count($purgeVariantArray) > 0){
+            // $this->customLogLogger->info(print_r($purgeVariantArray, true));
+            $shopifyQueryService->deleteVariants($purgeVariantArray);
+            $this->applicationLogger->info("Shopify mutations to delete variants have been submitted", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+        }
+        $this->applicationLogger->info("End of Shopify mutations to purge products and variants", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        $this->applicationLogger->info("End of property linking and shopify cleanup", [
+            'component' => $this->configLogName,
+            null,
+        ]);
     }
 
-    private function getUnlinkedProducts($linkedProperty, ClassDefinition $classDefinition)
-    {
-        $db = Db::get();
-
-        $tablename = 'object_' . $classDefinition->getId();
-        $query = "select p.oo_id from pimcore.$tablename p left outer join pimcore.properties pr on p.oo_id = pr.cid and pr.name like '$linkedProperty' where pr.name is null";
-        return $db->query($query);
+    private function linkOrCleanup($product, $shopifyId){
+        $pimcoreId = $product["linkingId"]['value'] ?? null;
+        if($pimcoreId){
+            $pimcoreObject = $this->localProductsAndVariants[$pimcoreId] ?? null;
+            if($pimcoreObject){
+                if(!$pimcoreObject['ProductStatus'] || $pimcoreObject['ProductStatus'] === "active"){
+                    if(!isset($pimcoreObject['linked'])){
+                        DBHelper::upsert($this->db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $this->remoteIdProperty, 'type' => 'text', 'data' => $shopifyId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                        $lastUpdated = $product["lastUpdated"]['value'] ?? null;
+                        if($lastUpdated){
+                            DBHelper::upsert($this->db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $this->remoteLastUpdatedProperty, 'type' => 'text', 'data' => $lastUpdated, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                        }
+                        $inventoryItemId = $product["inventoryItem"]['id'] ?? null;
+                        if($inventoryItemId){
+                            DBHelper::upsert($this->db, 'pimcore.properties', ['cid' => $pimcoreId, 'ctype' => 'object', 'cpath' => $pimcoreObject['o_path'], 'name' => $this->remoteInventoryIdProperty, 'type' => 'text', 'data' => $inventoryItemId, 'inheritable' => 0], ['cid', 'ctype', 'name'], false);
+                        }
+                        $this->localProductsAndVariants[$pimcoreId]['linked'] = true;
+                        $this->propertySetCount++;
+                        return true;
+                    }else{
+                        $this->toPurgeDuplicateCount++;
+                        return false;
+                    }                      
+                }else{
+                    $this->toPurgeNotActiveCount++;
+                    return false;
+                }
+            }else{
+                $this->toPurgeNotFoundInCount++;
+                return false;
+            }
+        }else {
+            $purge = true;
+            $this->toPurgeNullCount++;
+        }
     }
 }
+
+
