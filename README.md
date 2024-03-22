@@ -7,7 +7,7 @@ Currently, this bundle is designed to work only with a Shopify store, but could 
 ### Installation:
 
 1. Run `composer require torqit/store-syndicator-bundle` in your project's terminal.
-2. In the same terminal, run `bin/console pimcore:bundle:enable StoreSyndicatorBundle`
+2. enable the bundle in either Kernel or bundles.php
 3. Then run `bin/console pimcore:bundle:install StoreSyndicatorBundle`
 
 ### Setting up an export:

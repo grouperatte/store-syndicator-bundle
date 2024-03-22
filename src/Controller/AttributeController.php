@@ -15,18 +15,15 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 
-/**
- * @Route("/admin/storesyndicator/attributes", name="pimcore_storesyndicator_attributes")
- */
+#[Route(path: '/admin/storesyndicator/attributes', name: 'pimcore_storesyndicator_attributes')]
 class AttributeController extends FrontendController
 {
     /**
-     * @Route("/getLocal", name="_get_local")
-     *
      * @param Request $request
      *
      * @return JsonResponse|null
      */
+    #[Route(path: '/getLocal', name: '_get_local')]
     public function getLocalAttributes(Request $request, AttributesService $attributesService): JsonResponse
     {
         $name = $request->get("name");
@@ -43,18 +40,17 @@ class AttributeController extends FrontendController
     }
 
     /**
-     * @Route("/getRemote", name="_get_remote")
-     *
      * @param Request $request
      *
      * @return JsonResponse|null
      */
+    #[Route(path: '/getRemote', name: '_get_remote')]
     public function getRemoteAttributes(Request $request, AttributesService $attributesService): JsonResponse
     {
         $name = $request->get("name");
         $config = Configuration::getByName($name);
-        $path = $config->getConfiguration()["APIAccess"][0]["cpath"];
-        $accessObject = DataObject::getByPath($path);
+        $path = $config->getConfiguration()["APIAccess"] ?? false ? $config->getConfiguration()["APIAccess"][0]["cpath"] : null;
+        $accessObject = $path ? DataObject::getByPath($path) : null;
         if ($accessObject instanceof AbstractAuthenticator) {
             $client = $accessObject->connect()['client'];
             $fields = $attributesService->getRemoteFields($client);
@@ -66,12 +62,11 @@ class AttributeController extends FrontendController
     }
 
     /**
-     * @Route("/getRemoteTypes", name="_get_remote_types")
-     *
      * @param Request $request
      *
      * @return JsonResponse|null
      */
+    #[Route(path: '/getRemoteTypes', name: '_get_remote_types')]
     public function getRemoteAttributeTypes(Request $request, AttributesService $attributesService): JsonResponse
     {
         $fields = $attributesService->getRemoteTypes();

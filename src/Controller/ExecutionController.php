@@ -9,18 +9,15 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
 
-/**
- * @Route("/admin/storesyndicator/execution", name="pimcore_storesyndicator_execution")
- */
+#[Route(path: '/admin/storesyndicator/execution', name: 'pimcore_storesyndicator_execution')]
 class ExecutionController extends FrontendController
 {
     /**
-     * @Route("/execute", name="_execute")
-     *
      * @param Request $request
      *
      * @return JsonResponse|null
      */
+    #[Route(path: '/execute', name: '_execute')]
     public function executeAction(Request $request, ExecutionService $executionService)
     {
         # figure out organization here

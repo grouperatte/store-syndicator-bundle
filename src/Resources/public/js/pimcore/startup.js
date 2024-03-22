@@ -7,8 +7,10 @@ pimcore.plugin.StoreSyndicatorBundle = Class.create(pimcore.plugin.admin, {
 
     initialize: function () {
         pimcore.plugin.broker.registerPlugin(this);
-    }
+    },
 
+    pimcoreReady: function (params, broker) {
+    }
 });
 
 var StoreSyndicatorBundle = new pimcore.plugin.StoreSyndicatorBundle();
