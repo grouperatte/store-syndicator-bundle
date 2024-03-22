@@ -24,7 +24,7 @@ class AttributeController extends FrontendController
      * @return JsonResponse|null
      */
     #[Route(path: '/getLocal', name: '_get_local')]
-    public function getLocalAttributes(Request $request, AttributesService $attributesService): JsonResponse
+    public function getLocalAttributes(Request $request, AttributesService $attributesService): ?JsonResponse
     {
         $name = $request->get("name");
         $config = Configuration::getByName($name);
@@ -45,7 +45,7 @@ class AttributeController extends FrontendController
      * @return JsonResponse|null
      */
     #[Route(path: '/getRemote', name: '_get_remote')]
-    public function getRemoteAttributes(Request $request, AttributesService $attributesService): JsonResponse
+    public function getRemoteAttributes(Request $request, AttributesService $attributesService): ?JsonResponse
     {
         $name = $request->get("name");
         $config = Configuration::getByName($name);
@@ -67,7 +67,7 @@ class AttributeController extends FrontendController
      * @return JsonResponse|null
      */
     #[Route(path: '/getRemoteTypes', name: '_get_remote_types')]
-    public function getRemoteAttributeTypes(Request $request, AttributesService $attributesService): JsonResponse
+    public function getRemoteAttributeTypes(Request $request, AttributesService $attributesService): ?JsonResponse
     {
         $fields = $attributesService->getRemoteTypes();
 

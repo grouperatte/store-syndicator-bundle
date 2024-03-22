@@ -360,7 +360,7 @@ class ShopifyStore extends BaseStore
      * @param array $mappingArray $this->metafieldTypeDefinitions["variant"/"product"]
      * @return array full metafield shopify object
      **/
-    private function createMetafield($attribute, $mappingArray)
+    private function createMetafield($attribute, $mappingArray): array
     {
         if (array_key_exists($attribute["namespace"] . "." .  $attribute["fieldName"], $mappingArray)) {
             $tmpMetafield = $mappingArray[$attribute["namespace"] . "." .  $attribute["fieldName"]];

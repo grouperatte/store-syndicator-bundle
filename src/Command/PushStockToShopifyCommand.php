@@ -29,7 +29,7 @@ class PushStockToShopifyCommand extends AbstractCommand
             ->setDescription('Do Shopify Stuff');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $initialTime = time();
         $output->writeln("start time: " . $initialTime);
