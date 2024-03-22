@@ -11,14 +11,10 @@ use Pimcore\Bundle\DataHubBundle\Configuration\Dao;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 
-/**
- * @Route("/admin/storesyndicator/dataobject/config", name="pimcore_storesyndicator_configdataobject")
- */
+#[Route(path: '/admin/storesyndicator/dataobject/config', name: 'pimcore_storesyndicator_configdataobject')]
 class ConfigDataObjectController extends FrontendController
 {
     /**
-     * @Route("/get", name="_get")
-     *
      * @param Request $request
      * @param ConfigurationService $configurationPreparationService
      * @param InterpreterFactory $interpreterFactory
@@ -27,6 +23,7 @@ class ConfigDataObjectController extends FrontendController
      *
      * @throws \Exception
      */
+    #[Route(path: '/get', name: '_get')]
     public function getAction(
         Request $request,
         ConfigurationService $configurationPreparationService
@@ -55,12 +52,11 @@ class ConfigDataObjectController extends FrontendController
     }
 
     /**
-     * @Route("/save", name="_save")
-     *
      * @param Request $request
      *
      * @return JsonResponse|null
      */
+    #[Route(path: '/save', name: '_save')]
     public function saveAction(Request $request): ?JsonResponse
     {
         $data = $request->get('data');
