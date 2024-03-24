@@ -43,6 +43,7 @@ class PushStockToShopifyCommand extends AbstractCommand
         $diff = $finalTime - $initialTime;
         $output->writeln("final time: " . time());
         $output->writeln("execution duration: " . $diff);
-        return 0;
+
+        return self::SUCCESS;
     }
 }

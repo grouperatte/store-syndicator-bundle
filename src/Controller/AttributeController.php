@@ -2,13 +2,9 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Controller;
 
-use Google\Service\SecurityCommandCenter\Access;
 use Pimcore\Model\DataObject;
-use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Controller\FrontendController;
-use Pimcore\Model\DataObject\ClassDefinition;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;

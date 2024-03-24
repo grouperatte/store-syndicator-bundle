@@ -36,6 +36,6 @@ class ClearLogsCommand extends AbstractCommand
         $db = Db::get();
 
         $result = $db->executeStatement('Delete from application_logs where component = ?', [$configLogName]);
-        return 0;
+        return self::SUCCESS;
     }
 }
