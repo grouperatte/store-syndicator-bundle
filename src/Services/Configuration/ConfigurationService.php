@@ -19,7 +19,7 @@ class ConfigurationService
      *
      * @throws \Exception
      */
-    public function prepareConfiguration(string $configName, $currentConfig = null, $ignorePermissions = false)
+    public function prepareConfiguration(string $configName, $currentConfig = null, $ignorePermissions = false): array
     {
         if ($currentConfig) {
             if (is_string($currentConfig)) {

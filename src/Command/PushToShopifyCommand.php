@@ -29,7 +29,7 @@ class PushToShopifyCommand extends AbstractCommand
             ->setDescription('Do Shopify Stuff');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $initialTime = time();
         $output->writeln("start time: " . $initialTime);
@@ -43,6 +43,7 @@ class PushToShopifyCommand extends AbstractCommand
         $diff = $finalTime - $initialTime;
         $output->writeln("final time: " . time());
         $output->writeln("execution duration: " . $diff);
-        return 0;
+
+        return self::SUCCESS;
     }
 }

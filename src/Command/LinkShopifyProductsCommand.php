@@ -24,13 +24,14 @@ class LinkShopifyProductsCommand extends AbstractCommand
             ->setDescription('Do Shopify Stuff');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        Db::get()->query('SET SESSION wait_timeout = ' . 28800); //timeout to 8 hours for this session
+        Db::get()->executeQuery('SET SESSION wait_timeout = ' . 28800); //timeout to 8 hours for this session
         $name = $input->getArgument("store-name");
 
         $config = Configuration::getByName($name);
         $this->shopifyProductLinkingService->link($config);
-        return 0;
+
+        return self::SUCCESS;
     }
 }

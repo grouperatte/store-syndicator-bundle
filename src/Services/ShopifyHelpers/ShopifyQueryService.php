@@ -351,7 +351,7 @@ class ShopifyQueryService
      * @return type
      * @throws conditon
      **/
-    private function runQuery($query, $variables = null)
+    private function runQuery($query, $variables = null): type
     {
         try {
             if ($variables) {

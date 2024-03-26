@@ -18,7 +18,7 @@ class ExecutionController extends FrontendController
      * @return JsonResponse|null
      */
     #[Route(path: '/execute', name: '_execute')]
-    public function executeAction(Request $request, ExecutionService $executionService)
+    public function executeAction(Request $request, ExecutionService $executionService): ?JsonResponse
     {
         # figure out organization here
         $name = $request->get("name");
