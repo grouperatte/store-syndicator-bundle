@@ -16,7 +16,7 @@ class ShopifyQueryService
 {
     const MAX_QUERY_OBJS = 250;
 
-    
+
     private Graphql $graphql;
     public function __construct(
         ShopifyAuthenticator $abstractAuthenticator,
@@ -35,19 +35,19 @@ class ShopifyQueryService
     {
         $result = $this->runQuery($query);
 
-        if(!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])){
+        if (!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])) {
             $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
             $this->customLogLogger->info("queryForLinking : " . $gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
             $resultFileURL = ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-        }else{
+        } else {
             $this->customLogLogger->info(print_r($result, true));
             throw new Exception("Error during query");
             return [];
         }
-        
+
         $formattedResults = [];
 
         if ($resultFileURL == 'none') { //there were no variants returned (also not an error though)
@@ -56,13 +56,12 @@ class ShopifyQueryService
         $resultFile = fopen($resultFileURL, "r");
         while ($productOrVariant = fgets($resultFile)) {
             $productOrVariant = json_decode($productOrVariant, true);
-            if(!isset($productOrVariant["title"]) || $productOrVariant["title"] !== "Default Title"){
-                if(isset($productOrVariant["__parentId"]) && isset($formattedResults[$productOrVariant["__parentId"]]) ){
+            if (!isset($productOrVariant["title"]) || $productOrVariant["title"] !== "Default Title") {
+                if (isset($productOrVariant["__parentId"]) && isset($formattedResults[$productOrVariant["__parentId"]])) {
                     $formattedResults[$productOrVariant["__parentId"]]['variants'][$productOrVariant["id"]] = $productOrVariant;
-                }else{
+                } else {
                     $formattedResults[$productOrVariant["id"]] = $productOrVariant;
                 }
-               
             }
         }
         return $formattedResults;
@@ -126,18 +125,17 @@ class ShopifyQueryService
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
         $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
         $result = $this->runQuery($product_update_query);
-       
-        if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
+
+        if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("updateProducts: ".$gid);
+            $this->customLogLogger->info("updateProducts: " . $gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
             return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-        }else{
+        } else {
             return "Error in query";
         }
-        
     }
     // public function updateProducts(array $inputArray)
     // {
@@ -153,7 +151,7 @@ class ShopifyQueryService
 
     //     $product_update_query = ShopifyGraphqlHelperService::buildUpdateQuery($remoteFileKey);
     //     $result = $this->runQuery($product_update_query);
-       
+
     //     if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
     //         $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
     //         $this->customLogLogger->info("updateProducts: ".$gid);
@@ -196,17 +194,16 @@ class ShopifyQueryService
         $product_update_query = ShopifyGraphqlHelperService::buildCreateProductsQuery($remoteFileKey);
         $result = $this->runQuery($product_update_query);
 
-        if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
+        if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("createProducts: ".$gid);
+            $this->customLogLogger->info("createProducts: " . $gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
             return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-        }else{
+        } else {
             return "Error in query";
         }
-        
     }
 
 
@@ -214,7 +211,7 @@ class ShopifyQueryService
     {
         foreach ($inputArray as $key => $input) {
             $variables = ['productId' => $key, 'variants' => $input];
-            $this->pushUpdateBulkVariantQuery(ShopifyGraphqlHelperService::buildUpdateBulkVariantQuery(), $variables);      
+            $this->pushUpdateBulkVariantQuery(ShopifyGraphqlHelperService::buildUpdateBulkVariantQuery(), $variables);
         }
     }
 
@@ -224,7 +221,7 @@ class ShopifyQueryService
             // $this->customLogLogger->info(print_r($input, true));
             $result = $this->runQuery($queryString, $input);
             $this->customLogLogger->info(print_r($result, true));
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
@@ -233,7 +230,7 @@ class ShopifyQueryService
     {
         foreach ($inputArray as $key => $input) {
             $variables = ['productId' => $key, 'variants' => $input];
-            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery(), $variables);      
+            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery(), $variables);
         }
     }
 
@@ -243,7 +240,7 @@ class ShopifyQueryService
             // $this->customLogLogger->info($queryString);
             $result = $this->runQuery($queryString, $input);
             $this->customLogLogger->info(print_r($result, true));
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
@@ -254,7 +251,7 @@ class ShopifyQueryService
         $file = tmpfile();
         foreach ($inputArray as $metafieldArray) {
             // $this->customLogLogger->info( json_encode(["metafields" => $metafieldArray]));
-         
+
             fwrite($file, json_encode(["metafields" => $metafieldArray]) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
                 $resultFiles[] = $this->pushMetafieldUpdateFile($file);
@@ -276,14 +273,14 @@ class ShopifyQueryService
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
         $metafieldSetQuery = ShopifyGraphqlHelperService::buildMetafieldSetQuery($remoteFileKey);
         $result = $this->runQuery($metafieldSetQuery);
-        if(!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])){
+        if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("metafieldUpdate: ".$gid);
+            $this->customLogLogger->info("metafieldUpdate: " . $gid);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
             return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
-        }else{
+        } else {
             return "Error in query";
         }
     }
@@ -346,12 +343,11 @@ class ShopifyQueryService
 
     /**
      * wrap query call for error catching and such
-     * 
+     *
      * @param string $query the query to be ran
-     * @return type
      * @throws conditon
      **/
-    private function runQuery($query, $variables = null): type
+    private function runQuery($query, $variables = null): array|string|null
     {
         try {
             if ($variables) {
@@ -364,7 +360,7 @@ class ShopifyQueryService
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
             return null;
         }
-        if(array_key_exists('data', $response) && array_key_exists('bulkOperationRunMutation', $response['data']) && count($response['data']['bulkOperationRunMutation']['userErrors']) > 0 ){
+        if (array_key_exists('data', $response) && array_key_exists('bulkOperationRunMutation', $response['data']) && count($response['data']['bulkOperationRunMutation']['userErrors']) > 0) {
             $this->customLogLogger->error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
             throw new Exception("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
         }
@@ -378,7 +374,7 @@ class ShopifyQueryService
      **/
     public function uploadFiles(array $files): array
     {
-        //build query and query variables 
+        //build query and query variables
         $query = ShopifyGraphqlHelperService::buildFileUploadQuery();
         $variables["input"] = [];
         $stagedUploadUrls = [];
@@ -394,7 +390,7 @@ class ShopifyQueryService
                 "httpMethod" => "POST",
             ];
             $count++;
-            if ($count % 200 == 0) { //if the query asks for more it will fail so loop the call if needed. 
+            if ($count % 200 == 0) { //if the query asks for more it will fail so loop the call if needed.
                 $response = $this->graphql->query(["query" => $query, "variables" => $variables])->getDecodedBody();
                 $stagedUploadUrls = array_merge($stagedUploadUrls, $response["data"]["stagedUploadsCreate"]["stagedTargets"]);
                 $count = 0;
@@ -473,7 +469,7 @@ class ShopifyQueryService
             }
 
             return false;
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             return false;
         }
     }
@@ -486,14 +482,14 @@ class ShopifyQueryService
             $response = $response->getBody()->getContents();
             $response = json_decode($response, true);
             if (json_last_error() === JSON_ERROR_NONE) {
-                
+
                 if ($response['data'] && $response['data']["node"] && $response['data']["node"]["status"] != "RUNNING") {
                     return $response['data']["node"];
-                }   
+                }
             }
 
             return false;
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             return false;
         }
     }
@@ -503,7 +499,7 @@ class ShopifyQueryService
         $queryCount = 0;
         $queryString = "";
         foreach ($inputArray as $id) {
-            $queryString .= "delete".$queryCount.": productDeleteAsync(productId: \"".$id."\") {deleteProductId}\n";
+            $queryString .= "delete" . $queryCount . ": productDeleteAsync(productId: \"" . $id . "\") {deleteProductId}\n";
             $queryCount++;
             if ($queryCount > 99) { // max 100
                 $this->pushProductDeleteQueries($queryString);
@@ -520,9 +516,9 @@ class ShopifyQueryService
     {
 
         try {
-            $result = $this->runQuery("mutation {".$queryString."}");
+            $result = $this->runQuery("mutation {" . $queryString . "}");
             // $this->customLogLogger->info(print_r($result, true));
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
@@ -532,7 +528,7 @@ class ShopifyQueryService
         $queryCount = 0;
         $queryString = "";
         foreach ($inputArray as $index => $id) {
-            $queryString .= "delete".$queryCount.": productVariantDelete(id: \"".$index."\") {
+            $queryString .= "delete" . $queryCount . ": productVariantDelete(id: \"" . $index . "\") {
                 deletedProductVariantId
                 product{
                     id
@@ -548,18 +544,16 @@ class ShopifyQueryService
         if ($queryCount > 0) {
             $this->pushVariantDeleteQueries($queryString);
         }
-
     }
 
     private function pushVariantDeleteQueries($queryString)
     {
 
         try {
-            $result = $this->runQuery("mutation {".$queryString."}");
+            $result = $this->runQuery("mutation {" . $queryString . "}");
             // $this->customLogLogger->info(print_r($result, true));
-        }catch (Exception $e) {
+        } catch (Exception $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
         }
     }
-
 }
