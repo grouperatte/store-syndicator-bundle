@@ -2,24 +2,16 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers;
 
-use DateTime;
-use Exception;
-use Shopify\Auth\Session;
-use Shopify\Clients\Graphql;
-use Pimcore\Model\DataObject;
-use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Db;
-use Pimcore\Db\Connection;
+use \Pimcore\Cache;
+use Doctrine\DBAL\Connection;
+use Pimcore\Db\Helper as DBHelper;
 use Pimcore\Model\DataObject\ClassDefinition;
-use Pimcore\Model\DataObject\Product;
-use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use Pimcore\Bundle\DataHubBundle\Configuration;
+use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
-use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
-use Pimcore\Log\ApplicationLogger;
-use Pimcore\Db\Helper as DBHelper;
-use \Pimcore\Cache;
-use Pimcore\Logger;
 
 
 class ShopifyProductLinkingService
