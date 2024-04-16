@@ -6,6 +6,7 @@ use DateTime;
 use Exception;
 use Pimcore\Db;
 use DateTimeZone;
+use Pimcore\Logger;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
@@ -17,6 +18,8 @@ use Shopify\Rest\Admin2023_01\Product;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
@@ -24,9 +27,6 @@ use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
-use Pimcore\Log\ApplicationLogger;
-use Pimcore\Logger;
 
 class ShopifyStore extends BaseStore
 {
@@ -123,7 +123,8 @@ class ShopifyStore extends BaseStore
         }
         unset($fields["image"]);
 
-        $this->processBaseProductData($fields['base product'], $graphQLInput);
+
+        if (isset($fields['base product'])) $this->processBaseProductData($fields['base product'], $graphQLInput);
         $this->createProductArrays[$object->getId()]['input'] = $graphQLInput;
         $this->createProductArrays[$object->getId()]['media'] = $graphQLMedia;
     }
@@ -220,7 +221,7 @@ class ShopifyStore extends BaseStore
             "value" => strval($child->getId()),
         );
 
-        $this->processBaseVariantData($fields['base variant'], $graphQLInput);
+        if (isset($fields['base variant'])) $this->processBaseVariantData($fields['base variant'], $graphQLInput);
         if (isset($fields['base variant']['stock'])) {
             $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
             $graphQLInput["inventoryQuantities"]["locationId"] = $this->storeLocationId;
@@ -288,7 +289,7 @@ class ShopifyStore extends BaseStore
 
         $graphQLInput = [];
 
-        $this->processBaseVariantData($fields['base variant'], $graphQLInput);
+        if (isset($fields['base variant'])) $this->processBaseVariantData($fields['base variant'], $graphQLInput);
         $inventoryId = $this->getStoreInventoryId($child);
         if (isset($fields['base variant']['stock']) && $inventoryId != null) {
             $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];

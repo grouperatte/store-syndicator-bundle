@@ -4,19 +4,16 @@ namespace Services;
 
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
-use Exception;
+use Pimcore\Db;
+use Carbon\Carbon;
+use \Pimcore\Cache;
 use Pimcore\Model\DataObject;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\ClassDefinition;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\BaseStore;
+use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreFactory;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\StoreInterface;
-use Pimcore\Log\ApplicationLogger;
-use Pimcore\Db;
-use \Pimcore\Cache;
-use Carbon\Carbon;
 
 /*
     Gets the correct StoreInterface from the config file.
@@ -37,21 +34,21 @@ class ExecutionService
 
     private BaseStore $storeInterface;
 
-     /**
+    /**
      * @var ApplicationLogger
      */
     protected ApplicationLogger $applicationLogger;
 
-    public function __construct(ShopifyStore $storeInterface,  ApplicationLogger $applicationLogger)
+    public function __construct(ShopifyStore $storeInterface, ApplicationLogger $applicationLogger)
     {
         $this->storeInterface = $storeInterface;
         $this->applicationLogger = $applicationLogger;
     }
 
     public function export(Configuration $config)
-    {   
+    {
         $db = Db::get();
-        
+
         $this->totalProductsToCreate = 0;
         $this->totalProductsToUpdate = 0;
         $this->totalVariantsToCreate = 0;
@@ -67,7 +64,7 @@ class ExecutionService
 
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
         $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
-        
+
         $this->applicationLogger->info("*Starting import*", [
             'component' => $this->configLogName,
             null,
@@ -77,7 +74,7 @@ class ExecutionService
             'component' => $this->configLogName,
             null,
         ]);
-        
+
         $productListing = $this->getClassObjectListing($configData);
         $variantListing = $this->getClassVariantListing($configData);
 
@@ -99,7 +96,7 @@ class ExecutionService
             null,
         ]);
         foreach ($productsAndVariants as $product) {
-            $this->proccess($product);
+            $this->process($product);
         }
         $this->applicationLogger->info("Ready to create " .  $this->totalProductsToCreate . " products and " . $this->totalVariantsToCreate . " variants, and to update " . $this->totalProductsToUpdate . " products and " . $this->totalVariantsToUpdate . " variants", [
             'component' => $this->configLogName,
@@ -107,7 +104,7 @@ class ExecutionService
         ]);
 
         $this->storeInterface->commit();
-        
+
         $this->applicationLogger->info("*End of import*", [
             'component' => $this->configLogName,
             null,
@@ -115,14 +112,14 @@ class ExecutionService
     }
 
     public function pushStock(Configuration $config)
-    {   
+    {
         $db = Db::get();
-        
+
         $this->totalStocksToUpdate = 0;
 
         $this->config = $config;
         $configData = $this->config->getConfiguration();
-        
+
         $this->storeInterface->setup($config);
         $classType = $configData["products"]["class"];
         $classType = ClassDefinition::getById($classType);
@@ -135,9 +132,9 @@ class ExecutionService
 
         //Retrieves the last update timestamp for this config
         $lastUpdateSetting = \Pimcore\Model\WebsiteSetting::getByName($configData["general"]["name"], null, null);
-        if(isset($lastUpdateSetting) && !empty($lastUpdateSetting->getData())){
+        if (isset($lastUpdateSetting) && !empty($lastUpdateSetting->getData())) {
             $lastUpdate = $lastUpdateSetting->getData();
-        }else{
+        } else {
             $lastUpdate = 0;
         }
 
@@ -150,7 +147,7 @@ class ExecutionService
             'component' => $this->configLogName,
             null,
         ]);
-        
+
         $variantListing = $this->getClassVariantListingForStocks($configData, $lastUpdate);
         // $variantListing = $this->getClassVariantListing($configData);
 
@@ -168,7 +165,7 @@ class ExecutionService
         ]);
 
         $this->storeInterface->commitStock();
-        
+
         $this->applicationLogger->info("*End of stock update*", [
             'component' => $this->configLogName,
             null,
@@ -177,16 +174,15 @@ class ExecutionService
         //Sets the last update timestamp for this config
         $lastUpdateSetting->setData(Carbon::now()->timestamp);
         $lastUpdateSetting->save();
-
     }
 
-    private function proccess($dataObject)
+    private function process($dataObject)
     {
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $this->classType)) {
             $variantCount = count($dataObject->variants);
             if ($variantCount > 100) {
-                $this->applicationLogger->error("Product ".  $dataObject->getKey() ." not exported due to having over 100 variants", [
+                $this->applicationLogger->error("Product " .  $dataObject->getKey() . " not exported due to having over 100 variants", [
                     'component' => $this->configLogName,
                     null,
                 ]);
@@ -198,10 +194,10 @@ class ExecutionService
                     $this->totalProductsToUpdate++;
                     $this->storeInterface->updateProduct($dataObject);
                 }
-                
+
                 foreach ($dataObject->variants as $childVariant) {
                     if ($this->storeInterface->existsInStore($childVariant)) {
-                        if($this->storeInterface->updateVariant($dataObject, $childVariant)){
+                        if ($this->storeInterface->updateVariant($dataObject, $childVariant)) {
                             $this->totalVariantsToUpdate++;
                         }
                     } else {
@@ -218,13 +214,13 @@ class ExecutionService
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $this->classType)) {
             if ($this->storeInterface->hasInventoryInStore($dataObject)) {
-                if($this->storeInterface->updateVariantStock($dataObject)){
+                if ($this->storeInterface->updateVariantStock($dataObject)) {
                     $this->totalStocksToUpdate++;
                 }
             }
         }
     }
-    
+
     private function getClassObjectListing($configData): Dataobject\Listing
     {
         $sql = $configData["products"]["sqlCondition"];
@@ -257,5 +253,4 @@ class ExecutionService
         $listing->setCondition($sql);
         return $listing;
     }
-
 }
