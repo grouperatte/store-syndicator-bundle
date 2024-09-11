@@ -25,7 +25,8 @@ class ShopifyAuthenticator extends AbstractAuthenticator
             $this->APISecret->getPlain(),
             ["read_products", "write_products"],
             $host,
-            new FileSessionStorage('/tmp/php_sessions')
+            new FileSessionStorage('/tmp/php_sessions'),
+            apiVersion: '2023-10',
         );
         $offlineSession = new Session("offline_$host", $host, false, 'state');
         $offlineSession->setScope(Context::$SCOPES->toString());
