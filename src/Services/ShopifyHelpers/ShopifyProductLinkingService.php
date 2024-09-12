@@ -81,7 +81,7 @@ class ShopifyProductLinkingService
         $query = 'select oo_id, ProductStatus, path from pimcore.object_' . $this->configurationService->getDataobjectClass($configuration)->getId();
 
         $this->localProductsAndVariants = [];
-        foreach ($this->db->executeQuery($query) as $product) {
+        foreach ($this->db->executeQuery($query)->fetchAllAssociative() as $product) {
             if ($product) {
                 $this->localProductsAndVariants[$product['oo_id']] = $product;
             }
