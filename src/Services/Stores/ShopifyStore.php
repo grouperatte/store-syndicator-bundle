@@ -114,6 +114,10 @@ class ShopifyStore extends BaseStore
         if (isset($fields["image"])) {
             /** @var Image $image */
             foreach ($fields["image"] as $image) {
+                $this->applicationLogger->info("ImageUrl:".$image->getFrontendFullPath(), [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
                 $graphQLMedia[] = array(
                     "originalSource" => $image->getFrontendFullPath(),
                     "mediaContentType" => "IMAGE"
