@@ -182,7 +182,7 @@ class ExecutionService
         if (is_a($dataObject, $this->classType)) {
             $variantCount = count($dataObject->variants);
             if ($variantCount > 250) {
-                $this->applicationLogger->error("Product " .  $dataObject->getKey() . " not exported due to having over 100 variants", [
+                $this->applicationLogger->error("Product " .  $dataObject->getKey() . " not exported due to having over 250 variants", [
                     'component' => $this->configLogName,
                     null,
                 ]);
