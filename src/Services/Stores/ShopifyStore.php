@@ -19,6 +19,8 @@ use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use Symfony\Component\Messenger\MessageBusInterface;
+use TorqIT\StoreSyndicatorBundle\Message\ShopifyCreateProductMessage;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
@@ -53,7 +55,8 @@ class ShopifyStore extends BaseStore
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
         private ApplicationLogger $applicationLogger,
-        protected \Psr\Log\LoggerInterface $customLogLogger
+        protected \Psr\Log\LoggerInterface $customLogLogger,
+        private MessageBusInterface $messageBus
     ) {
         $this->attributeService = new AttributesService();
         $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService, $applicationLogger, $customLogLogger);
@@ -404,21 +407,23 @@ class ShopifyStore extends BaseStore
                     $excludedCount++;
                 }
             }
-            //create unmade products
+            //create unmade products by pushing messages to queue for asynchronous handling
             try {
                 if (count($this->createProductArrays) > 0) {
-                    $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
-                        'component' => $this->configLogName,
-                        null,
-                    ]);
-                    $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
-                    foreach ($resultFiles as $resultFileURL) {
-                        $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
-                            'component' => $this->configLogName,
-                            'fileObject' => $resultFileURL,
-                            null,
-                        ]);
-                    }
+                    // $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
+                        // 'component' => $this->configLogName,
+                        // null,
+                    // ]);
+                    // $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
+                    // foreach ($resultFiles as $resultFileURL) {
+                        // $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
+                            // 'component' => $this->configLogName,
+                            // 'fileObject' => $resultFileURL,
+                            // null,
+                        // ]);
+
+                    foreach( $this->createProductArrays as $product )
+                        $this->messageBus->dispatch( new ShopifyCreateProductMessage( $product->getId(), $this->config->getName() ) );
                 }
             } catch (Exception $e) {
                 $this->applicationLogger->error("Error during Shopify mutation to create products and variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
