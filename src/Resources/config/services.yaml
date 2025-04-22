@@ -55,7 +55,7 @@ services:
 #            - "%parameter%"
 
   TorqIT\StoreSyndicatorBundle\MessageHandler\:
-    resource: "../src/MessageHandler/*"
+    resource: "../../MessageHandler/*"
     autowire: true
     tags:
         - { name: messenger.message_handler }
