@@ -3,10 +3,9 @@
 namespace TorqIT\StoreSyndicatorBundle\Message;
 
 
-final class ShopifyCreateProductMessage
+final class StoreSyndicationMessage
 {
     public function __construct(
-        public readonly int $productId,
         public readonly string $dataHubConfigName,
     ) { }
 }

@@ -164,43 +164,26 @@ class ShopifyQueryService
     //     }
     // }
 
-    // public function createProducts(array $inputArray)
-    // {
-    //     $resultFiles = [];
-    //     $file = tmpfile();
-    //     foreach ($inputArray as $inputObj) {
-    //         // $this->customLogLogger->info(json_encode($inputObj));
-    //         fwrite($file, json_encode($inputObj) . PHP_EOL);
-    //         if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
-    //             $resultFiles[] = $this->pushProductCreateFile($file);
-    //             fclose($file);
-    //             $file = tmpfile();
-    //         }
-    //     }
-    //     if (fstat($file)["size"] > 0) {
-    //         $resultFiles[] = $this->pushProductCreateFile($file);
-    //         fclose($file);
-    //     }
 
-    //     return $resultFiles;
-    // }
-
-    public function createProduct($inputObj)
+    public function createProducts(array $inputArray)
     {
+        $resultFiles = [];
         $file = tmpfile();
-        fwrite($file, json_encode($inputObj) . PHP_EOL);
-        if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
-            $resultFile = $this->pushProductCreateFile($file);
-            fclose($file);
-            $file = tmpfile();
+        foreach ($inputArray as $inputObj) {
+            // $this->customLogLogger->info(json_encode($inputObj));
+            fwrite($file, json_encode($inputObj) . PHP_EOL);
+            if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
+                $resultFiles[] = $this->pushProductCreateFile($file);
+                fclose($file);
+                $file = tmpfile();
+            }
         }
-    
         if (fstat($file)["size"] > 0) {
-            $resultFile = $this->pushProductCreateFile($file);
+            $resultFiles[] = $this->pushProductCreateFile($file);
             fclose($file);
         }
 
-        return $resultFile;
+        return $resultFiles;
     }
 
     private function pushProductCreateFile($file): string
