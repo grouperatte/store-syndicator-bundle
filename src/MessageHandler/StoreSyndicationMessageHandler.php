@@ -23,6 +23,10 @@ final class StoreSyndicationMessageHandler
     public function __invoke(StoreSyndicationMessage $message): void
     {
         $this->dataHubConfig = Configuration::getByName($message->dataHubConfigName);
+
+        if( getenv('APP_DEBUG') ) {
+            $this->applicationLogger->debug("Processing ShopifyStoreSyndication Message ({$message->dataHubConfigName})");
+        }
         
         try {
             $this->executionService->export($this->dataHubConfig);
