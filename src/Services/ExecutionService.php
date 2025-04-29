@@ -77,17 +77,18 @@ class ExecutionService
 
         $productListing = $this->getClassObjectListing($configData);
         $variantListing = $this->getClassVariantListing($configData);
+        $productVariants = [];
 
         $productsAndVariants = [];
         foreach ($productListing as $product) {
             if ($product) {
-                $product->variants = [];
+                $productVariants[$product->getId()] = [];
                 $productsAndVariants[$product->getId()] = $product;
             }
         }
         foreach ($variantListing as $variant) {
-            if ($variant && array_key_exists($variant->getParentId(), $productsAndVariants)) {
-                $productsAndVariants[$variant->getParentId()]->variants[] = $variant;
+            if ($variant && array_key_exists($variant->getParentId(), $productVariants)) {
+                $productVariants[$variant->getParentId()][] = $variant;
             }
         }
 
@@ -96,7 +97,7 @@ class ExecutionService
             null,
         ]);
         foreach ($productsAndVariants as $product) {
-            $this->process($product);
+            $this->process($product, $productVariants[$product->getId()]);
         }
         $this->applicationLogger->info("Ready to create " .  $this->totalProductsToCreate . " products and " . $this->totalVariantsToCreate . " variants, and to update " . $this->totalProductsToUpdate . " products and " . $this->totalVariantsToUpdate . " variants", [
             'component' => $this->configLogName,
@@ -176,11 +177,11 @@ class ExecutionService
         $lastUpdateSetting->save();
     }
 
-    private function process($dataObject)
+    private function process($dataObject, $variants = [])
     {
         /** @var Concrete $dataObject */
         if (is_a($dataObject, $this->classType)) {
-            $variantCount = count($dataObject->variants);
+            $variantCount = count($variants);
             if ($variantCount > 500) {
                 $this->applicationLogger->error("Product " .  $dataObject->getKey() . " with $variantCount variants not exported due to having over 500 variants", [
                     'component' => $this->configLogName,
@@ -195,7 +196,7 @@ class ExecutionService
                     $this->storeInterface->updateProduct($dataObject);
                 }
 
-                foreach ($dataObject->variants as $childVariant) {
+                foreach ($variants as $childVariant) {
                     if ($this->storeInterface->existsInStore($childVariant)) {
                         if ($this->storeInterface->updateVariant($dataObject, $childVariant)) {
                             $this->totalVariantsToUpdate++;
