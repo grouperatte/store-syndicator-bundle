@@ -6,6 +6,7 @@ use Exception;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use PhpParser\Node\Expr\Cast\Bool_;
+use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Model\DataObject\Localizedfield;
 use Pimcore\Bundle\DataHubBundle\Configuration;
@@ -16,8 +17,8 @@ use Pimcore\Model\DataObject\ClassDefinition\Data;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
-use Pimcore\Log\ApplicationLogger;
 use Pimcore\Logger;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 abstract class BaseStore implements StoreInterface
 {
@@ -26,7 +27,12 @@ abstract class BaseStore implements StoreInterface
     protected string $remoteInventoryIdProperty = "Default";
 
     protected Configuration $config;
-    abstract public function __construct(ConfigurationRepository $configurationRepository, ConfigurationService $configurationService, ApplicationLogger $applicationLogger, \Psr\Log\LoggerInterface $customLogLogger);
+    abstract public function __construct(
+        ConfigurationRepository $configurationRepository, 
+        ConfigurationService $configurationService, 
+        ApplicationLogger $applicationLogger, 
+        \Psr\Log\LoggerInterface $customLogLogger
+    );
     abstract public function setup(Configuration $config);
 
     abstract public function createProduct(Concrete $object): void;

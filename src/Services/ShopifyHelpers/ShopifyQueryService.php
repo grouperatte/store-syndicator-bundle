@@ -164,6 +164,7 @@ class ShopifyQueryService
     //     }
     // }
 
+
     public function createProducts(array $inputArray)
     {
         $resultFiles = [];

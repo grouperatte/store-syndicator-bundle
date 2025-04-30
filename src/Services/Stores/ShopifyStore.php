@@ -19,6 +19,7 @@ use Pimcore\Bundle\DataHubBundle\Configuration;
 use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Message\ShopifyCreateProductMessage;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
@@ -53,8 +54,7 @@ class ShopifyStore extends BaseStore
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
         private ApplicationLogger $applicationLogger,
-        protected \Psr\Log\LoggerInterface $customLogLogger
-    ) {
+        protected \Psr\Log\LoggerInterface $customLogLogger ) {
         $this->attributeService = new AttributesService();
         $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService, $applicationLogger, $customLogLogger);
     }
@@ -404,7 +404,7 @@ class ShopifyStore extends BaseStore
                     $excludedCount++;
                 }
             }
-            //create unmade products
+            //create unmade products by pushing messages to queue for asynchronous handling
             try {
                 if (count($this->createProductArrays) > 0) {
                     $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [

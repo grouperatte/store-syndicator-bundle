@@ -53,3 +53,7 @@ services:
 #            - "@service_id"
 #            - "plain_value"
 #            - "%parameter%"
+
+  TorqIT\StoreSyndicatorBundle\MessageHandler\:
+    resource: "../../MessageHandler"
+    tags: ["messenger.message_handler"]
