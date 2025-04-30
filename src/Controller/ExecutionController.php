@@ -21,7 +21,6 @@ class ExecutionController extends FrontendController
     #[Route(path: '/execute', name: '_execute')]
     public function executeAction(
         Request $request, 
-        ExecutionService $executionService,
         MessageBusInterface $messageBus
          ): JsonResponse
     {
