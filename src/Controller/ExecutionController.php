@@ -9,7 +9,6 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Messenger\MessageBusInterface;
 use TorqIT\StoreSyndicatorBundle\Message\StoreSyndicationMessage;
-use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
 
 #[Route(path: '/admin/storesyndicator/execution', name: 'pimcore_storesyndicator_execution')]
 class ExecutionController extends FrontendController
