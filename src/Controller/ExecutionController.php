@@ -28,7 +28,6 @@ class ExecutionController extends FrontendController
         $name = $request->get("name");
         $config = Configuration::getByName($name);
 
-        // $executionService->export($config);
         if( $config ) {
             $messageBus->dispatch( new StoreSyndicationMessage($name) );
         
