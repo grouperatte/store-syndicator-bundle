@@ -389,7 +389,7 @@ class ShopifyStore extends BaseStore
         return true;
     }
 
-    public function commit()
+    public function commit( bool $doLinking = false )
     {
         $this->applicationLogger->info("Start of Shopify mutations", [
             'component' => $this->configLogName,
@@ -404,7 +404,7 @@ class ShopifyStore extends BaseStore
                     $excludedCount++;
                 }
             }
-            //create unmade products by pushing messages to queue for asynchronous handling
+
             try {
                 if (count($this->createProductArrays) > 0) {
                     $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
@@ -544,7 +544,8 @@ class ShopifyStore extends BaseStore
         // if (!empty($this->createProductArrays) || !empty($this->updateProductArrays) || $this->updateVariantsArrays || $this->metafieldSetArrays) {
         //     $this->shopifyProductLinkingService->link($this->config);
         // }
-        $this->shopifyProductLinkingService->link($this->config);
+        if( $doLinking )
+            $this->shopifyProductLinkingService->link($this->config);
     }
 
     public function commitStock()

@@ -45,7 +45,7 @@ class ExecutionService
         $this->applicationLogger = $applicationLogger;
     }
 
-    public function export(Configuration $config)
+    public function export(Configuration $config, int $offset=0, int $limit=0) : bool
     {
         $db = Db::get();
 
@@ -63,27 +63,64 @@ class ExecutionService
         $this->classType = "Pimcore\\Model\\DataObject\\" . ucfirst($classType->getName());
 
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
-        $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
 
-        $this->applicationLogger->info("*Starting import*", [
-            'component' => $this->configLogName,
-            null,
-        ]);
-        Cache::clearAll();
-        $this->applicationLogger->info("Cleared pimcore data cache", [
-            'component' => $this->configLogName,
-            null,
-        ]);
+        // ToDo... we can't delete all logs when processing batches... but should we be trying to delete old logs?
+        // $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
+
+        if( $offset == 0 ) {
+
+            $this->applicationLogger->info("*Starting import* (size: {$limit})", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+
+            // Only clear the cache if this is the first batch
+            Cache::clearAll();            
+            $this->applicationLogger->info("Cleared pimcore data cache", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+        } else {
+            $this->applicationLogger->info("*Starting batch import* (offset: {$offset})", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+        }
 
         $productListing = $this->getClassObjectListing($configData);
         $variantListing = $this->getClassVariantListing($configData);
-        $productVariants = [];
+        $thisIsFinalBatch = false;
 
-        $productsAndVariants = [];
+        // only apply these limits if they are set
+        if( $limit > 0 ) {
+            $productListing->setLimit($limit);
+            $variantListing->setLimit($limit);
+
+            // if limit is not set, offset will be ignored
+            if( $offset > 0 ) {
+                $productListing->setOffset($offset);
+                $variantListing->setOffset($offset);
+            }
+        }
+
+        $this->applicationLogger->info("Retrieving " . $productListing->count() . " products and " . $variantListing->count() . " variants", [
+            'component' => $this->configLogName,
+            null,
+        ]);
+
+        // either no limit, or both offsets are past the end of data: this will be the last batch
+        // assertion: if the offset of one array is past the end of data for the other, empty results are okay
+        if( ($limit === 0) || ( (($offset + $limit) >= $productListing->count()) && (($offset + $limit) >= $variantListing->count()) ) ) {
+            
+            $thisIsFinalBatch = true; 
+        }
+         
+        $productVariants = [];
+        $products = [];
         foreach ($productListing as $product) {
             if ($product) {
                 $productVariants[$product->getId()] = [];
-                $productsAndVariants[$product->getId()] = $product;
+                $products[$product->getId()] = $product;
             }
         }
         foreach ($variantListing as $variant) {
@@ -92,24 +129,38 @@ class ExecutionService
             }
         }
 
-        $this->applicationLogger->info("Processing " . count($productsAndVariants) . " products", [
-            'component' => $this->configLogName,
-            null,
-        ]);
-        foreach ($productsAndVariants as $product) {
-            $this->process($product, $productVariants[$product->getId()]);
+        // if we have nothing to do, only continue if this is the last batch
+        if( $thisIsFinalBatch || (count($products) > 0) ) {
+
+            if( count($products) > 0 ) {
+                $this->applicationLogger->info("Processing " . count($products) . " products", [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                foreach ($products as $product) {
+                    $this->process($product, $productVariants[$product->getId()]);
+                }        
+            }
+
+            $this->applicationLogger->info("Ready to commit" .
+                ( $thisIsFinalBatch ? " AND link " : "" ) . 
+                "{$this->totalProductsToCreate} products and {$this->totalVariantsToCreate} variants, " .
+                "and to update {$this->totalProductsToUpdate} products and {$this->totalVariantsToUpdate} variants", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+
+            $this->storeInterface->commit($thisIsFinalBatch);
         }
-        $this->applicationLogger->info("Ready to create " .  $this->totalProductsToCreate . " products and " . $this->totalVariantsToCreate . " variants, and to update " . $this->totalProductsToUpdate . " products and " . $this->totalVariantsToUpdate . " variants", [
+
+
+        $this->applicationLogger->info("*End of import* ({$offset})" , [
             'component' => $this->configLogName,
             null,
         ]);
 
-        $this->storeInterface->commit();
-
-        $this->applicationLogger->info("*End of import*", [
-            'component' => $this->configLogName,
-            null,
-        ]);
+        // return true if we should continue with more batches
+        return !$thisIsFinalBatch;
     }
 
     public function pushStock(Configuration $config)
