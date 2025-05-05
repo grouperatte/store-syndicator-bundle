@@ -4,10 +4,9 @@
     "require": {
         "ext-fileinfo": "*",
         "ext-json": "*",
-        "pimcore/data-hub": "1.6.*",
-        "shopify/shopify-api": "^4.2",
-        "pimcore/pimcore": "11.1.*",
-        "php": "~8.0.0 || ~8.1.0 || ~8.2.0"
+        "pimcore/data-hub": "*",
+        "shopify/shopify-api": "^5.2",
+        "pimcore/pimcore": "^11.1"
     },
     "require-dev": {
         "phpstan/phpstan": "^1.2",
