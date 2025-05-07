@@ -246,8 +246,18 @@ class ShopifyQueryService
         }
     }
 
+    public function getSalesChannels(): array
+    {
+        $query = ShopifyGraphqlHelperService::buildSalesChannelsQuery();
+        $response = $this->graphql->query(["query" => $query])->getDecodedBody();
+        foreach ($response["data"]["publications"]["edges"] as $node) {
+            $data[] = ["publicationId" => $node["node"]["id"]];
+        }
+        return $data;
+    }
+
     //used to link existing products to the selected stores
-    public function addProductToStore(array $inputArray)
+    public function addProductsToStore(array $inputArray)
     {
         $resultFiles = [];
         $file = tmpfile();

@@ -19,7 +19,7 @@ class ShopifyGraphqlHelperService
     private static $CREATE_BULK_VARIANTS = '/shopify-queries/create-bulk-variants.graphql';
     private static $UPDATE_BULK_VARIANTS = '/shopify-queries/update-bulk-variants.graphql';
     private static $SET_PRODUCT_STORE_ID = '/shopify-queries/product-publish.graphql';
-
+    private static $GET_STORE_IDS = '/shopify-queries/get-store-ids.graphql';
 
 
     public static function buildCreateProductsQuery($remoteFile)
@@ -71,6 +71,12 @@ class ShopifyGraphqlHelperService
     {
         $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_METAFIELDS_QUERY);
         $getMetafieldsQuery = preg_replace("/REPLACEMETYPE/", "PRODUCT", $getMetafieldsQuery);
+        return $getMetafieldsQuery;
+    }
+
+    public static function buildSalesChannelsQuery()
+    {
+        $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_STORE_IDS);
         return $getMetafieldsQuery;
     }
 
