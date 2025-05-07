@@ -2,31 +2,16 @@
 
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
-use DateTime;
 use Exception;
 use Pimcore\Db;
-use DateTimeZone;
-use Pimcore\Logger;
-use Shopify\Context;
-use Shopify\Auth\Session;
-use Shopify\Clients\Graphql;
-use Pimcore\Model\DataObject;
-use Pimcore\Model\Asset\Image;
-use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Concrete;
-use Shopify\Rest\Admin2023_01\Product;
 use Pimcore\Bundle\DataHubBundle\Configuration;
-use Shopify\Exception\RestResourceRequestException;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
-use TorqIT\StoreSyndicatorBundle\Message\ShopifyCreateProductMessage;
-use TorqIT\StoreSyndicatorBundle\Services\Stores\Models\LogRow;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
-use TorqIT\StoreSyndicatorBundle\Services\Authenticators\AbstractAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
 
 class ShopifyStore extends BaseStore
@@ -39,18 +24,12 @@ class ShopifyStore extends BaseStore
     private array $updateVariantsArrays;
     private array $createVariantsArrays;
     private array $metafieldSetArrays;
-    private array $updateImageMap;
     private array $metafieldTypeDefinitions;
     private string $storeLocationId;
     private array $updateStock;
     private array $publicationIds;
     private array $addProdsToStore;
     private string $configLogName;
-    // private array $productMetafieldsMapping;
-    //private array $variantMetafieldsMapping;
-
-
-    private AttributesService $attributeService;
 
     public function __construct(
         private ConfigurationRepository $configurationRepository,
@@ -85,7 +64,6 @@ class ShopifyStore extends BaseStore
         $this->updateVariantsArrays = [];
         $this->createVariantsArrays = [];
         $this->metafieldSetArrays = [];
-        $this->updateImageMap = [];
         $this->updateStock = [];
         $this->addProdsToStore = [];
 
@@ -96,7 +74,7 @@ class ShopifyStore extends BaseStore
     {
         $fields = $this->getAttributes($object);
         $graphQLInput = [];
-        $graphQLMedia = [];
+
         $graphQLInput["title"] = $object->getKey();
         $graphQLInput["metafields"][] = array(
             "namespace" => "custom",
@@ -116,38 +94,15 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        if (isset($fields["image"])) {
-            /** @var Image $image */
-            foreach ($fields["image"] as $image) {
-                $graphQLMedia[] = array(
-                    "originalSource" => $image->getFrontendFullPath(),
-                    "mediaContentType" => "IMAGE"
-                );
-            }
-            unset($fields["image"]);
-        }
-        unset($fields["image"]);
-
 
         if (isset($fields['base product'])) $this->processBaseProductData($fields['base product'], $graphQLInput);
         $this->createProductArrays[$object->getId()]['input'] = $graphQLInput;
-        $this->createProductArrays[$object->getId()]['media'] = $graphQLMedia;
         $this->addProdsToStore[] = $object;
     }
 
     public function updateProduct(Concrete $object): void
     {
         $graphQLInput = [];
-        $graphQLMedia = [];
-        // //If has unsynchronised changes, save in property for later
-        // if(intval($object->getProperty($this->remoteLastUpdatedProperty)) < $object->getModificationDate()){
-        //     $graphQLInput['hasUpdate'] = true;
-        // }
-
-        //Skip if no new changes
-        // if (intval($object->getProperty($this->remoteLastUpdatedProperty)) > $object->getModificationDate()) {
-            // return;
-        // }
 
         $fields = $this->getAttributes($object);
         $remoteId = $this->getStoreProductId($object);
@@ -186,23 +141,11 @@ class ShopifyStore extends BaseStore
             }
             unset($fields['metafields']);
         }
-        // if (isset($fields["image"])) {
-        //     /** @var Image $image */
-        //     foreach ($fields["image"] as $image) {
-        //         $graphQLMedia[] = array(
-        //             "originalSource" => $image->getFrontendFullPath(),
-        //             "mediaContentType"=> "IMAGE"
-        //         );
-        //     }
-        //     unset($fields["image"]);
-        // }
-        // unset($fields["image"]);
 
         $this->processBaseProductData($fields['base product'], $graphQLInput);
         $graphQLInput["id"] = $remoteId;
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
         $this->updateProductArrays[$object->getId()]['input'] = $graphQLInput;
-        // $this->updateProductArrays[$object->getId()]['media'] = $graphQLMedia;
         $this->addProdsToStore[] = $object;
     }
 
@@ -484,13 +427,6 @@ class ShopifyStore extends BaseStore
                     null,
                 ]);
                 $resultFile = $this->shopifyQueryService->updateBulkVariants($this->updateVariantsArrays);
-                // foreach ($resultFiles as $resultFileURL) {
-                //     $this->applicationLogger->info("Shopify mutation to update variants is finished " . $resultFileURL, [
-                //         'component' => $this->configLogName,
-                //         'fileObject' => $resultFileURL,
-                //         null,
-                //     ]);
-                // }
                 $this->applicationLogger->info("Shopify mutations to update variants have been submitted", [
                     'component' => $this->configLogName,
                     null,
