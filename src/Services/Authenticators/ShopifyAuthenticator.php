@@ -26,7 +26,7 @@ class ShopifyAuthenticator extends AbstractAuthenticator
             ["read_products", "write_products"],
             $host,
             new FileSessionStorage('/tmp/php_sessions'),
-            apiVersion: '2023-10',
+            apiVersion: '2025-04',
         );
         $offlineSession = new Session("offline_$host", $host, false, 'state');
         $offlineSession->setScope(Context::$SCOPES->toString());
