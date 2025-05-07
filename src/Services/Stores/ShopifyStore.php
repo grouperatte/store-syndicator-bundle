@@ -145,9 +145,9 @@ class ShopifyStore extends BaseStore
         // }
 
         //Skip if no new changes
-        if (intval($object->getProperty($this->remoteLastUpdatedProperty)) > $object->getModificationDate()) {
-            return;
-        }
+        // if (intval($object->getProperty($this->remoteLastUpdatedProperty)) > $object->getModificationDate()) {
+            // return;
+        // }
 
         $fields = $this->getAttributes($object);
         $remoteId = $this->getStoreProductId($object);
