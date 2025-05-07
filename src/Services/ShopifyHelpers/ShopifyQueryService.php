@@ -246,6 +246,59 @@ class ShopifyQueryService
         }
     }
 
+    public function getSalesChannels(): array
+    {
+        $query = ShopifyGraphqlHelperService::buildSalesChannelsQuery();
+        $response = $this->graphql->query(["query" => $query])->getDecodedBody();
+        foreach ($response["data"]["publications"]["edges"] as $node) {
+            $data[] = ["publicationId" => $node["node"]["id"]];
+        }
+        return $data;
+    }
+
+    //used to link existing products to the selected stores
+    public function addProductsToStore(array $inputArray)
+    {
+        $resultFiles = [];
+        $file = tmpfile();
+        foreach ($inputArray as $inputObj) {
+            // $this->customLogLogger->info(json_encode($inputObj));
+            fwrite($file, json_encode($inputObj) . PHP_EOL);
+            if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
+                $resultFiles[] = $this->pushAddProductToStoreFile($file);
+                fclose($file);
+                $file = tmpfile();
+            }
+        }
+        if (fstat($file)["size"] > 0) {
+            $resultFiles[] = $this->pushAddProductToStoreFile($file);
+            fclose($file);
+        }
+
+        return $resultFiles;
+    }
+
+    private function pushAddProductToStoreFile($file): string
+    {
+        $filename = stream_get_meta_data($file)['uri'];
+
+        $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
+        $remoteFileKey = $remoteFileKeys[$filename]["key"];
+        $product_set_store_query = ShopifyGraphqlHelperService::buildSetProductStoreIdQuery($remoteFileKey);
+        $result = $this->runQuery($product_set_store_query);
+
+        if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
+            $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
+            $this->customLogLogger->info("add product to store: " . $gid);
+            while (!$queryResult = $this->checkQueryProgress($gid)) {
+                sleep(1);
+            }
+            return ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
+        } else {
+            return "Error in query";
+        }
+    }
+
     public function updateMetafields(array $inputArray)
     {
         $resultFiles = [];
