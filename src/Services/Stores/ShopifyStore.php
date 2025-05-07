@@ -43,6 +43,8 @@ class ShopifyStore extends BaseStore
     private array $metafieldTypeDefinitions;
     private string $storeLocationId;
     private array $updateStock;
+    private array $publicationIds;
+    private array $addProdsToStore;
     private string $configLogName;
     // private array $productMetafieldsMapping;
     //private array $variantMetafieldsMapping;
@@ -54,7 +56,8 @@ class ShopifyStore extends BaseStore
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
         private ApplicationLogger $applicationLogger,
-        protected \Psr\Log\LoggerInterface $customLogLogger ) {
+        protected \Psr\Log\LoggerInterface $customLogLogger
+    ) {
         $this->attributeService = new AttributesService();
         $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService, $applicationLogger, $customLogLogger);
     }
@@ -75,6 +78,7 @@ class ShopifyStore extends BaseStore
         $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
         $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
         $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
+        $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
 
         $this->updateProductArrays = [];
         $this->createProductArrays = [];
@@ -83,6 +87,7 @@ class ShopifyStore extends BaseStore
         $this->metafieldSetArrays = [];
         $this->updateImageMap = [];
         $this->updateStock = [];
+        $this->addProdsToStore = [];
 
         Db::get()->executeQuery('SET SESSION wait_timeout = ' . 28800); //timeout to 8 hours for this session
     }
@@ -127,6 +132,7 @@ class ShopifyStore extends BaseStore
         if (isset($fields['base product'])) $this->processBaseProductData($fields['base product'], $graphQLInput);
         $this->createProductArrays[$object->getId()]['input'] = $graphQLInput;
         $this->createProductArrays[$object->getId()]['media'] = $graphQLMedia;
+        $this->addProdsToStore[] = $object;
     }
 
     public function updateProduct(Concrete $object): void
@@ -197,6 +203,7 @@ class ShopifyStore extends BaseStore
         $graphQLInput["handle"] = $graphQLInput["title"] . "-" . $remoteId;
         $this->updateProductArrays[$object->getId()]['input'] = $graphQLInput;
         // $this->updateProductArrays[$object->getId()]['media'] = $graphQLMedia;
+        $this->addProdsToStore[] = $object;
     }
 
     public function createVariant(Concrete $parent, Concrete $child): void
@@ -536,6 +543,7 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
+
         $this->applicationLogger->info("End of Shopify mutations", [
             'component' => $this->configLogName,
             null,
@@ -545,6 +553,25 @@ class ShopifyStore extends BaseStore
         //     $this->shopifyProductLinkingService->link($this->config);
         // }
         $this->shopifyProductLinkingService->link($this->config);
+
+        //need to do the adding to store after the linking because we need the newly link product's ids
+
+        if ($this->addProdsToStore) {
+            $this->applicationLogger->info("adding products to stores", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+            $this->addProdsToStore = array_unique($this->addProdsToStore);
+            $inputArray = [];
+            foreach ($this->addProdsToStore as $product) {
+                $inputArray[] = [
+                    "id" => $this->getStoreProductId($product),
+                    "input" => $this->publicationIds
+
+                ];
+            }
+            $this->shopifyQueryService->addProductsToStore($inputArray);
+        }
     }
 
     public function commitStock()
