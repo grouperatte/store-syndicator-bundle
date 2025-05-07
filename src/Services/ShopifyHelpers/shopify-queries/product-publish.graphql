@@ -1,0 +1,13 @@
+mutation call($id: ID!, $input: [PublicationInput!]!) {
+  publishablePublish(id: $id, input: $input) {
+    publishable {
+      availablePublicationsCount {
+        count
+      }
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}

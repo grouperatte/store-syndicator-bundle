@@ -18,7 +18,8 @@ class ShopifyGraphqlHelperService
     private static $QUERY_PROGRESS_QUERY = '/shopify-queries/check-query-progress.graphql';
     private static $CREATE_BULK_VARIANTS = '/shopify-queries/create-bulk-variants.graphql';
     private static $UPDATE_BULK_VARIANTS = '/shopify-queries/update-bulk-variants.graphql';
-
+    private static $SET_PRODUCT_STORE_ID = '/shopify-queries/product-publish.graphql';
+    private static $GET_STORE_IDS = '/shopify-queries/get-store-ids.graphql';
 
 
     public static function buildCreateProductsQuery($remoteFile)
@@ -73,6 +74,12 @@ class ShopifyGraphqlHelperService
         return $getMetafieldsQuery;
     }
 
+    public static function buildSalesChannelsQuery()
+    {
+        $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_STORE_IDS);
+        return $getMetafieldsQuery;
+    }
+
     public static function buildVariantMetafieldsQuery()
     {
         $getMetafieldsQuery = file_get_contents(dirname(__FILE__) . self::$GET_METAFIELDS_QUERY);
@@ -85,14 +92,14 @@ class ShopifyGraphqlHelperService
         $linkingQuery = file_get_contents(dirname(__FILE__) . self::$GET_LINKING_QUERY);
         if ($metafield) {
             $metafieldArray = explode(".", $metafield);
-            $linkingQuery = preg_replace("/REPLACEMEMETAFIELD/", 'linkingId: metafield(namespace: \"'. $metafieldArray[0].'\", key: \"' . $metafieldArray[1] . '\"){
+            $linkingQuery = preg_replace("/REPLACEMEMETAFIELD/", 'linkingId: metafield(namespace: \"' . $metafieldArray[0] . '\", key: \"' . $metafieldArray[1] . '\"){
                 value
             }
             lastUpdated: metafield(namespace: \"custom\", key: \"last_updated\"){
                 value
             }', $linkingQuery);
-        } 
-        
+        }
+
         return self::bulkQueryWrap($linkingQuery);
     }
     public static function buildMetafieldSetQuery($remoteFile)
@@ -120,5 +127,11 @@ class ShopifyGraphqlHelperService
     public static function buildUpdateBulkVariantQuery()
     {
         return file_get_contents(dirname(__FILE__) . self::$UPDATE_BULK_VARIANTS);
+    }
+
+    public static function buildSetProductStoreIdQuery($remoteFile)
+    {
+        $updateProductsQuery = file_get_contents(dirname(__FILE__) . self::$SET_PRODUCT_STORE_ID);
+        return self::bulkwrap($updateProductsQuery, $remoteFile);
     }
 }
