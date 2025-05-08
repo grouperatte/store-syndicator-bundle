@@ -3,22 +3,23 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Exception;
+use Pimcore\Logger;
 use Pimcore\Model\Asset;
 use Pimcore\Model\Asset\Image;
 use PhpParser\Node\Expr\Cast\Bool_;
-use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\Element\AbstractElement;
 use Pimcore\Model\DataObject\Localizedfield;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
 use Pimcore\Model\DataObject\Data\QuantityValue;
 use Pimcore\Model\DataObject\ClassDefinition\Data;
+use Symfony\Component\Messenger\MessageBusInterface;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
+use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
-use Pimcore\Logger;
-use Symfony\Component\Messenger\MessageBusInterface;
 
 abstract class BaseStore implements StoreInterface
 {
@@ -28,9 +29,9 @@ abstract class BaseStore implements StoreInterface
 
     protected Configuration $config;
     abstract public function __construct(
-        ConfigurationRepository $configurationRepository, 
-        ConfigurationService $configurationService, 
-        ApplicationLogger $applicationLogger, 
+        ConfigurationRepository $configurationRepository,
+        ConfigurationService $configurationService,
+        ApplicationLogger $applicationLogger,
         \Psr\Log\LoggerInterface $customLogLogger
     );
     abstract public function setup(Configuration $config);
@@ -48,7 +49,7 @@ abstract class BaseStore implements StoreInterface
      **/
     abstract public function commit();
 
-    public function getStoreProductId(Concrete $object): string|null
+    public function getStoreId(AbstractElement $object): string|null
     {
         return $object->getProperty($this->propertyName);
     }
@@ -58,7 +59,7 @@ abstract class BaseStore implements StoreInterface
         return $object->getProperty($this->remoteInventoryIdProperty);
     }
 
-    function setStoreProductId(Concrete $object, string $id)
+    function setStoreId(AbstractElement $object, string $id)
     {
         $object->setProperty($this->propertyName, "text", $id);
         $object->save();
@@ -106,7 +107,7 @@ abstract class BaseStore implements StoreInterface
     }
 
     //get the value(s) at the end of the fieldPath array on an object
-    private function getFieldValues($rootField, array $fieldPath,  $fieldType )
+    private function getFieldValues($rootField, array $fieldPath,  $fieldType)
     {
         $field = $fieldPath[0];
         array_shift($fieldPath);
@@ -117,7 +118,7 @@ abstract class BaseStore implements StoreInterface
         } else {
             $fieldVal = $rootField->$getter();
         }
-        if(is_array($fieldVal)){
+        if (is_array($fieldVal)) {
             return implode('|', $fieldVal);
         } elseif (is_iterable($fieldVal)) { //this would be like manytomany fields
             $vals = [];
@@ -153,12 +154,12 @@ abstract class BaseStore implements StoreInterface
     {
         if ($fieldValue instanceof Image) {
             return $fieldValue;
-        }elseif ($fieldValue instanceof QuantityValue) {
+        } elseif ($fieldValue instanceof QuantityValue) {
             return $this->processLocalValue($fieldValue->getValue(), $fieldName, $fieldType);
-        }elseif (is_bool($fieldValue)) {
-            if($fieldType === 'metafields'){
+        } elseif (is_bool($fieldValue)) {
+            if ($fieldType === 'metafields') {
                 return $fieldValue ? $fieldName : "N/A";
-            }else{
+            } else {
                 return $fieldValue;
             }
         } elseif (is_numeric($fieldValue)) {
@@ -194,13 +195,12 @@ abstract class BaseStore implements StoreInterface
         return $variantsOptions;
     }
 
-    public function existsInStore(Concrete $object): bool
+    public function existsInStore(AbstractElement $object): bool
     {
-        return $this->getStoreProductId($object) != null;
+        return $this->getStoreId($object) != null;
     }
     public function hasInventoryInStore(Concrete $object): bool
     {
         return $this->getStoreInventoryId($object) != null;
     }
-    
 }

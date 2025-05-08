@@ -25,6 +25,16 @@ class ShopifyQueryService
         $this->graphql = $abstractAuthenticator->connect()['client'];
     }
 
+    public function createMedia(array $inputArray): array
+    {
+        return $this->runQuery(ShopifyGraphqlHelperService::buildCreateMediaQuery(), $inputArray);
+    }
+
+    public function updateMedia(array $inputArray): array
+    {
+        return $this->runQuery(ShopifyGraphqlHelperService::buildUpdateMediaQuery(), $inputArray);
+    }
+
     /**
      * query all products and variants and the requested metafield
      *
