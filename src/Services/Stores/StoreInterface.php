@@ -3,6 +3,7 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Pimcore\Model\DataObject\Concrete;
+use Pimcore\Model\Element\AbstractElement;
 
 interface StoreInterface
 {
@@ -24,9 +25,9 @@ interface StoreInterface
 
     public function updateVariant(Concrete $parent, Concrete $child): bool;
 
-    public function getStoreProductId(Concrete $object): string|null;
+    public function getStoreId(AbstractElement $object): string|null;
 
-    public function setStoreProductId(Concrete $object, string $id);
+    public function setStoreId(AbstractElement $object, string $id);
 
     public function getAttributes(Concrete $object): array;
 

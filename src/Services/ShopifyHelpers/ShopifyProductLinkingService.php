@@ -36,8 +36,7 @@ class ShopifyProductLinkingService
         private ConfigurationService $configurationService,
         protected ApplicationLogger $applicationLogger,
         private \Psr\Log\LoggerInterface $customLogLogger
-    ) {
-    }
+    ) {}
 
     /**
      * links pimcores objects to shopifys based on the configuration's attribute with the link option selected
@@ -92,7 +91,7 @@ class ShopifyProductLinkingService
             null,
         ]);
 
-        $result = $this->db->executeStatement('Delete from properties where name IN (?)', [$this->remoteIdProperty]);
+        $result = $this->db->executeStatement('Delete from properties where name IN (?) and ctype = (?)', [$this->remoteIdProperty, "object"]);
         $this->applicationLogger->info("Deleted properties from products and variants", [
             'component' => $this->configLogName,
             null,
