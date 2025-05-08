@@ -20,7 +20,18 @@ class ShopifyGraphqlHelperService
     private static $UPDATE_BULK_VARIANTS = '/shopify-queries/update-bulk-variants.graphql';
     private static $SET_PRODUCT_STORE_ID = '/shopify-queries/product-publish.graphql';
     private static $GET_STORE_IDS = '/shopify-queries/get-store-ids.graphql';
+    private static $CREATE_MEDIA = '/shopify-queries/create-media.graphql';
+    private static $UPDATE_MEDIA = '/shopify-queries/update-media.graphql';
 
+    public static function buildCreateMediaQuery()
+    {
+        return file_get_contents(dirname(__FILE__) . self::$CREATE_MEDIA);
+    }
+
+    public static function buildUpdateMediaQuery()
+    {
+        return file_get_contents(dirname(__FILE__) . self::$UPDATE_MEDIA);
+    }
 
     public static function buildCreateProductsQuery($remoteFile)
     {
