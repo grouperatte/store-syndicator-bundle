@@ -30,8 +30,8 @@ class ShopifyStore extends BaseStore
     private array $updateStock;
     private array $publicationIds;
     private array $addProdsToStore;
-    private array $newImages;
-    private array $images;
+    private array $newImages; //images that need to be uploaded and linked back to pimcore asset
+    private array $images; //all images in this export and their referencing products
     private string $configLogName;
 
     public function __construct(
@@ -536,10 +536,10 @@ class ShopifyStore extends BaseStore
             $inputArray = [];
             foreach ($this->newImages as $image) {
                 $inputArray["files"][] = [
-                    "originalSource" => "https://grouperattepimcoreprod.azureedge.net/pimcore-assets/assets/Products/Wheels/720Luxury/LX4/public_1364268c875f482daf370245fc4a3376.png", //$image->getFullFrontendPath(),
-                    "filename" => "test.png", //$image->getFilename(),
+                    "originalSource" => $image->getFullFrontendPath(),
+                    "filename" => $image->getFilename(),
                     "contentType" => "IMAGE",
-                    "alt" => strval($image->getId()),
+                    "alt" => strval($image->getId()), //this is used temporarily to map back the image to the asset and is removed in the linking to product mutation below
                     "duplicateResolutionMode" => "REPLACE"
                 ];
             }
@@ -573,7 +573,7 @@ class ShopifyStore extends BaseStore
                     "alt" => "",
                     "id" => $this->getStoreId($data["image"]), //even if this was set in the upload image part above this, it will get the new id from the propery
                     "referencesToAdd" => $data["products"],
-                    "originalSource" => "https://grouperattepimcoreprod.azureedge.net/pimcore-assets/assets/Products/Wheels/720Luxury/LX4/public_1364268c875f482daf370245fc4a3376.png", //$image->getFullFrontendPath(),
+                    "originalSource" => $image->getFullFrontendPath(),
                 ];
             }
             $result = $this->shopifyQueryService->updateMedia($inputArray);
