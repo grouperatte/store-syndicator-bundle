@@ -534,9 +534,10 @@ class ShopifyStore extends BaseStore
                 null,
             ]);
             $inputArray = [];
+            /** @var Asset $image  */
             foreach ($this->newImages as $image) {
                 $inputArray["files"][] = [
-                    "originalSource" => $image->getFullFrontendPath(),
+                    "originalSource" => $image->getFrontendFullPath(),
                     "filename" => $image->getFilename(),
                     "contentType" => "IMAGE",
                     "alt" => strval($image->getId()), //this is used temporarily to map back the image to the asset and is removed in the linking to product mutation below
@@ -573,7 +574,7 @@ class ShopifyStore extends BaseStore
                     "alt" => "",
                     "id" => $this->getStoreId($data["image"]), //even if this was set in the upload image part above this, it will get the new id from the propery
                     "referencesToAdd" => $data["products"],
-                    "originalSource" => $image->getFullFrontendPath(),
+                    "originalSource" => $image->getFrontendFullPath(),
                 ];
             }
             $result = $this->shopifyQueryService->updateMedia($inputArray);
