@@ -194,8 +194,9 @@ class ShopifyStore extends BaseStore
             $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
             $graphQLInput["inventoryQuantities"]["locationId"] = $this->storeLocationId;
         }
-        if (!isset($graphQLInput["options"])) {
-            $graphQLInput["options"][] = $child->getKey();
+        if (!isset($graphQLInput["optionValues"])) {
+            $graphQLInput["optionValues"]["name"] = $child->getKey();
+            $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
         $parentRemoteId = $this->getStoreId($parent);
@@ -262,8 +263,9 @@ class ShopifyStore extends BaseStore
         if (isset($fields['base variant']['stock']) && $inventoryId != null) {
             $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
         }
-        if (!isset($graphQLInput["options"])) {
-            $graphQLInput["options"][] = $child->getKey();
+        if (!isset($graphQLInput["optionValues"])) {
+            $graphQLInput["optionValues"]["name"] = $child->getKey();
+            $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
         $graphQLInput["id"] = $remoteId;
@@ -298,29 +300,29 @@ class ShopifyStore extends BaseStore
         foreach ($fields as $field => $value) {
             if ($field === "stock") { // special cases
                 continue;
-            }
-            if ($field === 'weight' || $field === 'cost' || $field === 'price') { //wants this as a non-string wrapped number
-                $value[0] = (float)$value[0];
-            }
-            if ($field === 'tracked') {
-                $value[0] = $value[0] == "true";
-            }
-            if ($field === 'cost' || $field === 'tracked') {
-                $thisVariantArray['inventoryItem'][$field] = $value[0];
-                continue;
+            } elseif ($field === 'sku') {
+                $thisVariantArray["inventoryItem"]["sku"] = $value[0];
+            } elseif ($field === 'weight') { //wants this as a non-string wrapped number
+                $thisVariantArray["inventoryItem"]["measurement"]["weight"]["value"] = (float)$value[0];
+            } elseif ($field === 'weightUnit') {
+                $unit = strtoupper($value[0]);
+                if (!in_array($unit, ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
+                    throw new Exception("invalid weightUnit value $unit not one of POUNDS OUNCES KILOGRAMS or GRAMS");
+                }
+                $thisVariantArray["inventoryItem"]["measurement"]["weight"]["unit"] = $unit;
+            } elseif ($field === 'cost') {
+                $thisVariantArray["inventoryItem"]["cost"] = (float)$value[0];
+            } elseif ($field === 'price') {
+                $thisVariantArray['price'] = (float)$value[0];
+            } elseif ($field === 'tracked') {
+                $thisVariantArray["inventoryItem"] == "true";
             } elseif ($field === 'continueSellingOutOfStock') {
                 $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
-                continue;
-            } elseif ($field === 'weightUnit') {
-                $value[0] = strtoupper($value[0]);
-                if (!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
-                    throw new Exception("invalid weightUnit value $value[0] not one of POUNDS OUNCES KILOGRAMS or GRAMS");
-                }
             } elseif ($field === 'title') {
-                $thisVariantArray["options"][] = $value[0];
-                continue;
+                $thisVariantArray["optionValues"][] = $value[0];
+            } else {
+                $thisVariantArray[$field] = $value[0];
             }
-            $thisVariantArray[$field] = $value[0];
         }
     }
 
