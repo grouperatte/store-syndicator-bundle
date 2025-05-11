@@ -320,6 +320,8 @@ class ShopifyStore extends BaseStore
                 $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
             } elseif ($field === 'title') {
                 $thisVariantArray["optionValues"][] = $value[0];
+            } elseif ($field === "requiresShipping") {
+                $thisVariantArray["inventoryItem"]["requiresShipping"] = boolval($value[0]);
             } else {
                 $thisVariantArray[$field] = $value[0];
             }
