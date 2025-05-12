@@ -390,8 +390,6 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-
-        //also takes care of creating variants
         if (!empty($this->updateProductArrays)) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays) . " products.", [
@@ -518,13 +516,6 @@ class ShopifyStore extends BaseStore
             'component' => $this->configLogName,
             null,
         ]);
-
-        // if (!empty($this->createProductArrays) || !empty($this->updateProductArrays) || $this->updateVariantsArrays || $this->metafieldSetArrays) {
-        //     $this->shopifyProductLinkingService->link($this->config);
-        // }
-        // $this->shopifyProductLinkingService->link($this->config);
-
-        //need to do the adding to store after the linking because we need the newly link product's ids
 
         if ($this->addProdsToStore) {
             $this->applicationLogger->info("adding products to stores", [
