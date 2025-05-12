@@ -9,6 +9,8 @@ use Pimcore\Db\Helper as DBHelper;
 use Pimcore\Model\DataObject\ClassDefinition;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
@@ -55,7 +57,7 @@ class ShopifyProductLinkingService
             null,
         ]);
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($configuration);
-        $shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
+        $shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger, $this->configLogName);
         $remoteStoreName = $this->configurationService->getStoreName($configuration);
         $this->remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";

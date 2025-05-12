@@ -5,19 +5,19 @@ namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 use Exception;
 use Pimcore\Db;
 use Pimcore\Model\Asset;
+use Pimcore\Model\DataObject\Product;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
 
 class ShopifyStore extends BaseStore
 {
-
     private ShopifyQueryService $shopifyQueryService;
     private ShopifyProductLinkingService $shopifyProductLinkingService;
     private array $updateProductArrays;
@@ -56,7 +56,7 @@ class ShopifyStore extends BaseStore
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
-        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
+        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger, $this->configLogName);
         $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
         $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
         $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
@@ -194,20 +194,12 @@ class ShopifyStore extends BaseStore
             $graphQLInput["inventoryQuantities"]["availableQuantity"] = (float)$fields['base variant']['stock'][0];
             $graphQLInput["inventoryQuantities"]["locationId"] = $this->storeLocationId;
         }
-        if (!isset($graphQLInput["options"])) {
-            $graphQLInput["options"][] = $child->getKey();
+        if (!isset($graphQLInput["optionValues"])) {
+            $graphQLInput["optionValues"]["name"] = $child->getKey();
+            $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
-        $parentRemoteId = $this->getStoreId($parent);
-
-        if ($this->existsInStore($parent)) {
-            if (!isset($this->createVariantsArrays[$parentRemoteId])) {
-                $this->createVariantsArrays[$parentRemoteId] = [];
-            }
-            $this->createVariantsArrays[$parentRemoteId][] = $graphQLInput;
-        } else {
-            $this->createProductArrays[$parent->getId()]['input']['variants'][] = $graphQLInput;
-        }
+        $this->createVariantsArrays[$parent->getId()][] = $graphQLInput;
     }
 
 
@@ -262,8 +254,9 @@ class ShopifyStore extends BaseStore
         if (isset($fields['base variant']['stock']) && $inventoryId != null) {
             $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
         }
-        if (!isset($graphQLInput["options"])) {
-            $graphQLInput["options"][] = $child->getKey();
+        if (!isset($graphQLInput["optionValues"])) {
+            $graphQLInput["optionValues"]["name"] = $child->getKey();
+            $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
         $graphQLInput["id"] = $remoteId;
@@ -298,29 +291,31 @@ class ShopifyStore extends BaseStore
         foreach ($fields as $field => $value) {
             if ($field === "stock") { // special cases
                 continue;
-            }
-            if ($field === 'weight' || $field === 'cost' || $field === 'price') { //wants this as a non-string wrapped number
-                $value[0] = (float)$value[0];
-            }
-            if ($field === 'tracked') {
-                $value[0] = $value[0] == "true";
-            }
-            if ($field === 'cost' || $field === 'tracked') {
-                $thisVariantArray['inventoryItem'][$field] = $value[0];
-                continue;
+            } elseif ($field === 'sku') {
+                $thisVariantArray["inventoryItem"]["sku"] = $value[0];
+            } elseif ($field === 'weight') { //wants this as a non-string wrapped number
+                $thisVariantArray["inventoryItem"]["measurement"]["weight"]["value"] = (float)$value[0];
+            } elseif ($field === 'weightUnit') {
+                $unit = strtoupper($value[0]);
+                if (!in_array($unit, ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
+                    throw new Exception("invalid weightUnit value $unit not one of POUNDS OUNCES KILOGRAMS or GRAMS");
+                }
+                $thisVariantArray["inventoryItem"]["measurement"]["weight"]["unit"] = $unit;
+            } elseif ($field === 'cost') {
+                $thisVariantArray["inventoryItem"]["cost"] = (float)$value[0];
+            } elseif ($field === 'price') {
+                $thisVariantArray['price'] = (float)$value[0];
+            } elseif ($field === 'tracked') {
+                $thisVariantArray["inventoryItem"] == "true";
             } elseif ($field === 'continueSellingOutOfStock') {
                 $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
-                continue;
-            } elseif ($field === 'weightUnit') {
-                $value[0] = strtoupper($value[0]);
-                if (!in_array($value[0], ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
-                    throw new Exception("invalid weightUnit value $value[0] not one of POUNDS OUNCES KILOGRAMS or GRAMS");
-                }
             } elseif ($field === 'title') {
-                $thisVariantArray["options"][] = $value[0];
-                continue;
+                $thisVariantArray["optionValues"][] = $value[0];
+            } elseif ($field === "requiresShipping") {
+                $thisVariantArray["inventoryItem"]["requiresShipping"] = boolval($value[0]);
+            } else {
+                $thisVariantArray[$field] = $value[0];
             }
-            $thisVariantArray[$field] = $value[0];
         }
     }
 
@@ -365,28 +360,28 @@ class ShopifyStore extends BaseStore
         ]);
 
         if (!empty($this->createProductArrays)) {
-            $excludedCount = 0;
-            foreach ($this->createProductArrays as $index => $product) {
-                if (!isset($product['input']['variants']) || count($product['input']['variants']) == 0) {
-                    unset($this->createProductArrays[$index]);
-                    $excludedCount++;
-                }
-            }
             //create unmade products by pushing messages to queue for asynchronous handling
             try {
                 if (count($this->createProductArrays) > 0) {
-                    $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
+                    $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products.", [
                         'component' => $this->configLogName,
                         null,
                     ]);
-                    $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
-                    foreach ($resultFiles as $resultFileURL) {
-                        $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
-                            'component' => $this->configLogName,
-                            'fileObject' => $resultFileURL,
-                            null,
-                        ]);
+                    $idMappings = $this->shopifyQueryService->createAndLinkProducts($this->createProductArrays);
+                    foreach ($idMappings as $pimId => $shopifyId) {
+                        if ($obj = Concrete::getById($pimId)) {
+                            $this->setStoreId($obj, $shopifyId);
+                        } else {
+                            $this->customLogLogger->error("Error linking remote product to local product. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
+                                'component' => $this->configLogName,
+                                null,
+                            ]);
+                        }
                     }
+                    $this->applicationLogger->info("Shopify mutations to create products is finished ", [
+                        'component' => $this->configLogName,
+                        null,
+                    ]);
                 }
             } catch (Exception $e) {
                 $this->applicationLogger->error("Error during Shopify mutation to create products and variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
@@ -395,8 +390,6 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-
-        //also takes care of creating variants
         if (!empty($this->updateProductArrays)) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays) . " products.", [
@@ -426,7 +419,29 @@ class ShopifyStore extends BaseStore
                     'component' => $this->configLogName,
                     null,
                 ]);
-                $resultFiles = $this->shopifyQueryService->createBulkVariants($this->createVariantsArrays);
+                //updating variantCreate mapping to insert local product Ids after the above create calls
+                $createVariantsArrays = [];
+                foreach ($this->createVariantsArrays as $index => $variant) {
+                    if ($parent = Concrete::getById($index)) {
+                        $createVariantsArrays[] = ['productId' => $this->getStoreId($parent), 'variants' => $variant];
+                    } else {
+                        $this->applicationLogger->error("Error varient's parent does not have a shopify Id. Pimcore id: " . $index, [
+                            'component' => $this->configLogName,
+                            null,
+                        ]);
+                    }
+                }
+                $idMappings = $this->shopifyQueryService->createBulkVariants($createVariantsArrays);
+                foreach ($idMappings as $pimId => $shopifyId) {
+                    if ($obj = Concrete::getById($pimId)) {
+                        $this->setStoreId($obj, $shopifyId);
+                    } else {
+                        $this->customLogLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
+                            'component' => $this->configLogName,
+                            null,
+                        ]);
+                    }
+                }
                 $this->applicationLogger->info("Shopify mutations to create variants have been submitted", [
                     'component' => $this->configLogName,
                     null,
@@ -456,7 +471,6 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-
         if ($this->metafieldSetArrays) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
@@ -502,13 +516,6 @@ class ShopifyStore extends BaseStore
             'component' => $this->configLogName,
             null,
         ]);
-
-        // if (!empty($this->createProductArrays) || !empty($this->updateProductArrays) || $this->updateVariantsArrays || $this->metafieldSetArrays) {
-        //     $this->shopifyProductLinkingService->link($this->config);
-        // }
-        $this->shopifyProductLinkingService->link($this->config);
-
-        //need to do the adding to store after the linking because we need the newly link product's ids
 
         if ($this->addProdsToStore) {
             $this->applicationLogger->info("adding products to stores", [

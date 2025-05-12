@@ -2,7 +2,9 @@ mutation call($input: ProductInput!, $media: [CreateMediaInput!]) {
   productCreate(input: $input, media: $media) {
     product {
       id
-      title
+      metafield(namespace: \"custom\", key: \"pimcore_id\") {
+        value
+      }
     }
     userErrors {
       message
