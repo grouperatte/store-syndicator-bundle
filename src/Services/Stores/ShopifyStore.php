@@ -433,7 +433,17 @@ class ShopifyStore extends BaseStore
                         ]);
                     }
                 }
-                $resultFiles = $this->shopifyQueryService->createBulkVariants($createVariantsArrays);
+                $idMappings = $this->shopifyQueryService->createBulkVariants($createVariantsArrays);
+                foreach ($idMappings as $pimId => $shopifyId) {
+                    if ($obj = Concrete::getById($pimId)) {
+                        $this->setStoreId($obj, $shopifyId);
+                    } else {
+                        $this->customLogLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
+                            'component' => $this->configLogName,
+                            null,
+                        ]);
+                    }
+                }
                 $this->applicationLogger->info("Shopify mutations to create variants have been submitted", [
                     'component' => $this->configLogName,
                     null,

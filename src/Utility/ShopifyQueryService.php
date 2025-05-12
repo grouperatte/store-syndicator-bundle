@@ -228,19 +228,12 @@ class ShopifyQueryService
         $fileContent = file_get_contents($file);
         $fileContent = rtrim(str_replace("\n", ",", $fileContent), ",");
         $fileContent = json_decode("[" . $fileContent . "]", true);
-        $found = false;
         foreach ($fileContent as $product) {
-            foreach ($product["data"]["productCreate"]["product"]["metafields"]["nodes"] as $metafield) {
-                if ($metafield["key"] == "pimcore_id") {
-                    $existingIdMappings[$metafield["value"]] = $product["data"]["productCreate"]["product"]["id"];
-                    $found = true;
-                    break;
-                }
-            }
-            if (!$found) {
+            if (isset($product["data"]["productCreate"]["product"]["metafield"]["value"])) {
+                $existingIdMappings[$product["data"]["productCreate"]["product"]["metafield"]["value"]] = $product["data"]["productCreate"]["product"]["id"];
+            } else {
                 $this->customLogLogger->error("Error Linking Created Product: no Pimcore Id found in metafields so a published product is now unlinked", ['component' => $this->configLogName]);
             }
-            $found = false;
         }
     }
 
@@ -264,18 +257,28 @@ class ShopifyQueryService
 
     public function createBulkVariants(array $inputArray)
     {
+        $queryString = ShopifyGraphqlHelperService::buildCreateBulkVariantQuery();
+        $idMappings = [];
         foreach ($inputArray as $input) {
-            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery(), $input);
+            try {
+                $result = $this->runQuery($queryString, $input);
+                $this->linkPushedVariants($result, $idMappings);
+                $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
+            } catch (Exception $e) {
+                $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
+            }
         }
+        return $idMappings;
     }
 
-    private function pushCreateBulkVariantQueries($queryString, $input)
+    private function linkPushedVariants($result, &$existingIdMappings)
     {
-        try {
-            $result = $this->runQuery($queryString, $input);
-            $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
-        } catch (Exception $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
+        foreach ($result["data"]["productVariantsBulkCreate"]["productVariants"] as $variant) {
+            if (isset($variant["metafield"]["value"])) {
+                $existingIdMappings[$variant["metafield"]["value"]] = $variant["id"];
+            } else {
+                $this->customLogLogger->error("Error Linking Created Variants: no Pimcore Id found in metafields so a published variant is now unlinked", ['component' => $this->configLogName]);
+            }
         }
     }
 
