@@ -3,6 +3,7 @@
 namespace TorqIT\StoreSyndicatorBundle\Services;
 
 use Carbon\Carbon;
+use Pimcore\Logger;
 use Shopify\Context;
 use Shopify\Auth\Session;
 use Shopify\Clients\Graphql;
@@ -10,6 +11,7 @@ use Pimcore\Model\Asset\Image;
 use Shopify\Auth\FileSessionStorage;
 use Pimcore\Model\DataObject\Localizedfield;
 use Pimcore\Model\DataObject\ClassDefinition;
+use Pimcore\Model\DataObject\Product\Listing;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\DataObject\Data\BlockElement;
 use Pimcore\Model\DataObject\Data\ImageGallery;
@@ -23,10 +25,8 @@ use Pimcore\Model\DataObject\Objectbrick\Definition as ObjectbrickDefinition;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Relations\AbstractRelations;
 use Pimcore\Model\DataObject\ClassDefinition\Data\AdvancedManyToManyObjectRelation;
 use Pimcore\Model\DataObject\Fieldcollection\Definition as FieldcollectionDefinition;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyGraphqlHelperService;
 use Pimcore\Model\DataObject\ClassDefinition\Data\Classificationstore as ClassificationStoreDefinition;
-use Pimcore\Model\DataObject\Product\Listing;
-use Pimcore\Logger;
 
 class AttributesService
 {
@@ -166,7 +166,7 @@ class AttributesService
                             $this->proccessRelationField($childField, $checkedClasses, $attributes, $prefix, $lang);
                         }
                     } elseif (!method_exists($childField, "getFieldDefinitions")) {
-                        $attributes = array_merge($attributes, array_map(fn ($lang) => $newFieldPath . "." . $lang, $langs));
+                        $attributes = array_merge($attributes, array_map(fn($lang) => $newFieldPath . "." . $lang, $langs));
                     } else {
                         $this->getFieldDefinitionsRecursive($childField, $attributes, $newFieldPath . $newFieldPathSuffix, $checkedClasses);
                     }
@@ -198,7 +198,7 @@ class AttributesService
             $classes = $field->classes;
         }
         foreach ($classes as $allowedClass) {
-            if(in_array($allowedClass["classes"], self::$allowedRelationsClasses)){
+            if (in_array($allowedClass["classes"], self::$allowedRelationsClasses)) {
                 $allowedClass = ClassDefinition::getByName($allowedClass["classes"]);
                 if (!in_array($allowedClass, $checkedClasses)) {
                     $this->getFieldDefinitionsRecursive($allowedClass, $attributes, $prefix . $field->getName() . ($suffix ? "." . $suffix . "." : "."), array_merge([$allowedClass], $checkedClasses));
