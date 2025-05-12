@@ -574,7 +574,7 @@ class ShopifyStore extends BaseStore
                     "alt" => "",
                     "id" => $this->getStoreId($data["image"]), //even if this was set in the upload image part above this, it will get the new id from the propery
                     "referencesToAdd" => $data["products"],
-                    "originalSource" => $image->getFrontendPath(),
+                    "originalSource" => $data['image']->getFrontendPath(),
                 ];
             }
             $result = $this->shopifyQueryService->updateMedia($inputArray);
