@@ -1,6 +1,6 @@
 <?php
 
-namespace TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers;
+namespace TorqIT\StoreSyndicatorBundle\Utility;
 
 class ShopifyGraphqlHelperService
 {

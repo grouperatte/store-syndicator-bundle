@@ -5,19 +5,19 @@ namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 use Exception;
 use Pimcore\Db;
 use Pimcore\Model\Asset;
+use Pimcore\Model\DataObject\Product;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
 use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
 
 class ShopifyStore extends BaseStore
 {
-
     private ShopifyQueryService $shopifyQueryService;
     private ShopifyProductLinkingService $shopifyProductLinkingService;
     private array $updateProductArrays;
@@ -56,7 +56,7 @@ class ShopifyStore extends BaseStore
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
-        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger);
+        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger, $this->configLogName);
         $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
         $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
         $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
@@ -199,16 +199,7 @@ class ShopifyStore extends BaseStore
             $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
-        $parentRemoteId = $this->getStoreId($parent);
-
-        if ($this->existsInStore($parent)) {
-            if (!isset($this->createVariantsArrays[$parentRemoteId])) {
-                $this->createVariantsArrays[$parentRemoteId] = [];
-            }
-            $this->createVariantsArrays[$parentRemoteId][] = $graphQLInput;
-        } else {
-            $this->createProductArrays[$parent->getId()]['input']['variants'][] = $graphQLInput;
-        }
+        $this->createVariantsArrays[$parent->getId()][] = $graphQLInput;
     }
 
 
@@ -369,28 +360,28 @@ class ShopifyStore extends BaseStore
         ]);
 
         if (!empty($this->createProductArrays)) {
-            $excludedCount = 0;
-            foreach ($this->createProductArrays as $index => $product) {
-                if (!isset($product['input']['variants']) || count($product['input']['variants']) == 0) {
-                    unset($this->createProductArrays[$index]);
-                    $excludedCount++;
-                }
-            }
             //create unmade products by pushing messages to queue for asynchronous handling
             try {
                 if (count($this->createProductArrays) > 0) {
-                    $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products and their variants. " . $excludedCount . " have been excluded because they don't have active variants", [
+                    $this->applicationLogger->info("Start of Shopify mutation to create " . count($this->createProductArrays) . " products.", [
                         'component' => $this->configLogName,
                         null,
                     ]);
-                    $resultFiles = $this->shopifyQueryService->createProducts($this->createProductArrays);
-                    foreach ($resultFiles as $resultFileURL) {
-                        $this->applicationLogger->info("Shopify mutation to create products and variants is finished " . $resultFileURL, [
-                            'component' => $this->configLogName,
-                            'fileObject' => $resultFileURL,
-                            null,
-                        ]);
+                    $idMappings = $this->shopifyQueryService->createAndLinkProducts($this->createProductArrays);
+                    foreach ($idMappings as $pimId => $shopifyId) {
+                        if ($obj = Concrete::getById($pimId)) {
+                            $this->setStoreId($obj, $shopifyId);
+                        } else {
+                            $this->customLogLogger->error("Error linking remote product to local product. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
+                                'component' => $this->configLogName,
+                                null,
+                            ]);
+                        }
                     }
+                    $this->applicationLogger->info("Shopify mutations to create products is finished ", [
+                        'component' => $this->configLogName,
+                        null,
+                    ]);
                 }
             } catch (Exception $e) {
                 $this->applicationLogger->error("Error during Shopify mutation to create products and variants : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [
@@ -430,7 +421,19 @@ class ShopifyStore extends BaseStore
                     'component' => $this->configLogName,
                     null,
                 ]);
-                $resultFiles = $this->shopifyQueryService->createBulkVariants($this->createVariantsArrays);
+                //updating variantCreate mapping to insert local product Ids after the above create calls
+                $createVariantsArrays = [];
+                foreach ($this->createVariantsArrays as $index => $variant) {
+                    if ($parent = Concrete::getById($index)) {
+                        $createVariantsArrays[] = ['productId' => $this->getStoreId($parent), 'variants' => $variant];
+                    } else {
+                        $this->applicationLogger->error("Error varient's parent does not have a shopify Id. Pimcore id: " . $index, [
+                            'component' => $this->configLogName,
+                            null,
+                        ]);
+                    }
+                }
+                $resultFiles = $this->shopifyQueryService->createBulkVariants($createVariantsArrays);
                 $this->applicationLogger->info("Shopify mutations to create variants have been submitted", [
                     'component' => $this->configLogName,
                     null,
@@ -460,7 +463,6 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-
         if ($this->metafieldSetArrays) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
@@ -510,7 +512,7 @@ class ShopifyStore extends BaseStore
         // if (!empty($this->createProductArrays) || !empty($this->updateProductArrays) || $this->updateVariantsArrays || $this->metafieldSetArrays) {
         //     $this->shopifyProductLinkingService->link($this->config);
         // }
-        $this->shopifyProductLinkingService->link($this->config);
+        // $this->shopifyProductLinkingService->link($this->config);
 
         //need to do the adding to store after the linking because we need the newly link product's ids
 

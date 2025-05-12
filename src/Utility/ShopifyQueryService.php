@@ -1,13 +1,13 @@
 <?php
 
-namespace TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers;
+namespace TorqIT\StoreSyndicatorBundle\Utility;
 
 use Exception;
-use GraphQL\Error\SyntaxError;
-use Shopify\Clients\Graphql;
-use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyGraphqlHelperService;
 use Pimcore\Logger;
+use Shopify\Clients\Graphql;
+use GraphQL\Error\SyntaxError;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyGraphqlHelperService;
+use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 
 /**
  * class to make queries to shopify and proccess their result for you into readable arrays
@@ -20,7 +20,8 @@ class ShopifyQueryService
     private Graphql $graphql;
     public function __construct(
         ShopifyAuthenticator $abstractAuthenticator,
-        private \Psr\Log\LoggerInterface $customLogLogger
+        private \Psr\Log\LoggerInterface $customLogLogger,
+        private string $configLogName
     ) {
         $this->graphql = $abstractAuthenticator->connect()['client'];
     }
@@ -47,13 +48,13 @@ class ShopifyQueryService
 
         if (!empty($result['data']['bulkOperationRunQuery']['bulkOperation']) && empty($result['data']['bulkOperationRunQuery']['bulkOperation']['userErrors'])) {
             $gid = $result['data']['bulkOperationRunQuery']['bulkOperation']['id'];
-            $this->customLogLogger->info("queryForLinking : " . $gid);
+            $this->customLogLogger->info("queryForLinking : " . $gid, ['component' => $this->configLogName]);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
             $resultFileURL = ($queryResult['url'] ?? $queryResult['partialDataUrl'] ?? "none");
         } else {
-            $this->customLogLogger->info(print_r($result, true));
+            $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
             throw new Exception("Error during query");
             return [];
         }
@@ -112,7 +113,6 @@ class ShopifyQueryService
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            // $this->customLogLogger->info(json_encode($inputObj));
             fwrite($file, json_encode($inputObj) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
                 $resultFiles[] = $this->pushProductUpdateFile($file);
@@ -138,7 +138,7 @@ class ShopifyQueryService
 
         if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("updateProducts: " . $gid);
+            $this->customLogLogger->info("updateProducts: " . $gid, ['component' => $this->configLogName]);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -175,25 +175,30 @@ class ShopifyQueryService
     // }
 
 
-    public function createProducts(array $inputArray)
+    public function createAndLinkProducts(array $inputArray)
     {
-        $resultFiles = [];
+        $idMappings = [];
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            // $this->customLogLogger->info(json_encode($inputObj));
             fwrite($file, json_encode($inputObj) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
-                $resultFiles[] = $this->pushProductCreateFile($file);
+                $resultFile = $this->pushProductCreateFile($file);
+                $this->customLogLogger->info("create products mutation sent data file", ["fileObject" => $file, 'component' => $this->configLogName]);
+                $this->customLogLogger->info("create products mutation result file", ["fileObject" => $resultFile, 'component' => $this->configLogName]);
+                $this->linkPushedProducts($idMappings, $resultFile);
                 fclose($file);
                 $file = tmpfile();
             }
         }
         if (fstat($file)["size"] > 0) {
-            $resultFiles[] = $this->pushProductCreateFile($file);
+            $resultFile = $this->pushProductCreateFile($file);
+            $this->customLogLogger->info("create products mutation sent data file", ["fileObject" => $file, 'component' => $this->configLogName]);
+            $this->customLogLogger->info("create products mutation result file", ["fileObject" => $resultFile, 'component' => $this->configLogName]);
+            $this->linkPushedProducts($idMappings, $resultFile);
             fclose($file);
         }
 
-        return $resultFiles;
+        return $idMappings;
     }
 
     private function pushProductCreateFile($file): string
@@ -207,7 +212,7 @@ class ShopifyQueryService
 
         if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("createProducts: " . $gid);
+            $this->customLogLogger->info("createProducts: " . $gid, ['component' => $this->configLogName]);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -217,6 +222,27 @@ class ShopifyQueryService
         }
     }
 
+    private function linkPushedProducts(array &$existingIdMappings, $file)
+    {
+        //pimcore id => shopify id
+        $fileContent = file_get_contents($file);
+        $fileContent = rtrim(str_replace("\n", ",", $fileContent), ",");
+        $fileContent = json_decode("[" . $fileContent . "]", true);
+        $found = false;
+        foreach ($fileContent as $product) {
+            foreach ($product["data"]["productCreate"]["product"]["metafields"]["nodes"] as $metafield) {
+                if ($metafield["key"] == "pimcore_id") {
+                    $existingIdMappings[$metafield["value"]] = $product["data"]["productCreate"]["product"]["id"];
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                $this->customLogLogger->error("Error Linking Created Product: no Pimcore Id found in metafields so a published product is now unlinked", ['component' => $this->configLogName]);
+            }
+            $found = false;
+        }
+    }
 
     public function updateBulkVariants(array $inputArray)
     {
@@ -229,30 +255,27 @@ class ShopifyQueryService
     private function pushUpdateBulkVariantQuery($queryString, $input)
     {
         try {
-            // $this->customLogLogger->info(print_r($input, true));
             $result = $this->runQuery($queryString, $input);
-            $this->customLogLogger->info(print_r($result, true));
+            $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
         } catch (Exception $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
         }
     }
 
     public function createBulkVariants(array $inputArray)
     {
-        foreach ($inputArray as $key => $input) {
-            $variables = ['productId' => $key, 'variants' => $input];
-            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery(), $variables);
+        foreach ($inputArray as $input) {
+            $this->pushCreateBulkVariantQueries(ShopifyGraphqlHelperService::buildCreateBulkVariantQuery(), $input);
         }
     }
 
     private function pushCreateBulkVariantQueries($queryString, $input)
     {
         try {
-            // $this->customLogLogger->info($queryString);
             $result = $this->runQuery($queryString, $input);
-            $this->customLogLogger->info(print_r($result, true));
+            $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
         } catch (Exception $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
         }
     }
 
@@ -272,7 +295,6 @@ class ShopifyQueryService
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $inputObj) {
-            // $this->customLogLogger->info(json_encode($inputObj));
             fwrite($file, json_encode($inputObj) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
                 $resultFiles[] = $this->pushAddProductToStoreFile($file);
@@ -299,7 +321,7 @@ class ShopifyQueryService
 
         if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("add product to store: " . $gid);
+            $this->customLogLogger->info("add product to store: " . $gid, ['component' => $this->configLogName]);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -314,8 +336,6 @@ class ShopifyQueryService
         $resultFiles = [];
         $file = tmpfile();
         foreach ($inputArray as $metafieldArray) {
-            // $this->customLogLogger->info( json_encode(["metafields" => $metafieldArray]));
-
             fwrite($file, json_encode(["metafields" => $metafieldArray]) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 2mb the file upload will fail
                 $resultFiles[] = $this->pushMetafieldUpdateFile($file);
@@ -339,7 +359,7 @@ class ShopifyQueryService
         $result = $this->runQuery($metafieldSetQuery);
         if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("metafieldUpdate: " . $gid);
+            $this->customLogLogger->info("metafieldUpdate: " . $gid, ['component' => $this->configLogName]);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -370,7 +390,6 @@ class ShopifyQueryService
                         "reason" => "correction",
                     ]
                 ];
-                // $this->customLogLogger->info(json_encode( $variantsInventoryInput));
                 $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
                 $results[] = $response;
                 $changes = [];
@@ -384,7 +403,6 @@ class ShopifyQueryService
                     "reason" => "correction",
                 ]
             ];
-            // $this->customLogLogger->info(json_encode( $variantsInventoryInput));
             $response = $this->runQuery($variantsSetInventoryQuery, $variantsInventoryInput);
             $results[] = $response;
         }
@@ -421,11 +439,11 @@ class ShopifyQueryService
             }
             $response = $response->getDecodedBody();
         } catch (SyntaxError $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
             return null;
         }
         if (array_key_exists('data', $response) && array_key_exists('bulkOperationRunMutation', $response['data']) && count($response['data']['bulkOperationRunMutation']['userErrors']) > 0) {
-            $this->customLogLogger->error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
+            $this->customLogLogger->error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']), ['component' => $this->configLogName]);
             throw new Exception("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
         }
         return $response;
@@ -581,9 +599,8 @@ class ShopifyQueryService
 
         try {
             $result = $this->runQuery("mutation {" . $queryString . "}");
-            // $this->customLogLogger->info(print_r($result, true));
         } catch (Exception $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
         }
     }
 
@@ -615,9 +632,8 @@ class ShopifyQueryService
 
         try {
             $result = $this->runQuery("mutation {" . $queryString . "}");
-            // $this->customLogLogger->info(print_r($result, true));
         } catch (Exception $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString());
+            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
         }
     }
 }

@@ -2,7 +2,12 @@ mutation call($input: ProductInput!, $media: [CreateMediaInput!]) {
   productCreate(input: $input, media: $media) {
     product {
       id
-      title
+      metafields(first: 100) {
+        nodes {
+          key
+          value
+        }
+      }
     }
     userErrors {
       message
