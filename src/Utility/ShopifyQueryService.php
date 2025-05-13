@@ -6,6 +6,7 @@ use Exception;
 use Pimcore\Logger;
 use Shopify\Clients\Graphql;
 use GraphQL\Error\SyntaxError;
+use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 
@@ -183,7 +184,7 @@ class ShopifyQueryService
             fwrite($file, json_encode($inputObj) . PHP_EOL);
             if (fstat($file)["size"] >= 19000000) { //at 20mb the file upload will fail
                 $resultFile = $this->pushProductCreateFile($file);
-                $this->customLogLogger->info("create products mutation sent data file", ["fileObject" => $file, 'component' => $this->configLogName]);
+                $this->customLogLogger->info("create products mutation sent data file", ["fileObject" => new FileObject(stream_get_contents($file, offset: 0)), 'component' => $this->configLogName]);
                 $this->customLogLogger->info("create products mutation result file", ["fileObject" => $resultFile, 'component' => $this->configLogName]);
                 $this->linkPushedProducts($idMappings, $resultFile);
                 fclose($file);
@@ -192,7 +193,7 @@ class ShopifyQueryService
         }
         if (fstat($file)["size"] > 0) {
             $resultFile = $this->pushProductCreateFile($file);
-            $this->customLogLogger->info("create products mutation sent data file", ["fileObject" => $file, 'component' => $this->configLogName]);
+            $this->customLogLogger->info("create products mutation sent data file", ["fileObject" => new FileObject(stream_get_contents($file, offset: 0)), 'component' => $this->configLogName]);
             $this->customLogLogger->info("create products mutation result file", ["fileObject" => $resultFile, 'component' => $this->configLogName]);
             $this->linkPushedProducts($idMappings, $resultFile);
             fclose($file);
