@@ -437,8 +437,10 @@ class ShopifyQueryService
         try {
             if ($variables) {
                 $response = $this->graphql->query(["query" => $query, "variables" => $variables]);
+                $this->customLogLogger->info("ran query:\n" . $query . "\nWith variables:\n" .  json_encode($variables) . "\nresponse:\n" .  json_encode($response->getDecodedBody()), ['component' => $this->configLogName]);
             } else {
                 $response = $this->graphql->query(["query" => $query]);
+                $this->customLogLogger->info("ran query:\n" . $query . "\nresponse:\n" . json_encode($response->getDecodedBody()), ['component' => $this->configLogName]);
             }
             $response = $response->getDecodedBody();
         } catch (SyntaxError $e) {
