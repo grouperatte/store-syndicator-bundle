@@ -14,12 +14,10 @@ use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
-use TorqIT\StoreSyndicatorBundle\Services\ShopifyHelpers\ShopifyProductLinkingService;
 
 class ShopifyStore extends BaseStore
 {
     private ShopifyQueryService $shopifyQueryService;
-    private ShopifyProductLinkingService $shopifyProductLinkingService;
     private array $updateProductArrays;
     private array $createProductArrays;
     private array $updateVariantsArrays;
@@ -38,10 +36,7 @@ class ShopifyStore extends BaseStore
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
         private ApplicationLogger $applicationLogger,
-        protected \Psr\Log\LoggerInterface $customLogLogger
-    ) {
-        $this->shopifyProductLinkingService = new ShopifyProductLinkingService($configurationRepository, $configurationService, $applicationLogger, $customLogLogger);
-    }
+    ) {}
 
     public function setup(Configuration $config)
     {
@@ -56,7 +51,7 @@ class ShopifyStore extends BaseStore
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
-        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger, $this->configLogName);
+        $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->applicationLogger, $this->configLogName);
         $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
         $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
         $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
@@ -372,7 +367,7 @@ class ShopifyStore extends BaseStore
                         if ($obj = Concrete::getById($pimId)) {
                             $this->setStoreId($obj, $shopifyId);
                         } else {
-                            $this->customLogLogger->error("Error linking remote product to local product. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
+                            $this->applicationLogger->error("Error linking remote product to local product. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
                                 'component' => $this->configLogName,
                                 null,
                             ]);
@@ -436,7 +431,7 @@ class ShopifyStore extends BaseStore
                     if ($obj = Concrete::getById($pimId)) {
                         $this->setStoreId($obj, $shopifyId);
                     } else {
-                        $this->customLogLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
+                        $this->applicationLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
                             'component' => $this->configLogName,
                             null,
                         ]);
@@ -511,12 +506,6 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-
-        $this->applicationLogger->info("End of Shopify mutations", [
-            'component' => $this->configLogName,
-            null,
-        ]);
-
         if ($this->addProdsToStore) {
             $this->applicationLogger->info("adding products to stores", [
                 'component' => $this->configLogName,
@@ -534,7 +523,6 @@ class ShopifyStore extends BaseStore
             $this->shopifyQueryService->addProductsToStore($inputArray);
             $inputArray = [];
         }
-
         if ($this->newImages) {
             $this->applicationLogger->info("Start of Shopify mutation to create media", [
                 'component' => $this->configLogName,
@@ -569,7 +557,6 @@ class ShopifyStore extends BaseStore
             }
             $inputArray = [];
         }
-
         if ($this->images) {
             $this->applicationLogger->info("Start of Shopify mutation to update media and add them to products", [
                 'component' => $this->configLogName,

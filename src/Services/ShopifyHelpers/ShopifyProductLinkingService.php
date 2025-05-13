@@ -36,8 +36,7 @@ class ShopifyProductLinkingService
     public function __construct(
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
-        protected ApplicationLogger $applicationLogger,
-        private \Psr\Log\LoggerInterface $customLogLogger
+        protected ApplicationLogger $applicationLogger
     ) {}
 
     /**
@@ -57,7 +56,7 @@ class ShopifyProductLinkingService
             null,
         ]);
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($configuration);
-        $shopifyQueryService = new ShopifyQueryService($authenticator, $this->customLogLogger, $this->configLogName);
+        $shopifyQueryService = new ShopifyQueryService($authenticator, $this->applicationLogger, $this->configLogName);
         $remoteStoreName = $this->configurationService->getStoreName($configuration);
         $this->remoteIdProperty = "TorqSS:" . $remoteStoreName . ":shopifyId";
         $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
@@ -71,7 +70,6 @@ class ShopifyProductLinkingService
         $linkingAttribute = ConfigurationService::getMapOnRow($configuration);
 
         $remoteProducts = $shopifyQueryService->queryForLinking(ShopifyGraphqlHelperService::buildProductLinkingQuery($linkingAttribute['remote field']));
-        // $this->customLogLogger->info(json_encode($remoteProducts));
         $this->applicationLogger->info(count($remoteProducts) . " products queried from the Shopify Store", [
             'component' => $this->configLogName,
             null,
@@ -181,7 +179,6 @@ class ShopifyProductLinkingService
         ]);
 
         if (count($purgeProductArray) > 0) {
-            // $this->customLogLogger->info(print_r($purgeProductArray, true));
             $shopifyQueryService->deleteProducts($purgeProductArray);
             $this->applicationLogger->info("Shopify mutations to delete products have been submitted", [
                 'component' => $this->configLogName,
@@ -189,7 +186,6 @@ class ShopifyProductLinkingService
             ]);
         }
         if (count($purgeVariantArray) > 0) {
-            // $this->customLogLogger->info(print_r($purgeVariantArray, true));
             $shopifyQueryService->deleteVariants($purgeVariantArray);
             $this->applicationLogger->info("Shopify mutations to delete variants have been submitted", [
                 'component' => $this->configLogName,
