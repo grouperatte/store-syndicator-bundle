@@ -9,7 +9,6 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Messenger\MessageBusInterface;
 use TorqIT\StoreSyndicatorBundle\Message\StoreSyndicationMessage;
-use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
 
 #[Route(path: '/admin/storesyndicator/execution', name: 'pimcore_storesyndicator_execution')]
 class ExecutionController extends FrontendController
@@ -22,15 +21,13 @@ class ExecutionController extends FrontendController
     #[Route(path: '/execute', name: '_execute')]
     public function executeAction(
         Request $request, 
-        ExecutionService $executionService,
         MessageBusInterface $messageBus
-         ): JsonResponse
+    ): JsonResponse
     {
         # figure out organization here
         $name = $request->get("name");
         $config = Configuration::getByName($name);
 
-        // $executionService->export($config);
         if( $config ) {
             $messageBus->dispatch( new StoreSyndicationMessage($name) );
         
