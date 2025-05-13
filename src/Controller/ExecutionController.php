@@ -22,7 +22,7 @@ class ExecutionController extends FrontendController
     public function executeAction(
         Request $request, 
         MessageBusInterface $messageBus
-         ): JsonResponse
+    ): JsonResponse
     {
         # figure out organization here
         $name = $request->get("name");
