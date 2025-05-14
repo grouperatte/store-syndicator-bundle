@@ -10,6 +10,7 @@ use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use Pimcore\Config;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
@@ -531,8 +532,22 @@ class ShopifyStore extends BaseStore
             $inputArray = [];
             /** @var Asset $image  */
             foreach ($this->newImages as $image) {
+
+                $publicUrl = $image->getFrontendFullPath();
+
+                /* public url required = cdn/pimcore-assets/assets/path */
+                /* getFrontEndFullPath() is returning cdn/assets/path */
+                $prefix = Config::getSystemConfiguration('assets')['frontend_prefixes']['source'];
+                if ($prefix) {
+                    if( !str_ends_with($prefix, '/')) {
+                        $prefix .= '/';
+                    }
+
+                    $publicUrl = $prefix .  $image->getFullPath();
+                }
+
                 $inputArray["files"][] = [
-                    "originalSource" => $image->getFrontendFullPath(),
+                    "originalSource" => $publicUrl,
                     "filename" => $image->getFilename(),
                     "contentType" => "IMAGE",
                     "alt" => strval($image->getId()), //this is used temporarily to map back the image to the asset and is removed in the linking to product mutation below
@@ -564,11 +579,27 @@ class ShopifyStore extends BaseStore
             ]);
             $inputArray = [];
             foreach ($this->images as $data) {
+
+
+                $publicUrl = $data['image']->getFrontendFullPath();
+
+                /* public url required = cdn/pimcore-assets/assets/path */
+                /* getFrontEndFullPath() is returning cdn/assets/path */
+                $prefix = Config::getSystemConfiguration('assets')['frontend_prefixes']['source'];
+                if ($prefix) {
+                    if( !str_ends_with($prefix, '/')) {
+                        $prefix .= '/';
+                    }
+
+                    $publicUrl = $prefix .  $data['image']->getFullPath();
+                }
+
+
                 $inputArray["files"][] = [
                     "alt" => "",
                     "id" => $this->getStoreId($data["image"]), //even if this was set in the upload image part above this, it will get the new id from the propery
                     "referencesToAdd" => $data["products"],
-                    "originalSource" => $data['image']->getFrontendFullPath(),
+                    "originalSource" => $publicUrl
                 ];
             }
             $result = $this->shopifyQueryService->updateMedia($inputArray);
