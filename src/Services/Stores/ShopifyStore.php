@@ -303,7 +303,8 @@ class ShopifyStore extends BaseStore
             } elseif ($field === 'continueSellingOutOfStock') {
                 $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
             } elseif ($field === 'title') {
-                $thisVariantArray["optionValues"][] = $value[0];
+                $thisVariantArray["optionValues"]["name"] = $value[0];
+                $thisVariantArray["optionValues"]["optionName"] = "Title";
             } elseif ($field === "requiresShipping") {
                 $thisVariantArray["inventoryItem"]["requiresShipping"] = boolval($value[0]);
             } else {
