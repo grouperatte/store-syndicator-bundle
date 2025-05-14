@@ -5,12 +5,9 @@ namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 use Exception;
 use Pimcore\Db;
 use Pimcore\Model\Asset;
-use Pimcore\Model\DataObject\Product;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
-use TorqIT\StoreSyndicatorBundle\Services\AttributesService;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
-use Pimcore\Config;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
@@ -535,21 +532,9 @@ class ShopifyStore extends BaseStore
 
                 $publicUrl = $image->getFrontendFullPath();
 
-                /* public url required = cdn/pimcore-assets/assets/path */
-                /* getFrontEndFullPath() is returning cdn/assets/path */
-                $prefix = Config::getSystemConfiguration('assets')['frontend_prefixes']['source'];
-
                 // for some reason, "pimcore-assets" is missing from the prefix
-                if( $prefix && !str_contains($prefix, 'pimcore-assets')) {
-                    $prefix = rtrim($prefix, '/') . '/pimcore-assets/';
-                }
-
-                if ($prefix) {
-                    if( !str_ends_with($prefix, '/')) {
-                        $prefix .= '/';
-                    }
-
-                    $publicUrl = $prefix .  $image->getFullPath();
+                if( !str_contains($publicUrl, 'pimcore-assets')) {
+                    $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
                 }
 
                 $inputArray["files"][] = [
@@ -588,24 +573,11 @@ class ShopifyStore extends BaseStore
 
 
                 $publicUrl = $data['image']->getFrontendFullPath();
-
-                /* public url required = cdn/pimcore-assets/assets/path */
-                /* getFrontEndFullPath() is returning cdn/assets/path */
-                $prefix = Config::getSystemConfiguration('assets')['frontend_prefixes']['source'];
-        
                 // for some reason, "pimcore-assets" is missing from the prefix
-                if( $prefix && !str_contains($prefix, 'pimcore-assets')) {
-                    $prefix = rtrim($prefix, '/') . '/pimcore-assets/';
+
+                if( !str_contains($publicUrl, 'pimcore-assets')) {
+                    $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
                 }
-
-                if ($prefix) {
-                    if( !str_ends_with($prefix, '/')) {
-                        $prefix .= '/';
-                    }
-
-                    $publicUrl = $prefix .  $data['image']->getFullPath();
-                }
-
 
                 $inputArray["files"][] = [
                     "alt" => "",
