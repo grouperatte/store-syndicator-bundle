@@ -538,6 +538,12 @@ class ShopifyStore extends BaseStore
                 /* public url required = cdn/pimcore-assets/assets/path */
                 /* getFrontEndFullPath() is returning cdn/assets/path */
                 $prefix = Config::getSystemConfiguration('assets')['frontend_prefixes']['source'];
+
+                // for some reason, "pimcore-assets" is missing from the prefix
+                if( $prefix && !str_contains($prefix, 'pimcore-assets')) {
+                    $prefix = rtrim($prefix, '/') . '/pimcore-assets/';
+                }
+
                 if ($prefix) {
                     if( !str_ends_with($prefix, '/')) {
                         $prefix .= '/';
@@ -586,6 +592,12 @@ class ShopifyStore extends BaseStore
                 /* public url required = cdn/pimcore-assets/assets/path */
                 /* getFrontEndFullPath() is returning cdn/assets/path */
                 $prefix = Config::getSystemConfiguration('assets')['frontend_prefixes']['source'];
+        
+                // for some reason, "pimcore-assets" is missing from the prefix
+                if( $prefix && !str_contains($prefix, 'pimcore-assets')) {
+                    $prefix = rtrim($prefix, '/') . '/pimcore-assets/';
+                }
+
                 if ($prefix) {
                     if( !str_ends_with($prefix, '/')) {
                         $prefix .= '/';
