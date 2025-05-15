@@ -299,13 +299,14 @@ class ShopifyStore extends BaseStore
             } elseif ($field === 'price') {
                 $thisVariantArray['price'] = (float)$value[0];
             } elseif ($field === 'tracked') {
-                $thisVariantArray["inventoryItem"] == "true";
+                $thisVariantArray["inventoryItem"]['tracked'] = boolval($value[0]) ? true : false;
             } elseif ($field === 'continueSellingOutOfStock') {
                 $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
             } elseif ($field === 'title') {
-                $thisVariantArray["optionValues"][] = $value[0];
+                $thisVariantArray["optionValues"]["name"] = $value[0];
+                $thisVariantArray["optionValues"]["optionName"] = "Title";
             } elseif ($field === "requiresShipping") {
-                $thisVariantArray["inventoryItem"]["requiresShipping"] = boolval($value[0]);
+                $thisVariantArray["inventoryItem"]["requiresShipping"] = boolval($value[0]) ? true : false;
             } else {
                 $thisVariantArray[$field] = $value[0];
             }
@@ -533,7 +534,7 @@ class ShopifyStore extends BaseStore
                 $publicUrl = $image->getFrontendFullPath();
 
                 // for some reason, "pimcore-assets" is missing from the prefix
-                if( !str_contains($publicUrl, 'pimcore-assets')) {
+                if (!str_contains($publicUrl, 'pimcore-assets')) {
                     $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
                 }
 
@@ -575,7 +576,7 @@ class ShopifyStore extends BaseStore
                 $publicUrl = $data['image']->getFrontendFullPath();
                 // for some reason, "pimcore-assets" is missing from the prefix
 
-                if( !str_contains($publicUrl, 'pimcore-assets')) {
+                if (!str_contains($publicUrl, 'pimcore-assets')) {
                     $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
                 }
 
