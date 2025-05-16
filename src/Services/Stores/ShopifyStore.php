@@ -8,6 +8,7 @@ use Pimcore\Model\Asset;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
@@ -281,35 +282,82 @@ class ShopifyStore extends BaseStore
 
     private function processBaseVariantData($fields, &$thisVariantArray)
     {
+        // each field has its own checks on missing data, and specific remote fields to map to
+
         foreach ($fields as $field => $value) {
-            if ($field === "stock") { // special cases
-                continue;
-            } elseif ($field === 'sku') {
-                $thisVariantArray["inventoryItem"]["sku"] = $value[0];
-            } elseif ($field === 'weight') { //wants this as a non-string wrapped number
-                $thisVariantArray["inventoryItem"]["measurement"]["weight"]["value"] = (float)$value[0];
-            } elseif ($field === 'weightUnit') {
-                $unit = strtoupper($value[0]);
-                if (!in_array($unit, ["POUNDS", "OUNCES", "KILOGRAMS", "GRAMS"])) {
-                    throw new Exception("invalid weightUnit value $unit not one of POUNDS OUNCES KILOGRAMS or GRAMS");
-                }
-                $thisVariantArray["inventoryItem"]["measurement"]["weight"]["unit"] = $unit;
-            } elseif ($field === 'cost') {
-                $thisVariantArray["inventoryItem"]["cost"] = (float)$value[0];
-            } elseif ($field === 'price') {
-                $thisVariantArray['price'] = (float)$value[0];
-            } elseif ($field === 'tracked') {
-                $thisVariantArray["inventoryItem"]['tracked'] = boolval($value[0]) ? true : false;
-            } elseif ($field === 'continueSellingOutOfStock') {
-                $thisVariantArray['inventoryPolicy'] = $value[0] ? "CONTINUE" : "DENY";
-            } elseif ($field === 'title') {
-                $thisVariantArray["optionValues"]["name"] = $value[0];
-                $thisVariantArray["optionValues"]["optionName"] = "Title";
-            } elseif ($field === "requiresShipping") {
-                $thisVariantArray["inventoryItem"]["requiresShipping"] = boolval($value[0]) ? true : false;
-            } else {
-                $thisVariantArray[$field] = $value[0];
+
+            switch( $field ) {
+                case 'stock':  // updateStock is handled separately 
+                    break;
+
+                case 'sku':
+                    $thisVariantArray['inventoryItem']['sku'] = $value[0] ?: '';
+                    break;
+
+                case 'weight':
+                    // this would require the unit mapping to be set before the value mapping
+                    if( isset($thisVariantArray['inventoryItem']['measurement']['weight']['unit']) ) {
+                        $thisVariantArray['inventoryItem']['measurement']['weight']['value'] = floatval($value[0]);
+                    } 
+                    
+                    break;
+
+                case 'weightUnit':
+                    if( $value[0] ) {
+                        $unit = strtoupper($value[0]);
+                        if (!in_array($unit, ['POUNDS', 'OUNCES', 'KILOGRAMS', 'GRAMS'])) {
+                            throw new Exception("invalid weightUnit value $unit not one of POUNDS OUNCES KILOGRAMS or GRAMS");
+                        }
+
+                        $thisVariantArray['inventoryItem']['measurement']['weight']['unit'] = $unit;
+                    }
+
+                    break;
+
+                case 'cost':
+                    $thisVariantArray['inventoryItem']['cost'] = floatval($value[0]);
+                    break;
+
+                case 'price':
+                    $thisVariantArray['price'] = floatval($value[0]);
+                    break;
+
+                case 'tracked':
+                    $thisVariantArray['inventoryItem']['tracked'] = boolval($value[0]);
+                    break;
+
+                case 'continueSellingOutOfStock':
+                    $thisVariantArray['inventoryPolicy'] = $value[0] ? 'CONTINUE' : 'DENY';
+                    break;
+
+                case 'title':
+                    if( $value[0] ) {
+                        $thisVariantArray['optionValues']['name'] = $value[0];  
+                        $thisVariantArray['optionValues']['optionName'] = 'Title';
+                    }
+                    break;
+
+                case 'requiresShipping':
+                    $thisVariantArray['inventoryItem']['requiresShipping'] = boolval($value[0]);
+                    break;
+
+                default:
+                    $thisVariantArray[$field] = $value[0] ?: '';
             }
+        }
+
+        // do not send weight without unit
+        if( !isset($thisVariantArray['inventoryItem']['measurement']['weight']['unit']) ) {
+            unset($thisVariantArray['inventoryItem']['measurement']['weight']['value']);
+        }
+
+        // do not send empty array
+        if( isset($thisVariantArray['inventoryItem']['measurement']) && empty($thisVariantArray['inventoryItem']['measurement']['weight']) ) {
+            unset($thisVariantArray['inventoryItem']['measurement']['weight']);
+        }
+
+        if( isset($thisVariantArray['inventoryItem']['measurement']) && empty($thisVariantArray['inventoryItem']['measurement']) ) {
+            unset($thisVariantArray['inventoryItem']['measurement']);
         }
     }
 
@@ -323,9 +371,9 @@ class ShopifyStore extends BaseStore
         if (array_key_exists($attribute["namespace"] . "." .  $attribute["fieldName"], $mappingArray)) {
             $tmpMetafield = $mappingArray[$attribute["namespace"] . "." .  $attribute["fieldName"]];
             if (str_contains($mappingArray[$attribute["namespace"] . "." .  $attribute["fieldName"]]["type"], "list.")) {
-                $tmpMetafield["value"] = json_encode($attribute["value"]);
+                $tmpMetafield["value"] = json_encode($attribute["value"] ?: []);
             } else {
-                $tmpMetafield["value"] = $attribute["value"][0];
+                $tmpMetafield["value"] = $attribute["value"][0] ?: '';
             }
         } else {
             throw new Exception("undefined metafield definition: " . $attribute["namespace"] . "." .  $attribute["fieldName"]);
@@ -395,7 +443,7 @@ class ShopifyStore extends BaseStore
                     foreach ($resultFiles as $resultFileURL) {
                         $this->applicationLogger->info("Shopify mutation to update products is finished " . $resultFileURL, [
                             'component' => $this->configLogName,
-                            'fileObject' => $resultFileURL,
+                            'fileObject' => new FileObject(file_get_contents($resultFileURL)),
                             null,
                         ]);
                     }
@@ -469,13 +517,13 @@ class ShopifyStore extends BaseStore
             try {
                 $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
                     'component' => $this->configLogName,
-                    null,
+                    'fileObject' => new FileObject(implode("\r\n", $this->metafieldSetArrays)),
                 ]);
                 $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
                 foreach ($resultFiles as $resultFileURL) {
                     $this->applicationLogger->info("A Shopify mutation to update metafields is finished " . $resultFileURL, [
                         'component' => $this->configLogName,
-                        'fileObject' => $resultFileURL,
+                        'fileObject' => new FileObject(file_get_contents($resultFileURL)),
                         null,
                     ]);
                 }
@@ -549,7 +597,7 @@ class ShopifyStore extends BaseStore
             $result = $this->shopifyQueryService->createMedia($inputArray);
             $this->applicationLogger->info("Shopify mutation to create media is finished", [
                 'component' => $this->configLogName,
-                null,
+                'fileObject' => new FileObject(implode("\r\n", $result)),
             ]);
             foreach ($result["data"]["fileCreate"]["files"] ?? [] as $mapBack) {
                 $uploadedImageAsset = $this->newImages[$mapBack["alt"]] ?? null;
@@ -590,7 +638,7 @@ class ShopifyStore extends BaseStore
             $result = $this->shopifyQueryService->updateMedia($inputArray);
             $this->applicationLogger->info("End of Shopify mutation to update media and add them to products", [
                 'component' => $this->configLogName,
-                null,
+                'fileObject' => new FileObject(implode("\r\n", $result)),
             ]);
         }
     }
@@ -613,7 +661,7 @@ class ShopifyStore extends BaseStore
                 $results = $this->shopifyQueryService->updateStock($this->updateStock, $this->storeLocationId);
                 $this->applicationLogger->info("Shopify mutation to update inventory is finished " . json_encode($results), [
                     'component' => $this->configLogName,
-                    null,
+                    'fileObject' => new FileObject(implode("\r\n", $results)),
                 ]);
             } catch (Exception $e) {
                 $this->applicationLogger->error("Error during Shopify mutation to update inventory : " . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), [

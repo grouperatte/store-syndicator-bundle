@@ -139,7 +139,10 @@ class ShopifyQueryService
 
         if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
             $gid = $result['data']['bulkOperationRunMutation']['bulkOperation']['id'];
-            $this->customLogLogger->info("updateProducts: " . $gid, ['component' => $this->configLogName]);
+            $this->customLogLogger->info("updateProducts: " . $gid, [
+                'component' => $this->configLogName,
+                'fileObject' => new FileObject(stream_get_contents($file)),
+            ]);
             while (!$queryResult = $this->checkQueryProgress($gid)) {
                 sleep(1);
             }
@@ -250,7 +253,6 @@ class ShopifyQueryService
     {
         try {
             $result = $this->runQuery($queryString, $input);
-            $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
         } catch (Exception $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
         }
@@ -264,7 +266,6 @@ class ShopifyQueryService
             try {
                 $result = $this->runQuery($queryString, $input);
                 $this->linkPushedVariants($result, $idMappings);
-                $this->customLogLogger->info(print_r($result, true), ['component' => $this->configLogName]);
             } catch (Exception $e) {
                 $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
             }
@@ -274,7 +275,10 @@ class ShopifyQueryService
 
     private function linkPushedVariants($result, &$existingIdMappings)
     {
-        foreach ($result["data"]["productVariantsBulkCreate"]["productVariants"] as $variant) {
+        if( !isset($result['data']['productVariantsBulkCreate']['productVariants']) )
+            return;
+
+        foreach ( ($result["data"]["productVariantsBulkCreate"]["productVariants"] ?: []) as $variant) {
             if (isset($variant["metafield"]["value"])) {
                 $existingIdMappings[$variant["metafield"]["value"]] = $variant["id"];
             } else {
@@ -435,15 +439,24 @@ class ShopifyQueryService
      **/
     private function runQuery($query, $variables = null): array|string|null
     {
+        $this->customLogLogger->info('Sending GraphQL query:', [
+            'component' => $this->configLogName,
+            'fileObject' => new FileObject(json_encode(['query' => $query, 'variables' => $variables]))
+        ]);
+
         try {
             if ($variables) {
                 $response = $this->graphql->query(["query" => $query, "variables" => $variables]);
-                $this->customLogLogger->info("ran query:\n" . $query . "\nWith variables:\n" .  json_encode($variables) . "\nresponse:\n" .  json_encode($response->getDecodedBody()), ['component' => $this->configLogName]);
             } else {
-                $response = $this->graphql->query(["query" => $query]);
-                $this->customLogLogger->info("ran query:\n" . $query . "\nresponse:\n" . json_encode($response->getDecodedBody()), ['component' => $this->configLogName]);
+                $response = $this->graphql->query(["query" => $query]);    
             }
+
             $response = $response->getDecodedBody();
+            $this->customLogLogger->info('Shopify response payload:', [
+                'component' => $this->configLogName,
+                'fileObject' => new FileObject(json_encode($response))
+            ]);
+
         } catch (SyntaxError $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
             return null;
