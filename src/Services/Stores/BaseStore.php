@@ -80,26 +80,25 @@ abstract class BaseStore implements StoreInterface
             } else {
                 $localValue = $this->getFieldValues($object, $localFieldPath, $fieldType);
             }
-            if ($localValue !== null) {
-                if (!is_array($localValue)) {
-                    $localValue = [$localValue];
-                }
-                $value = array();
+            
+            if (!is_array($localValue)) {
+                $localValue = [$localValue];
+            }
+            $value = array();
 
-                if (in_array($fieldType, ['metafields', 'variant metafields'])) {
-                    array_push($value, [
-                        'namespace' => $remoteFieldPath[0],
-                        'fieldName' => $remoteFieldPath[1],
-                        'value' => $localValue
-                    ]);
-                } elseif (!in_array($fieldType, ["image"])) {
-                    $value[$remoteAttribute] = $localValue;
-                } else {
-                    $value = $localValue;
-                }
-                if (count($value) > 0) {
-                    $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);
-                }
+            if (in_array($fieldType, ['metafields', 'variant metafields'])) {
+                array_push($value, [
+                    'namespace' => $remoteFieldPath[0],
+                    'fieldName' => $remoteFieldPath[1],
+                    'value' => $localValue
+                ]);
+            } elseif (!in_array($fieldType, ["image"])) {
+                $value[$remoteAttribute] = $localValue;
+            } else {
+                $value = $localValue;
+            }
+            if (count($value) > 0) {
+                $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);
             }
         }
         return $returnMap;
