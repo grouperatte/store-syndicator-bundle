@@ -677,8 +677,12 @@ class ShopifyStore extends BaseStore
         ]);
     }
 
-    private function processImage(Asset $image, Concrete $object)
+    private function processImage(Asset|null $image, Concrete $object)
     {
+        // No image was set for the product, we'll push the product without an image for now.
+        if (!$image) {
+            return;
+        }
         if (!$this->existsInStore($image)) {
             $this->newImages[$image->getId()] = $image;
         }
