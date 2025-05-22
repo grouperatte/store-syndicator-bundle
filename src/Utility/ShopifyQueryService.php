@@ -9,6 +9,7 @@ use GraphQL\Error\SyntaxError;
 use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
+use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 
 /**
  * class to make queries to shopify and proccess their result for you into readable arrays
@@ -654,5 +655,88 @@ class ShopifyQueryService
         } catch (Exception $e) {
             $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
         }
+    }
+
+
+    /**
+     * create a new image in shopify
+     * @param string $url public-facing URL
+     * @param string $filename to set in Shopify
+     * @return array [fileStatus, fileId]
+     * 
+     * If the API response does not include the necessary file result data, returns empty strings.
+     * 
+     **/
+    public function createImage(string $url, string $filename) : array
+    {
+        $response = $this->runQuery(ShopifyGraphqlHelperService::buildCreateMediaQuery(), [
+            'files' => [
+                [
+                    'contentType' => 'IMAGE',
+                    'duplicateResolutionMode' => 'REPLACE',
+                    'filename' => $filename,
+                    'originalSource' => $url,
+                ]
+            ]
+        ]);
+
+        $fileStatus = '';
+        $fileId = '';
+
+        if( $response 
+            && isset($response['data']['fileCreate']['files'])
+            && is_array($response['data']['fileCreate']['files']) 
+            && count($response['data']['fileCreate']['files']) ) 
+        {
+            $fileStatus = $response['data']['fileCreate']['files'][0]['fileStatus'] ?: '';    
+            $fileId =     $response['data']['fileCreate']['files'][0]['id'] ?: '';
+        }
+
+        return [$fileStatus, $fileId];
+    }
+
+
+    /**
+     * link an image to a product
+     * @param string $imageId In Shopify
+     * @param string $productId in Shopify
+     * @return string file status returned by Shopify
+     */
+    public function linkImageToProduct(string $imageId, string $productId) : bool 
+    {
+        $response = $this->runQuery(ShopifyGraphqlHelperService::buildUpdateMediaQuery(), [
+            'files' => [
+                [
+                    'id' => $imageId,
+                    'referencesToAdd' => $productId,
+                ]
+            ]
+        ]);
+
+        if( $response 
+            && isset($response['data']['userErrors'])
+            && is_array($response['data']['userErrors'])
+            && count($response['data']['userErrors']) )
+        {
+            // if we have an error, and the file is not ready, ignore the error so we can retry
+            if( is_array($response['data']['files']) && count($response['data']['files']) ) {
+                $fileStatus = $response['data']['files'][0]['fileStatus'] ?: '';
+                if( $fileStatus != 'READY' )
+                    return $fileStatus;
+            }
+
+            return ShopifyStore::STATUS_ERROR;
+        }
+
+        // no errors... so return the file status
+        if( $response 
+            && isset($response['data']['fileUpdate']['files'])
+            && is_array($response['data']['fileUpdate']['files']) 
+            && count($response['data']['fileUpdate']['files']) )
+        {
+            return $response['data']['fileUpdate']['files'][0]['fileStatus'] ?: '';
+        }
+
+        return '';
     }
 }

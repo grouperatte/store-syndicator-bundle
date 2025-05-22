@@ -32,6 +32,7 @@ abstract class BaseStore implements StoreInterface
         ConfigurationRepository $configurationRepository,
         ConfigurationService $configurationService,
         ApplicationLogger $applicationLogger,
+        MessageBusInterface $messageBus,
     );
     abstract public function setup(Configuration $config);
 
