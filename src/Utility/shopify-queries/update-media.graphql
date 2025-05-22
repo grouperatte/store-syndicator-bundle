@@ -6,7 +6,19 @@ mutation fileUpdate($files: [FileUpdateInput!]!) {
       message
     }
     files {
-      alt
+      id
+      fileStatus
+      fileErrors {
+        code
+        details
+        message
+      }
+      updatedAt
+    }
+    userErrors { 
+      code
+      field
+      message
     }
   }
 }

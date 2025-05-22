@@ -3,12 +3,15 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Exception;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Pimcore\Db;
 use Pimcore\Model\Asset;
 use Pimcore\Model\DataObject\Concrete;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
 use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
+use TorqIT\StoreSyndicatorBundle\Message\ShopifyAttachImageMessage;
+use TorqIT\StoreSyndicatorBundle\Message\ShopifyUploadImageMessage;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
@@ -29,15 +32,23 @@ class ShopifyStore extends BaseStore
     private array $addProdsToStore;
     private array $newImages; //images that need to be uploaded and linked back to pimcore asset
     private array $images; //all images in this export and their referencing products
-    private string $configLogName;
+    public string $configLogName;
+
+    // Assets in PIM are tagged with this status based on the next stage of Shopify Syndication required
+    public const STATUS_UPLOAD = 'upload';
+    public const STATUS_ATTACH = 'attach';
+    public const STATUS_ERROR = 'error';
+    public const STATUS_DONE = 'done';
+
 
     public function __construct(
         private ConfigurationRepository $configurationRepository,
         private ConfigurationService $configurationService,
         private ApplicationLogger $applicationLogger,
+        private MessageBusInterface $messageBus,
     ) {}
 
-    public function setup(Configuration $config)
+    public function setup(Configuration $config, bool $minimal=false)
     {
         $this->config = $config;
         $remoteStoreName = $this->configurationService->getStoreName($config);
@@ -51,21 +62,24 @@ class ShopifyStore extends BaseStore
 
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
         $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->applicationLogger, $this->configLogName);
-        $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
-        $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
-        $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
 
-        $this->updateProductArrays = [];
-        $this->createProductArrays = [];
-        $this->updateVariantsArrays = [];
-        $this->createVariantsArrays = [];
-        $this->metafieldSetArrays = [];
-        $this->updateStock = [];
-        $this->newImages = [];
-        $this->images = [];
-        $this->addProdsToStore = [];
+        if( !$minimal ) {
+            $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
+            $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
+            $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
 
-        Db::get()->executeQuery('SET SESSION wait_timeout = ' . 28800); //timeout to 8 hours for this session
+            $this->updateProductArrays = [];
+            $this->createProductArrays = [];
+            $this->updateVariantsArrays = [];
+            $this->createVariantsArrays = [];
+            $this->metafieldSetArrays = [];
+            $this->updateStock = [];
+            $this->newImages = [];
+            $this->images = [];
+            $this->addProdsToStore = [];
+
+            Db::get()->executeQuery('SET SESSION wait_timeout = ' . 28800); //timeout to 8 hours for this session
+        }
     }
 
     public function createProduct(Concrete $object): void
@@ -571,31 +585,27 @@ class ShopifyStore extends BaseStore
             $inputArray = [];
         }
         if ($this->newImages) {
-            $this->applicationLogger->info("Start of Shopify mutation to create media", [
+            $this->applicationLogger->info("Populating job queue to sync new images", [
                 'component' => $this->configLogName,
                 null,
             ]);
             $inputArray = [];
             /** @var Asset $image  */
-            foreach ($this->newImages as $image) {
+            foreach ($this->newImages as $productId => $image) {
 
-                $publicUrl = $image->getFrontendFullPath();
+                $image->setProperty('TorqSS:ShopifyStatus', 'text', self::STATUS_UPLOAD, false, false);
 
-                // for some reason, "pimcore-assets" is missing from the prefix
-                if (!str_contains($publicUrl, 'pimcore-assets')) {
-                    $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
-                }
+                $this->messageBus->dispatch(new ShopifyUploadImageMessage(
+                    $this->config->getName(),
+                    $image->getId(),
+                    $productId
+                ));
+/*
 
-                $inputArray["files"][] = [
-                    "originalSource" => $publicUrl,
-                    "filename" => $image->getFilename(),
-                    "contentType" => "IMAGE",
-                    "alt" => strval($image->getId()), //this is used temporarily to map back the image to the asset and is removed in the linking to product mutation below
-                    "duplicateResolutionMode" => "REPLACE"
-                ];
+*/
             }
-            $result = $this->shopifyQueryService->createMedia($inputArray);
-            $this->applicationLogger->info("Shopify mutation to create media is finished", [
+  /*          $result = $this->shopifyQueryService->createMedia($inputArray);
+            $this->applicationLogger->info("Finished queueing new image jobs", [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(implode("\r\n", $result)),
             ]);
@@ -611,16 +621,24 @@ class ShopifyStore extends BaseStore
                 }
             }
             $inputArray = [];
+*/
         }
         if ($this->images) {
-            $this->applicationLogger->info("Start of Shopify mutation to update media and add them to products", [
+            $this->applicationLogger->info("Populating job queue to sync image updates", [
                 'component' => $this->configLogName,
                 null,
             ]);
             $inputArray = [];
-            foreach ($this->images as $data) {
+            foreach ($this->images as $productId => $image) {
+                $image->setProperty('TorqSS:ShopifyStatus', 'text', self::STATUS_UPLOAD, false, false);
 
+                $this->messageBus->dispatch(new ShopifyUploadImageMessage(
+                    $this->config->getName(),
+                    $image->getId(),
+                    $productId
+                ));
 
+/*
                 $publicUrl = $data['image']->getFrontendFullPath();
                 // for some reason, "pimcore-assets" is missing from the prefix
 
@@ -634,12 +652,14 @@ class ShopifyStore extends BaseStore
                     "referencesToAdd" => $data["products"],
                     "originalSource" => $publicUrl
                 ];
+                */
             }
+            /*
             $result = $this->shopifyQueryService->updateMedia($inputArray);
             $this->applicationLogger->info("End of Shopify mutation to update media and add them to products", [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(implode("\r\n", $result)),
-            ]);
+            ]); */
         }
     }
 
@@ -683,10 +703,93 @@ class ShopifyStore extends BaseStore
         if (!$image) {
             return;
         }
+
         if (!$this->existsInStore($image)) {
-            $this->newImages[$image->getId()] = $image;
+            $this->newImages[$this->getStoreId($object)] = $image;
         }
-        $this->images[$image->getId()]["products"][] = $this->getStoreId($object);
-        $this->images[$image->getId()]["image"] = $image;
+        else
+        {
+            $this->images[$this->getStoreId($object)] = $image;
+        }
+
     }
+
+
+    /*
+     * @param Asset $image
+     *
+     * Uploads the main image of the given Asset to Shopify
+     * @return array
+     * [ ShopifyFileStatus, ShopifyFileID ]
+     *
+     * This wraps around shopifyQueryService::createImage()
+     * Here we load from the Pimcore Asset
+     * the public URL of its image, and here we choose to set the Shopify Filename to reference this
+     * Pimcore Asset ID.
+     */
+    public function createImage(Asset $image)
+    {
+        $publicUrl = $image->getFrontendFullPath();
+
+        // for some reason, "pimcore-assets" is missing from the prefix
+        if (!str_contains($publicUrl, 'pimcore-assets')) {
+            $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
+        }
+
+        return $this->shopifyQueryService->createImage(
+            $publicUrl,
+            $image->getId() . '-' . $image->getFilename(),
+        );
+    }
+
+
+    /*
+     * Updates the image on Shopify to link it to the product on Shopify
+     *
+     * returns true if image was successfully linked on Shopify
+     */
+    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId) : bool
+    {
+        // If the file status is READY, we can link it to the product
+        if( $shopifyFileStatus == 'READY') {
+            $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
+
+            if( $shopifyFileStatus == self::STATUS_ERROR ) {
+                $this->applicationLogger->error("Error attaching image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                return false;
+            }
+
+            // if the file was ready first, then we ran the update without errors, then now we are done
+            return true;
+        } else {
+            // The file status was not ready, so let's check for an update
+            $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
+
+            if( $shopifyFileStatus == self::STATUS_ERROR ) {
+                $this->applicationLogger->error("Error attaching image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
+                    'component' => $this->configLogName,
+                    null,
+                ]);
+                return false;
+            }
+
+            // if the file is ready now, the mutation above will have linked it to the product, so we are done
+            return true;
+        }
+
+        // since it is not ready right now, process this later
+        $this->messageBus->dispatch(new ShopifyAttachImageMessage(
+            $this->config->getName(),
+            $shopifyFileId,
+            $shopifyProductId,
+            $shopifyFileStatus,
+            $assetId
+        ));
+
+        return false;
+    }
+
 }
