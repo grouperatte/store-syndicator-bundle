@@ -731,8 +731,6 @@ class ShopifyStore extends BaseStore
         if (!str_contains($publicUrl, 'pimcore-assets')) {
             $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
         }
-
-        $publicUrl = 'https://grouperattepimcoreprod.azureedge.net/' . ltrim($publicUrl,'/');
         
         return $this->shopifyQueryService->createImage(
             $publicUrl,
