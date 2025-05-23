@@ -546,7 +546,7 @@ class ShopifyStore extends BaseStore
             try {
                 $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
                     'component' => $this->configLogName,
-                    'fileObject' => new FileObject(implode("\r\n", $this->metafieldSetArrays)),
+                    'fileObject' => new FileObject(json_encode($this->metafieldSetArrays)),
                 ]);
                 $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
                 foreach ($resultFiles as $resultFileURL) {
