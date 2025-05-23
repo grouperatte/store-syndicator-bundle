@@ -207,6 +207,13 @@ class ShopifyStore extends BaseStore
             $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
+        // avoid setting these fields to empty string because in the Shopify API they are types as "money"
+        foreach( ['price', 'compareAtPrice'] as $moneyField ) {
+            if( isset($graphQLInput[$moneyField]) && floatval($graphQLInput[$moneyField]) <= 0 ) {
+                unset($graphQLInput[$moneyField]);
+            }
+        }
+
         $this->createVariantsArrays[$parent->getId()][] = $graphQLInput;
     }
 
