@@ -207,6 +207,13 @@ class ShopifyStore extends BaseStore
             $graphQLInput["optionValues"]["optionName"] = "Title";
         }
 
+        // avoid setting these fields to empty string because in the Shopify API they are types as "money"
+        foreach( ['price', 'compareAtPrice'] as $moneyField ) {
+            if( isset($graphQLInput[$moneyField]) && floatval($graphQLInput[$moneyField]) <= 0 ) {
+                unset($graphQLInput[$moneyField]);
+            }
+        }
+
         $this->createVariantsArrays[$parent->getId()][] = $graphQLInput;
     }
 
@@ -539,7 +546,7 @@ class ShopifyStore extends BaseStore
             try {
                 $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
                     'component' => $this->configLogName,
-                    'fileObject' => new FileObject(implode("\r\n", $this->metafieldSetArrays)),
+                    'fileObject' => new FileObject(json_encode($this->metafieldSetArrays)),
                 ]);
                 $resultFiles = $this->shopifyQueryService->updateMetafields($this->metafieldSetArrays);
                 foreach ($resultFiles as $resultFileURL) {

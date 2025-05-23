@@ -50,7 +50,7 @@ final class ShopifyUploadImageMessageHandler
             // if these are empty, we cannot continue
             if( empty($shopifyFileId) ) {
                 $this->applicationLogger->error(
-                    "ShopifyUploadImageMessageHandler: Missing ShopifyFileId ({$message->assetId})", [
+                    "ShopifyUploadImageMessageHandler: Missing ShopifyFileId ({$message->assetId}) after upload", [
                         'component' => $this->shopifyStore->configLogName
                     ]
                 );
