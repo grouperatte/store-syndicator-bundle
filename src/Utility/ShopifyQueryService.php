@@ -714,13 +714,15 @@ class ShopifyQueryService
         ]);
 
         if( $response 
-            && isset($response['data']['userErrors'])
-            && is_array($response['data']['userErrors'])
-            && count($response['data']['userErrors']) )
+            && isset($response['data']['fileUpdate']['userErrors'])
+            && is_array($response['data']['fileUpdate']['userErrors'])
+            && count($response['data']['fileUpdate']['userErrors']) )
         {
             // if we have an error, and the file is not ready, ignore the error so we can retry
-            if( is_array($response['data']['files']) && count($response['data']['files']) ) {
-                $fileStatus = $response['data']['files'][0]['fileStatus'] ?: '';
+            if( is_array($response['data']['fileUpdate']['files']) 
+                && count($response['data']['fileUpdate']['files']) ) 
+            {
+                $fileStatus = $response['data']['fileUpdate']['files'][0]['fileStatus'] ?: '';
                 if( $fileStatus != 'READY' )
                     return $fileStatus;
             }

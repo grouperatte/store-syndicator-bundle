@@ -309,20 +309,22 @@ class ShopifyStore extends BaseStore
                     break;
 
                 case 'weight':
-                    // this would require the unit mapping to be set before the value mapping
-                    if( isset($thisVariantArray['inventoryItem']['measurement']['weight']['unit']) ) {
-                        $thisVariantArray['inventoryItem']['measurement']['weight']['value'] = floatval($value[0]);
-                    } 
-                    
+                    $thisVariantArray['inventoryItem']['measurement']['weight']['value'] = floatval($value[0]);
                     break;
 
                 case 'weightUnit':
                     if( $value[0] ) {
                         $unit = strtoupper($value[0]);
+                        // these are the only valid values on Shopify
                         if (!in_array($unit, ['POUNDS', 'OUNCES', 'KILOGRAMS', 'GRAMS'])) {
-                            throw new Exception("invalid weightUnit value $unit not one of POUNDS OUNCES KILOGRAMS or GRAMS");
+                            
+                            if( $unit == 'KG' ) $unit = 'KILOGRAMS';
+                            elseif( $unit == 'OZ' ) $unit = 'OUNCES';
+                            elseif( $unit == 'LB' || $unit == 'LBS' ) $unit = 'POUNDS';
+                            elseif( $unit == 'G' ) $unit = 'GRAMS';
+                            else break; // this will prevent the invalid unit from being sent to Shopify
                         }
-
+                            
                         $thisVariantArray['inventoryItem']['measurement']['weight']['unit'] = $unit;
                     }
 
@@ -363,6 +365,12 @@ class ShopifyStore extends BaseStore
         // do not send weight without unit
         if( !isset($thisVariantArray['inventoryItem']['measurement']['weight']['unit']) ) {
             unset($thisVariantArray['inventoryItem']['measurement']['weight']['value']);
+        } else {
+            // do not send unit without weight
+            if( $thisVariantArray['inventoryItem']['measurement']['weight']['value'] <= 0 ) {
+                // removes both unit and value
+                unset($thisVariantArray['inventoryItem']['measurement']['weight']);
+            }
         }
 
         // do not send empty array
@@ -755,7 +763,7 @@ class ShopifyStore extends BaseStore
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
 
             if( $shopifyFileStatus == self::STATUS_ERROR ) {
-                $this->applicationLogger->error("Error attaching image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
+                $this->applicationLogger->error("Error attaching READY image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
                     'component' => $this->configLogName,
                     null,
                 ]);

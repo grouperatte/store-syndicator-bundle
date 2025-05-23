@@ -98,10 +98,20 @@ abstract class BaseStore implements StoreInterface
             } else {
                 $value = $localValue;
             }
+
+            // these remote fields may not be set to empty values
+            foreach ($value as $key => $val) {
+                // note the test is typed, so a zero value is not considered empty
+                if( in_array($remoteAttribute, ['compareAtPrice', 'price', 'cost']) && ($val === '') )
+                    unset($value[$key]);
+            }
+
             if (count($value) > 0) {
                 $returnMap[$fieldType] = array_merge($returnMap[$fieldType] ?? [], $value);
             }
         }
+
+        
         return $returnMap;
     }
 
