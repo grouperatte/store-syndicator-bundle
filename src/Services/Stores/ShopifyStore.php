@@ -315,10 +315,16 @@ class ShopifyStore extends BaseStore
                 case 'weightUnit':
                     if( $value[0] ) {
                         $unit = strtoupper($value[0]);
-                        if (!in_array($unit, ['POUNDS', 'OUNCES', 'KILOGRAMS', 'GRAMS']))
-                            break;
-
-
+                        // these are the only valid values on Shopify
+                        if (!in_array($unit, ['POUNDS', 'OUNCES', 'KILOGRAMS', 'GRAMS'])) {
+                            
+                            if( $unit == 'KG' ) $unit = 'KILOGRAMS';
+                            elseif( $unit == 'OZ' ) $unit = 'OUNCES';
+                            elseif( $unit == 'LB' || $unit == 'LBS' ) $unit = 'POUNDS';
+                            elseif( $unit == 'G' ) $unit = 'GRAMS';
+                            else break; // this will prevent the invalid unit from being sent to Shopify
+                        }
+                            
                         $thisVariantArray['inventoryItem']['measurement']['weight']['unit'] = $unit;
                     }
 
