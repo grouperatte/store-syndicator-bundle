@@ -10,4 +10,14 @@ final class ShopifyUploadImageMessage
         public readonly int $assetId,
         public readonly string $shopifyProductId
     ) { }
+
+
+    public function toJson(): string
+    {
+        return json_encode([
+            'dataHubConfigName' => $this->dataHubConfigName,
+            'assetId' => $this->assetId,
+            'shopifyProductId' => $this->shopifyProductId
+        ]);
+    }
 }

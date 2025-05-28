@@ -608,7 +608,7 @@ class ShopifyStore extends BaseStore
             /** @var Asset $image  */
             foreach ($this->newImages as $productId => $image) {
 
-                $image->setProperty('TorqSS:ShopifyStatus', 'text', self::STATUS_UPLOAD, false, false);
+                $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
 
                 $this->messageBus->dispatch(new ShopifyUploadImageMessage(
                     $this->config->getName(),
@@ -645,7 +645,7 @@ class ShopifyStore extends BaseStore
             ]);
             $inputArray = [];
             foreach ($this->images as $productId => $image) {
-                $image->setProperty('TorqSS:ShopifyStatus', 'text', self::STATUS_UPLOAD, false, false);
+                $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
 
                 $this->messageBus->dispatch(new ShopifyUploadImageMessage(
                     $this->config->getName(),
@@ -752,8 +752,9 @@ class ShopifyStore extends BaseStore
         }
 
         return $this->shopifyQueryService->createImage(
-            $publicUrl,
-            $image->getId() . '-' . $image->getFilename(),
+            $publicUrl,                                    // the URL sent to Shopify 
+            $image->getId() . '-' . $image->getFilename(), // the filename sent to Shopify
+            $image
         );
     }
 
