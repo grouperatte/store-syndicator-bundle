@@ -3,12 +3,13 @@
 namespace TorqIT\StoreSyndicatorBundle\MessageHandler;
 
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\Asset;
-use Pimcore\Model\DataObject\Product;
+use Symfony\Component\Messenger\MessageBusInterface;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyUploadImageMessage;
-use TorqIT\StoreSyndicatorBundle\Services\ExecutionService;
+use TorqIT\StoreSyndicatorBundle\Message\ShopifyAttachImageMessage;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 
 #[AsMessageHandler]
@@ -16,11 +17,11 @@ final class ShopifyUploadImageMessageHandler
 {
     private Configuration $dataHubConfig;
     private Asset $asset;
-    private Product $product;
 
     public function __construct(
         private ApplicationLogger $applicationLogger,
         private ShopifyStore $shopifyStore,
+        private MessageBusInterface $messageBus,
         ) 
     { 
 
@@ -42,10 +43,23 @@ final class ShopifyUploadImageMessageHandler
             return;
         }
 
+        $this->applicationLogger->debug(
+            "ShopifyUploadImageMessageHandler: Processing upload for asset ({$message->assetId})",
+            [   'component' => $this->shopifyStore->configLogName,
+                'relatedObject' => $this->asset,
+                'fileObject' => new FileObject($message->toJson())
+            ]
+        );
+
         try {
 
             // send fileCreate request to Shopify
             list( $shopifyFileStatus, $shopifyFileId ) = $this->shopifyStore->createImage( $this->asset );
+            $this->applicationLogger->debug(
+                    "ShopifyUploadImageMessageHandler: Upload result ({$message->assetId}) $shopifyFileId / $shopifyFileStatus",
+                    [   'component' => $this->shopifyStore->configLogName ]
+                );
+                
 
             // if these are empty, we cannot continue
             if( empty($shopifyFileId) ) {
@@ -63,15 +77,40 @@ final class ShopifyUploadImageMessageHandler
             $this->asset->setProperty( 'TorqSS:ShopifyFileId', 'text', $shopifyFileId, false, false );
 
             // update PIM property for ShopifyUploadStatus
+            $this->asset->setProperty( 'TorqSS:ShopifyFileStatus', 'text', $shopifyFileStatus, false, false );
             $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_ATTACH, false, false );
             $this->asset->save();
 
-            // attach Shopify image to Shopify Product
-            // the 3rd parameter will allow the attach to run immediately if the file is READY
-            if( $this->shopifyStore->attachImageToProduct( $shopifyFileId, $message->shopifyProductId, $shopifyFileStatus, $message->assetId ) ) {
-                // update PIM property for ShopifyUploadStatus
-                $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false );
-                $this->asset->save();
+            if( $shopifyFileStatus == 'READY' ) // returned from Shopify and we can only link if READY
+            {
+                $this->applicationLogger->debug(
+                    "ShopifyUploadImageMessageHandler: Uploading now ({$message->assetId})",
+                    [   'component' => $this->shopifyStore->configLogName ]
+                );
+
+                // attach Shopify image to Shopify Product
+                if( $this->shopifyStore->attachImageToProduct( $shopifyFileId, $message->shopifyProductId, $shopifyFileStatus, $message->assetId ) ) {
+                    // update PIM property for ShopifyUploadStatus
+                    $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false );
+                    $this->asset->save();
+                }
+            }
+            else 
+            {
+                $this->applicationLogger->debug(
+                    "ShopifyUploadImageMessageHandler: Uploading later ({$message->assetId})",
+                    [   'component' => $this->shopifyStore->configLogName ]
+                );
+                
+
+                // since it is not ready right now, process this later
+                $this->messageBus->dispatch(new ShopifyAttachImageMessage(
+                    $message->dataHubConfigName,
+                    $shopifyFileId,
+                    $message->shopifyProductId,
+                    $shopifyFileStatus,
+                    $message->assetId
+                ));
             }
 
         } catch (\Throwable $e) {

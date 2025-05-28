@@ -7,6 +7,8 @@ use Pimcore\Logger;
 use Shopify\Clients\Graphql;
 use GraphQL\Error\SyntaxError;
 use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
+use Pimcore\Model\Asset;
+use Pimcore\Model\DataObject\AbstractObject;
 use TorqIT\StoreSyndicatorBundle\Utility\ShopifyGraphqlHelperService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
@@ -438,11 +440,12 @@ class ShopifyQueryService
      * @param string $query the query to be ran
      * @throws conditon
      **/
-    private function runQuery($query, $variables = null): array|string|null
+    private function runQuery($query, $variables = null, ?AbstractObject $relatedObject =null): array|string|null
     {
-        $this->customLogLogger->info('Sending GraphQL query:', [
+        $this->customLogLogger->debug('Sending GraphQL query:', [
             'component' => $this->configLogName,
-            'fileObject' => new FileObject(json_encode(['query' => $query, 'variables' => $variables]))
+            'fileObject' => new FileObject(json_encode(['query' => $query, 'variables' => $variables])),
+            'relatedObject' => $relatedObject,
         ]);
 
         try {
@@ -453,7 +456,7 @@ class ShopifyQueryService
             }
 
             $response = $response->getDecodedBody();
-            $this->customLogLogger->info('Shopify response payload:', [
+            $this->customLogLogger->debug('Shopify response payload:', [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(json_encode($response))
             ]);
@@ -667,7 +670,7 @@ class ShopifyQueryService
      * If the API response does not include the necessary file result data, returns empty strings.
      * 
      **/
-    public function createImage(string $url, string $filename) : array
+    public function createImage(string $url, string $filename, ?Asset $image) : array
     {
         $response = $this->runQuery(ShopifyGraphqlHelperService::buildCreateMediaQuery(), [
             'files' => [
@@ -677,8 +680,9 @@ class ShopifyQueryService
                     'filename' => $filename,
                     'originalSource' => $url,
                 ]
-            ]
-        ]);
+            ]],
+            $image
+        );
 
         $fileStatus = '';
         $fileId = '';
