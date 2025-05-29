@@ -753,8 +753,7 @@ class ShopifyStore extends BaseStore
 
         return $this->shopifyQueryService->createImage(
             $publicUrl,                                    // the URL sent to Shopify 
-            $image->getId() . '-' . $image->getFilename(), // the filename sent to Shopify
-            $image
+            $image->getId() . '-' . $image->getFilename() // the filename sent to Shopify
         );
     }
 

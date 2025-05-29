@@ -115,9 +115,9 @@ final class ShopifyUploadImageMessageHandler
 
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(
-                "Error Processing ShopifyUploadImageMessage ({$message->dataHubConfigName}): " . $e->getMessage(),
+                "Error Processing ShopifyUploadImageMessage: " . $e->getMessage(),
                 $e,
-                component: 'StoreSyndicator'
+                component: $this->shopifyStore->configLogName
             );
         }
     }
