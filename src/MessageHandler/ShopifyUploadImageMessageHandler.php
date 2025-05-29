@@ -84,7 +84,7 @@ final class ShopifyUploadImageMessageHandler
             if( $shopifyFileStatus == 'READY' ) // returned from Shopify and we can only link if READY
             {
                 $this->applicationLogger->debug(
-                    "ShopifyUploadImageMessageHandler: Uploading now ({$message->assetId})",
+                    "ShopifyUploadImageMessageHandler: Attaching now ({$message->assetId})",
                     [   'component' => $this->shopifyStore->configLogName ]
                 );
 
@@ -98,7 +98,7 @@ final class ShopifyUploadImageMessageHandler
             else 
             {
                 $this->applicationLogger->debug(
-                    "ShopifyUploadImageMessageHandler: Uploading later ({$message->assetId})",
+                    "ShopifyUploadImageMessageHandler: Attaching later ({$message->assetId})",
                     [   'component' => $this->shopifyStore->configLogName ]
                 );
                 
