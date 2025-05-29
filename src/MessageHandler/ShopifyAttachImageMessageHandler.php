@@ -46,6 +46,15 @@ final class ShopifyAttachImageMessageHandler
             return;
         }
 
+        
+        $this->applicationLogger->debug(
+            "ShopifyAttachImageMessageHandler: Processing attach image for asset ({$message->assetId})",
+            [   'component' => $this->shopifyStore->configLogName,
+                'relatedObject' => $this->asset,
+                'fileObject' => new FileObject($message->toJson())
+            ]
+        );
+
         try {
             // attach Shopify image to Shopify Product
             if( $this->shopifyStore->attachImageToProduct( $message->shopifyFileId, $message->shopifyProductId, $message->shopifyFileStatus, $message->assetId ) ) {
