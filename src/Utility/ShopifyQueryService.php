@@ -670,7 +670,7 @@ class ShopifyQueryService
      * If the API response does not include the necessary file result data, returns empty strings.
      * 
      **/
-    public function createImage(string $url, string $filename, ?Asset $image) : array
+    public function createImage(string $url, string $filename) : array
     {
         $response = $this->runQuery(ShopifyGraphqlHelperService::buildCreateMediaQuery(), [
             'files' => [
@@ -680,8 +680,7 @@ class ShopifyQueryService
                     'filename' => $filename,
                     'originalSource' => $url,
                 ]
-            ]],
-            $image
+            ]]
         );
 
         $fileStatus = '';
