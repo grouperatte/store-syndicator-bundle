@@ -52,14 +52,23 @@ final class ShopifyAttachImageMessageHandler
                 // update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false );
                 $this->asset->save();
+
+                $this->applicationLogger->debug(
+                    "ShopifyAttachImageMessageHandler: Attached ({$message->assetId})", [
+                        'component' => $this->shopifyStore->configLogName,
+                        'fileObject' => new FileObject($message->toJson()),
+                ]);
+            }
+            else
+            {
+                $this->applicationLogger->debug(
+                    "ShopifyAttachImageMessageHandler: Queued for later ({$message->assetId})", [
+                        'component' => $this->shopifyStore->configLogName,
+                        'fileObject' => new FileObject($message->toJson()),
+                ]);
             }
 
-            $this->applicationLogger->debug(
-                "ShopifyAttachImageMessageHandler: Attached ({$message->assetId})", [
-                    'component' => $this->shopifyStore->configLogName,
-                    'fileObject' => new FileObject($message->toJson()),
-                ]
-            );
+
 
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(
