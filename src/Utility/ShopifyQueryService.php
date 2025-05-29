@@ -676,7 +676,7 @@ class ShopifyQueryService
             'files' => [
                 [
                     'contentType' => 'IMAGE',
-                    'duplicateResolutionMode' => 'REPLACE',
+                    'duplicateResolutionMode' => 'APPEND_UUID',
                     'filename' => $filename,
                     'originalSource' => $url,
                 ]
