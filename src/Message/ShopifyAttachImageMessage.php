@@ -12,4 +12,15 @@ final class ShopifyAttachImageMessage
         public readonly string $shopifyFileStatus,
         public readonly int $assetId,
     ) { }
+
+    public function toJson(): string
+    {
+        return json_encode([
+            'dataHubConfigName' => $this->dataHubConfigName,
+            'shopifyFileId' => $this->shopifyFileId,
+            'shopifyProductId' => $this->shopifyProductId,
+            'shopifyFileStatus' => $this->shopifyFileStatus,
+            'assetId' => $this->assetId
+        ]);
+    }
 }
