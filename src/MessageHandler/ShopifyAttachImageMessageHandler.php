@@ -3,6 +3,7 @@
 namespace TorqIT\StoreSyndicatorBundle\MessageHandler;
 
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\Asset;
@@ -28,7 +29,8 @@ final class ShopifyAttachImageMessageHandler
         if (!$this->asset instanceof Asset) {
             $this->applicationLogger->error(
                 "ShopifyAttachImageMessageHandler: Asset not found ({$message->assetId})", [
-                    'component' => $this->shopifyStore->configLogName
+                    'component' => $this->shopifyStore->configLogName,
+                    'fileObject' => new FileObject($message->toJson()),
                 ]
             );
             return;
@@ -37,7 +39,8 @@ final class ShopifyAttachImageMessageHandler
         if( empty($message->shopifyFileId) || empty($message->shopifyProductId) ) {
             $this->applicationLogger->error(
                 "ShopifyAttachImageMessageHandler: Missing ShopifyFileId or ShopifyProductId ({$message->assetId})", [
-                    'component' => $this->shopifyStore->configLogName
+                    'component' => $this->shopifyStore->configLogName,
+                    'fileObject' => new FileObject($message->toJson()),
                 ]
             );
             return;
@@ -50,6 +53,13 @@ final class ShopifyAttachImageMessageHandler
                 $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false );
                 $this->asset->save();
             }
+
+            $this->applicationLogger->debug(
+                "ShopifyAttachImageMessageHandler: Attached ({$message->assetId})", [
+                    'component' => $this->shopifyStore->configLogName,
+                    'fileObject' => new FileObject($message->toJson()),
+                ]
+            );
 
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(
