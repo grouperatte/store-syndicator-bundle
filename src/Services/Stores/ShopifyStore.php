@@ -749,7 +749,7 @@ class ShopifyStore extends BaseStore
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
 
             if( $shopifyFileStatus == self::STATUS_ERROR ) {
-                $this->applicationLogger->error("Error attaching READY image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
+                $this->applicationLogger->error("Error attaching READY ($shopifyFileStatus) image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
                     'component' => $this->configLogName,
                     null,
                 ]);
