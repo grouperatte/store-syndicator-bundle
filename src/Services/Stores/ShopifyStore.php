@@ -652,22 +652,6 @@ class ShopifyStore extends BaseStore
                     $image->getId(),
                     $productId
                 ));
-
-/*
-                $publicUrl = $data['image']->getFrontendFullPath();
-                // for some reason, "pimcore-assets" is missing from the prefix
-
-                if (!str_contains($publicUrl, 'pimcore-assets')) {
-                    $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
-                }
-
-                $inputArray["files"][] = [
-                    "alt" => "",
-                    "id" => $this->getStoreId($data["image"]), //even if this was set in the upload image part above this, it will get the new id from the propery
-                    "referencesToAdd" => $data["products"],
-                    "originalSource" => $publicUrl
-                ];
-                */
             }
             /*
             $result = $this->shopifyQueryService->updateMedia($inputArray);
@@ -745,11 +729,6 @@ class ShopifyStore extends BaseStore
     public function createImage(Asset $image)
     {
         $publicUrl = $image->getFrontendFullPath();
-
-        // for some reason, "pimcore-assets" is missing from the prefix
-        if (!str_contains($publicUrl, 'pimcore-assets')) {
-            $publicUrl = str_replace('/assets', '/pimcore-assets/assets', $publicUrl);
-        }
 
         return $this->shopifyQueryService->createImage(
             $publicUrl,                                    // the URL sent to Shopify 

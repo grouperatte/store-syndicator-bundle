@@ -15,10 +15,5 @@ mutation fileUpdate($files: [FileUpdateInput!]!) {
       }
       updatedAt
     }
-    userErrors { 
-      code
-      field
-      message
-    }
   }
 }
