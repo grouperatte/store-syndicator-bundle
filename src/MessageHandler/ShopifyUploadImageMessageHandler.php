@@ -81,7 +81,7 @@ final class ShopifyUploadImageMessageHandler
             $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_ATTACH, false, false );
             $this->asset->save();
 
-            if( $shopifyFileStatus == 'READY' ) // returned from Shopify and we can only link if READY
+            if( $shopifyFileStatus === 'READY' ) // returned from Shopify and we can only link if READY
             {
                 $this->applicationLogger->debug(
                     "ShopifyUploadImageMessageHandler: Attaching now ({$message->assetId})",

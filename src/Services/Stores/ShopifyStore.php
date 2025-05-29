@@ -745,10 +745,10 @@ class ShopifyStore extends BaseStore
     public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId) : bool
     {
         // If the file status is READY, we can link it to the product
-        if( $shopifyFileStatus == 'READY') {
+        if( $shopifyFileStatus === 'READY') {
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
 
-            if( $shopifyFileStatus == self::STATUS_ERROR ) {
+            if( $shopifyFileStatus === self::STATUS_ERROR ) {
                 $this->applicationLogger->error("Error attaching READY ($shopifyFileStatus) image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
                     'component' => $this->configLogName,
                     null,
@@ -762,7 +762,7 @@ class ShopifyStore extends BaseStore
             // The file status was not ready, so let's check for an update
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
 
-            if( $shopifyFileStatus == self::STATUS_ERROR ) {
+            if( $shopifyFileStatus === self::STATUS_ERROR ) {
                 $this->applicationLogger->error("Error attaching image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
                     'component' => $this->configLogName,
                     null,
