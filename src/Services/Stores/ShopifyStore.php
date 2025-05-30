@@ -32,6 +32,7 @@ class ShopifyStore extends BaseStore
     private array $addProdsToStore;
     private array $newImages; //images that need to be uploaded and linked back to pimcore asset
     private array $images; //all images in this export and their referencing products
+    private array $productIdToStoreId;
     public string $configLogName;
 
     // Assets in PIM are tagged with this status based on the next stage of Shopify Syndication required
@@ -600,13 +601,13 @@ class ShopifyStore extends BaseStore
             $inputArray = [];
         }
         if ($this->newImages) {
-            $this->applicationLogger->info('Populating job queue to upload ' . count($this->newImages) . ' new images', [
+            $this->applicationLogger->debug('Populating job queue to upload ' . count($this->newImages) . ' new images', [
                 'component' => $this->configLogName,
-                null,
+                'fileObject' => new FileObject(json_encode(['newImagesKeys'=> array_keys($this->newImages), 'productIdToStoreId' => $this->productIdToStoreId])),
             ]);
-            $inputArray = [];
+
             /** @var Asset $image  */
-            foreach ($this->newImages as $shopifyProductId => $image) {
+            foreach ($this->newImages as $productId => $image) {
 
                 $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
                 $image->save();
@@ -614,24 +615,24 @@ class ShopifyStore extends BaseStore
                 $this->messageBus->dispatch(new ShopifyUploadImageMessage(
                     $this->config->getName(),
                     $image->getId(),
-                    $shopifyProductId,
+                    $this->productIdToStoreId[$productId]
                 ));
             }
         }
 
         if ($this->images) {
-            $this->applicationLogger->info('Populating job queue to re-attach ' . count($this->images) . ' images', [
+            $this->applicationLogger->debug('Populating job queue to re-attach ' . count($this->images) . ' images', [
                 'component' => $this->configLogName,
                 null,
             ]);
-            $inputArray = [];
-            foreach ($this->images as $shopifyProductId => $image) {
+
+            foreach ($this->images as $productId => $image) {
                 $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
 
                 $this->messageBus->dispatch(new ShopifyAttachImageMessage(
                     $this->config->getName(),
                     $image->getProperty('TorqSS:ShopifyFileId'),
-                    $shopifyProductId,
+                    $this->productIdToStoreId[$productId],
                     'UNKNOWN',
                     $image->getId()
                 ));
@@ -681,22 +682,16 @@ class ShopifyStore extends BaseStore
         }
 
         $shopifyFileId = $image->getProperty('TorqSS:ShopifyFileId');
-        $shopifyProductId = $this->getStoreId($object);
 
-        if( !$shopifyProductId ){
-            $this->applicationLogger->error("Cannot process Image for Product because Product not synced.", [
-                'component' => $this->configLogName,
-                'relatedObject' => $object,
-            ]);
-            return;
-        }
         if (!$shopifyFileId)   // this not being set implies the image has not been uploaded to Shopify
         {
-            $this->newImages[$shopifyProductId] = $image;
+            $this->newImages[$object->getId()] = $image;
+            $this->productIdToStoreId[$object->getId()] = $this->getStoreId($object);
         }
         elseif( empty($image->getProperty('TorqSS:ShopifyProductId')) ) // this not being set implies that the image has not been linked on Shopify
         {
-            $this->images[$shopifyProductId] = $image;
+            $this->images[$object->getId()] = $image;
+            $this->productIdToStoreId[$object->getId()] = $this->getStoreId($object);
         }
 
         // if both of those properties are set on an image, we will not handle it any further for syndication
@@ -745,8 +740,6 @@ class ShopifyStore extends BaseStore
                 return false;
             }
 
-            // if the file was ready first, then we ran the update without errors, then now we are done
-            return true;
         } else {
             // The file status was not ready, so let's check for an update
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
@@ -758,12 +751,13 @@ class ShopifyStore extends BaseStore
                 ]);
                 return false;
             }
-
-            // if the file is ready now, the mutation above will have linked it to the product, so we are done
-            return true;
         }
 
-        // since it is not ready right now, process this later
+        // if the new $shopifyFileStatus *is* READY, we can successfully linked the image to the product
+        if( $shopifyFileStatus === 'READY' )
+            return true;
+
+        // if not, we need to retry
         $this->messageBus->dispatch(new ShopifyAttachImageMessage(
             $this->config->getName(),
             $shopifyFileId,

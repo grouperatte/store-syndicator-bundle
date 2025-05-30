@@ -60,6 +60,7 @@ final class ShopifyAttachImageMessageHandler
             if( $this->shopifyStore->attachImageToProduct( $message->shopifyFileId, $message->shopifyProductId, $message->shopifyFileStatus, $message->assetId ) ) {
                 // update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false );
+                $this->asset->setProperty( 'TorqSS:ShopifyProductId', 'text', $message->shopifyProductId, false, false );
                 $this->asset->save();
 
                 $this->applicationLogger->debug(

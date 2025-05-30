@@ -719,16 +719,10 @@ class ShopifyQueryService
         if( array_key_exists('data', $response) 
             && array_key_exists('fileUpdate', $response['data']) 
             && array_key_exists('userErrors', $response['data']['fileUpdate'])
-            && (count($response['data']['fileUpdate']['userErrors']) > 0) )
+            && !empty($response['data']['fileUpdate']['userErrors']) )
         {
-            // if we have an error, and the file is not ready, ignore the error so we can retry
-            if( is_array($response['data']['fileUpdate']['files']) 
-                && (count($response['data']['fileUpdate']['files']) >0) ) 
-            {
-                $fileStatus = $response['data']['fileUpdate']['files'][0]['fileStatus'] ?: '';
-                if( $fileStatus != 'READY' )
-                    return $fileStatus;
-            }
+           if( $response['data']['fileUpdate']['userErrors'][0]['code'] == 'NON_READY_STATE')
+             return 'NON_READY_STATE';
 
             return ShopifyStore::STATUS_ERROR;
         }
