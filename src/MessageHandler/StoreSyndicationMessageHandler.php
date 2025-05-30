@@ -31,7 +31,7 @@ final class StoreSyndicationMessageHandler
             $this->applicationLogger->logException(
                 "Error Processing ShopifyStoreSyndication Message ({$message->dataHubConfigName}): " . $e->getMessage(),
                 $e,
-                component: 'StoreSyndicator'
+                component: 'STORE_SYNDICATOR ' . $message->dataHubConfigName,
             );
         }
     }
