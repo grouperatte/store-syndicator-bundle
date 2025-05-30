@@ -600,65 +600,42 @@ class ShopifyStore extends BaseStore
             $inputArray = [];
         }
         if ($this->newImages) {
-            $this->applicationLogger->info("Populating job queue to sync new images", [
+            $this->applicationLogger->info('Populating job queue to upload ' . count($this->newImages) . ' new images', [
                 'component' => $this->configLogName,
                 null,
             ]);
             $inputArray = [];
             /** @var Asset $image  */
-            foreach ($this->newImages as $productId => $image) {
+            foreach ($this->newImages as $shopifyProductId => $image) {
 
                 $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
+                $image->save();
 
                 $this->messageBus->dispatch(new ShopifyUploadImageMessage(
                     $this->config->getName(),
                     $image->getId(),
-                    $productId
+                    $shopifyProductId,
                 ));
-/*
-
-*/
             }
-  /*          $result = $this->shopifyQueryService->createMedia($inputArray);
-            $this->applicationLogger->info("Finished queueing new image jobs", [
-                'component' => $this->configLogName,
-                'fileObject' => new FileObject(implode("\r\n", $result)),
-            ]);
-            foreach ($result["data"]["fileCreate"]["files"] ?? [] as $mapBack) {
-                $uploadedImageAsset = $this->newImages[$mapBack["alt"]] ?? null;
-                if ($uploadedImageAsset && $uploadedImageAsset instanceof Asset) {
-                    $this->setStoreId($this->newImages[$mapBack["alt"]], $mapBack["id"]);
-                } else {
-                    $this->applicationLogger->error("Error after Shopify mutation to create media : tried to find asset with id " . $mapBack["alt"] . " but one was not found to link to uploaded image ", [
-                        'component' => $this->configLogName,
-                        null,
-                    ]);
-                }
-            }
-            $inputArray = [];
-*/
         }
+
         if ($this->images) {
-            $this->applicationLogger->info("Populating job queue to sync image updates", [
+            $this->applicationLogger->info('Populating job queue to re-attach ' . count($this->images) . ' images', [
                 'component' => $this->configLogName,
                 null,
             ]);
             $inputArray = [];
-            foreach ($this->images as $productId => $image) {
+            foreach ($this->images as $shopifyProductId => $image) {
                 $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
 
-                $this->messageBus->dispatch(new ShopifyUploadImageMessage(
+                $this->messageBus->dispatch(new ShopifyAttachImageMessage(
                     $this->config->getName(),
-                    $image->getId(),
-                    $productId
+                    $image->getProperty('TorqSS:ShopifyFileId'),
+                    $shopifyProductId,
+                    'UNKNOWN',
+                    $image->getId()
                 ));
             }
-            /*
-            $result = $this->shopifyQueryService->updateMedia($inputArray);
-            $this->applicationLogger->info("End of Shopify mutation to update media and add them to products", [
-                'component' => $this->configLogName,
-                'fileObject' => new FileObject(implode("\r\n", $result)),
-            ]); */
         }
     }
 
@@ -699,18 +676,30 @@ class ShopifyStore extends BaseStore
     private function processImage(Asset|null $image, Concrete $object)
     {
         // No image was set for the product, we'll push the product without an image for now.
-        if (!$image) {
+        if (is_null($image)) {
             return;
         }
 
-        if (!$this->existsInStore($image)) {
-            $this->newImages[$this->getStoreId($object)] = $image;
+        $shopifyFileId = $image->getProperty('TorqSS:ShopifyFileId');
+        $shopifyProductId = $this->getStoreId($object);
+
+        if( !$shopifyProductId ){
+            $this->applicationLogger->error("Cannot process Image for Product because Product not synced.", [
+                'component' => $this->configLogName,
+                'relatedObject' => $object,
+            ]);
+            return;
         }
-        else
+        if (!$shopifyFileId)   // this not being set implies the image has not been uploaded to Shopify
         {
-            $this->images[$this->getStoreId($object)] = $image;
+            $this->newImages[$shopifyProductId] = $image;
+        }
+        elseif( empty($image->getProperty('TorqSS:ShopifyProductId')) ) // this not being set implies that the image has not been linked on Shopify
+        {
+            $this->images[$shopifyProductId] = $image;
         }
 
+        // if both of those properties are set on an image, we will not handle it any further for syndication
     }
 
 
