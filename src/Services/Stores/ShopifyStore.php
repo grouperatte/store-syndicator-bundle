@@ -753,6 +753,18 @@ class ShopifyStore extends BaseStore
             }
         }
 
+        $this->applicationLogger->debug(
+            "AttachImageToProduct: ({$assetId}) updated file status {$shopifyFileStatus}", [
+                'component' => $this->configLogName,
+                'fileObject' => new FileObject(json_encode([
+                    'shopifyFileId' => $shopifyFileId,
+                    'shopifyProductId' => $shopifyProductId,
+                    'shopifyFileStatus' => $shopifyFileStatus,
+                    'isReady' => boolval($shopifyFileStatus === 'READY'),
+                    'assetId' => $assetId
+                ]))
+            ]);
+
         // if the new $shopifyFileStatus *is* READY, we can successfully linked the image to the product
         if( ($shopifyFileStatus === 'READY') || ($shopifyFileStatus == 1) )
             return true;

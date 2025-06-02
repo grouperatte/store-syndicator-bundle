@@ -716,6 +716,11 @@ class ShopifyQueryService
             ]
         ]);
 
+        $this->customLogLogger->debug('LinkImageToProduct query response', [
+            'component' => $this->configLogName,
+            'fileObject' => new FileObject(json_encode($response)),
+        ]);
+
         if( array_key_exists('data', $response) 
             && array_key_exists('fileUpdate', $response['data']) 
             && array_key_exists('userErrors', $response['data']['fileUpdate'])
@@ -736,6 +741,6 @@ class ShopifyQueryService
             return $response['data']['fileUpdate']['files'][0]['fileStatus'] ?: '';
         }
 
-        return '';
+        return 'NO_STATUS_RETURNED';
     }
 }
