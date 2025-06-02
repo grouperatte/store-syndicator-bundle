@@ -7,6 +7,7 @@ use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Pimcore\Bundle\DataHubBundle\Configuration;
 use Pimcore\Model\Asset;
+use Pimcore\Model\DataObject\Product;
 use Symfony\Component\Messenger\MessageBusInterface;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyUploadImageMessage;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyAttachImageMessage;
@@ -50,6 +51,27 @@ final class ShopifyUploadImageMessageHandler
                 'fileObject' => new FileObject($message->toJson())
             ]
         );
+
+        $shopifyProductId = $message->shopifyProductId;
+
+        // if the message does not know the ShopifyProductId, we can look it up from the product
+        if( empty($message->shopifyProductId) ) {
+
+            $product = Product::getById($message->productId);
+            if( $product ) {
+                $shopifyProductId = $this->shopifyStore->getStoreId($product);
+            } 
+        }
+
+        if( empty($shopifyProductId) ) {
+            $this->applicationLogger->error(
+                "ShopifyUploadImageMessageHandler: ShopifyProductId not found for asset ({$message->assetId})", [
+                    'component' => $this->shopifyStore->configLogName,
+                    'fileObject' => new FileObject($message->toJson() ),
+                ]
+            );
+            return;
+        }
 
         try {
 

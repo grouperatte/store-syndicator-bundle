@@ -591,11 +591,13 @@ class ShopifyStore extends BaseStore
             $this->addProdsToStore = array_unique($this->addProdsToStore);
             $inputArray = [];
             foreach ($this->addProdsToStore as $product) {
+                $storeId = $this->getStoreId($product);
                 $inputArray[] = [
-                    "id" => $this->getStoreId($product),
+                    "id" => $storeId,
                     "input" => $this->publicationIds
 
                 ];
+                $this->productIdToStoreId[$product->getId()] = $storeId;
             }
             $this->shopifyQueryService->addProductsToStore($inputArray);
             $inputArray = [];
@@ -615,6 +617,7 @@ class ShopifyStore extends BaseStore
                 $this->messageBus->dispatch(new ShopifyUploadImageMessage(
                     $this->config->getName(),
                     $image->getId(),
+                    $productId,
                     $this->productIdToStoreId[$productId]
                 ));
             }

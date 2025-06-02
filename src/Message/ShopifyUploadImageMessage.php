@@ -8,6 +8,7 @@ final class ShopifyUploadImageMessage
     public function __construct(
         public readonly string $dataHubConfigName,
         public readonly int $assetId,
+        public readonly int $productId,
         public readonly string $shopifyProductId
     ) { }
 
@@ -17,6 +18,7 @@ final class ShopifyUploadImageMessage
         return json_encode([
             'dataHubConfigName' => $this->dataHubConfigName,
             'assetId' => $this->assetId,
+            'productId' => $this->productId,
             'shopifyProductId' => $this->shopifyProductId
         ]);
     }
