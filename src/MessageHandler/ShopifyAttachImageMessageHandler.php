@@ -57,7 +57,7 @@ final class ShopifyAttachImageMessageHandler
 
         try {
             // attach Shopify image to Shopify Product
-            if( $this->shopifyStore->attachImageToProduct( $message->shopifyFileId, $message->shopifyProductId, $message->shopifyFileStatus, $message->assetId ) ) {
+            if( $shopifyFileStatus = $this->shopifyStore->attachImageToProduct( $message->shopifyFileId, $message->shopifyProductId, $message->shopifyFileStatus, $message->assetId ) ) {
                 // update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty( 'TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false );
                 $this->asset->setProperty( 'TorqSS:ShopifyProductId', 'text', $message->shopifyProductId, false, false );
@@ -69,16 +69,6 @@ final class ShopifyAttachImageMessageHandler
                         'fileObject' => new FileObject($message->toJson()),
                 ]);
             }
-            else
-            {
-                $this->applicationLogger->debug(
-                    "ShopifyAttachImageMessageHandler: Queued for later ({$message->assetId})", [
-                        'component' => $this->shopifyStore->configLogName,
-                        'fileObject' => new FileObject($message->toJson()),
-                ]);
-            }
-
-
 
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(
