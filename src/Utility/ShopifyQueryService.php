@@ -705,7 +705,7 @@ class ShopifyQueryService
      * @param string $productId in Shopify
      * @return string file status returned by Shopify
      */
-    public function linkImageToProduct(string $imageId, string $productId) : bool 
+    public function linkImageToProduct(string $imageId, string $productId) : string 
     {
         $response = $this->runQuery(ShopifyGraphqlHelperService::buildUpdateMediaQuery(), [
             'files' => [
