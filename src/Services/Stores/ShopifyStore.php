@@ -715,7 +715,7 @@ class ShopifyStore extends BaseStore
      */
     public function createImage(Asset $image)
     {
-        $publicUrl = $image->getFrontendFullPath();
+        $publicUrl = $image->getThumbnail('StoreSyndicator')->getFrontendPath() ?: $image->getFrontendFullPath();
 
         return $this->shopifyQueryService->createImage(
             $publicUrl,                                    // the URL sent to Shopify 
