@@ -715,11 +715,26 @@ class ShopifyStore extends BaseStore
      */
     public function createImage(Asset $image)
     {
-        $publicUrl = $image->getThumbnail('StoreSyndicator')->getFrontendPath() ?: $image->getFrontendFullPath();
+        // this must be the full publicly accessible URL of the image
+        $publicUrl = $image->getFrontendFullPath();
+
+        // this must have the filename extension matching the publicUrl sent
+        $filename = $image->getId() . '-' . $image->getFilename();
+
+        // this thumbnail setting will be used if found; configure according to Shopify requirements
+        $thumbnail = $image->getThumbnail('StoreSyndicator');
+
+        if( !empty($thumbnail) ) {
+            $publicUrl = $thumbnail->getFrontendPath();
+            
+           // the StoreSyndicator thumbnail will be a JPG, so make sure the filename ends with .jpg
+           if( !str_ends_with(strtolower($filename), '.jpg') )
+                $filename .= '.jpg';    
+        }
 
         return $this->shopifyQueryService->createImage(
-            $publicUrl,                                    // the URL sent to Shopify 
-            $image->getId() . '-' . $image->getFilename() // the filename sent to Shopify
+            $publicUrl,      // the URL sent to Shopify 
+            $filename        // the filename sent to Shopify
         );
     }
 
