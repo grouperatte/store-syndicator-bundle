@@ -730,6 +730,9 @@ class ShopifyStore extends BaseStore
            // the StoreSyndicator thumbnail will be a JPG, so make sure the filename ends with .jpg
            if( !str_ends_with(strtolower($filename), '.jpg') )
                 $filename .= '.jpg';    
+
+            // Make sure the file sent over is a thumbnail
+            $filename = "thumbnail_{$filename}";
         }
 
         return $this->shopifyQueryService->createImage(
