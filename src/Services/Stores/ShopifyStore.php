@@ -3,18 +3,19 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Exception;
-use Symfony\Component\Messenger\MessageBusInterface;
 use Pimcore\Db;
 use Pimcore\Model\Asset;
+use Pimcore\Model\WebsiteSetting;
 use Pimcore\Model\DataObject\Concrete;
-use Pimcore\Bundle\DataHubBundle\Configuration;
-use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
-use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use Symfony\Component\Messenger\Envelope;
+use Pimcore\Bundle\DataHubBundle\Configuration;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
+use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyAttachImageMessage;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyUploadImageMessage;
-use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
@@ -837,7 +838,10 @@ class ShopifyStore extends BaseStore
                 $assetId
             ),
             [
-                new DelayStamp(60000) // 1 minute delay
+                new DelayStamp(
+                    // if website setting is not set, default to 60 seconds (DelayStamp expects milliseconds, hence the multiplication)
+                    ((int) (WebsiteSetting::getByName('ShopifyAttachImageMessageDelayInSeconds')?->getData() ?: 60)) * 1000
+                )
             ]
         );
     }
