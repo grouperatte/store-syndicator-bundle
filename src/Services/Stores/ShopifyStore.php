@@ -3,19 +3,16 @@
 namespace TorqIT\StoreSyndicatorBundle\Services\Stores;
 
 use Exception;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Pimcore\Db;
 use Pimcore\Model\Asset;
-use Pimcore\Model\WebsiteSetting;
 use Pimcore\Model\DataObject\Concrete;
-use Symfony\Component\Messenger\Envelope;
 use Pimcore\Bundle\DataHubBundle\Configuration;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
-use Symfony\Component\Messenger\MessageBusInterface;
-use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use Pimcore\Bundle\ApplicationLoggerBundle\ApplicationLogger;
-use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
+use Pimcore\Bundle\ApplicationLoggerBundle\FileObject;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyAttachImageMessage;
 use TorqIT\StoreSyndicatorBundle\Message\ShopifyUploadImageMessage;
+use TorqIT\StoreSyndicatorBundle\Utility\ShopifyQueryService;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationService;
 use TorqIT\StoreSyndicatorBundle\Services\Authenticators\ShopifyAuthenticator;
 use TorqIT\StoreSyndicatorBundle\Services\Configuration\ConfigurationRepository;
@@ -52,7 +49,7 @@ class ShopifyStore extends BaseStore
         private MessageBusInterface $messageBus,
     ) {}
 
-    public function setup(Configuration $config, bool $minimal = false)
+    public function setup(Configuration $config, bool $minimal=false)
     {
         $this->config = $config;
         $remoteStoreName = $this->configurationService->getStoreName($config);
@@ -67,7 +64,7 @@ class ShopifyStore extends BaseStore
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
         $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->applicationLogger, $this->configLogName);
 
-        if (!$minimal) {
+        if( !$minimal ) {
             $this->metafieldTypeDefinitions = $this->shopifyQueryService->queryMetafieldDefinitions();
             $this->storeLocationId = $this->shopifyQueryService->getPrimaryStoreLocationId();
             $this->publicationIds = $this->shopifyQueryService->getSalesChannels();
@@ -212,8 +209,8 @@ class ShopifyStore extends BaseStore
         }
 
         // avoid setting these fields to empty string because in the Shopify API they are types as "money"
-        foreach (['price', 'compareAtPrice'] as $moneyField) {
-            if (isset($graphQLInput[$moneyField]) && floatval($graphQLInput[$moneyField]) <= 0) {
+        foreach( ['price', 'compareAtPrice'] as $moneyField ) {
+            if( isset($graphQLInput[$moneyField]) && floatval($graphQLInput[$moneyField]) <= 0 ) {
                 unset($graphQLInput[$moneyField]);
             }
         }
@@ -311,8 +308,8 @@ class ShopifyStore extends BaseStore
 
         foreach ($fields as $field => $value) {
 
-            switch ($field) {
-                case 'stock':  // updateStock is handled separately
+            switch( $field ) {
+                case 'stock':  // updateStock is handled separately 
                     break;
 
                 case 'sku':
@@ -324,18 +321,18 @@ class ShopifyStore extends BaseStore
                     break;
 
                 case 'weightUnit':
-                    if ($value[0]) {
+                    if( $value[0] ) {
                         $unit = strtoupper($value[0]);
                         // these are the only valid values on Shopify
                         if (!in_array($unit, ['POUNDS', 'OUNCES', 'KILOGRAMS', 'GRAMS'])) {
-
-                            if ($unit == 'KG') $unit = 'KILOGRAMS';
-                            elseif ($unit == 'OZ') $unit = 'OUNCES';
-                            elseif ($unit == 'LB' || $unit == 'LBS') $unit = 'POUNDS';
-                            elseif ($unit == 'G') $unit = 'GRAMS';
+                            
+                            if( $unit == 'KG' ) $unit = 'KILOGRAMS';
+                            elseif( $unit == 'OZ' ) $unit = 'OUNCES';
+                            elseif( $unit == 'LB' || $unit == 'LBS' ) $unit = 'POUNDS';
+                            elseif( $unit == 'G' ) $unit = 'GRAMS';
                             else break; // this will prevent the invalid unit from being sent to Shopify
                         }
-
+                            
                         $thisVariantArray['inventoryItem']['measurement']['weight']['unit'] = $unit;
                     }
 
@@ -358,8 +355,8 @@ class ShopifyStore extends BaseStore
                     break;
 
                 case 'title':
-                    if ($value[0]) {
-                        $thisVariantArray['optionValues']['name'] = $value[0];
+                    if( $value[0] ) {
+                        $thisVariantArray['optionValues']['name'] = $value[0];  
                         $thisVariantArray['optionValues']['optionName'] = 'Title';
                     }
                     break;
@@ -374,22 +371,22 @@ class ShopifyStore extends BaseStore
         }
 
         // do not send weight without unit
-        if (!isset($thisVariantArray['inventoryItem']['measurement']['weight']['unit'])) {
+        if( !isset($thisVariantArray['inventoryItem']['measurement']['weight']['unit']) ) {
             unset($thisVariantArray['inventoryItem']['measurement']['weight']['value']);
         } else {
             // do not send unit without weight
-            if ($thisVariantArray['inventoryItem']['measurement']['weight']['value'] <= 0) {
+            if( $thisVariantArray['inventoryItem']['measurement']['weight']['value'] <= 0 ) {
                 // removes both unit and value
                 unset($thisVariantArray['inventoryItem']['measurement']['weight']);
             }
         }
 
         // do not send empty array
-        if (isset($thisVariantArray['inventoryItem']['measurement']) && empty($thisVariantArray['inventoryItem']['measurement']['weight'])) {
+        if( isset($thisVariantArray['inventoryItem']['measurement']) && empty($thisVariantArray['inventoryItem']['measurement']['weight']) ) {
             unset($thisVariantArray['inventoryItem']['measurement']['weight']);
         }
 
-        if (isset($thisVariantArray['inventoryItem']['measurement']) && empty($thisVariantArray['inventoryItem']['measurement'])) {
+        if( isset($thisVariantArray['inventoryItem']['measurement']) && empty($thisVariantArray['inventoryItem']['measurement']) ) {
             unset($thisVariantArray['inventoryItem']['measurement']);
         }
     }
@@ -608,7 +605,7 @@ class ShopifyStore extends BaseStore
         if ($this->newImages) {
             $this->applicationLogger->debug('Populating job queue to upload ' . count($this->newImages) . ' new images', [
                 'component' => $this->configLogName,
-                'fileObject' => new FileObject(json_encode(['newImagesKeys' => array_keys($this->newImages), 'productIdToStoreId' => $this->productIdToStoreId])),
+                'fileObject' => new FileObject(json_encode(['newImagesKeys'=> array_keys($this->newImages), 'productIdToStoreId' => $this->productIdToStoreId])),
             ]);
 
             /** @var Asset $image  */
@@ -635,15 +632,13 @@ class ShopifyStore extends BaseStore
             foreach ($this->images as $productId => $image) {
                 $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
 
-                $this->messageBus->dispatch(
-                    $this->newDelayedShopifyAttachImageEnvelope(
-                        $this->config->getName(),
-                        $image->getProperty('TorqSS:ShopifyFileId'),
-                        $this->productIdToStoreId[$productId],
-                        'UNKNOWN',
-                        $image->getId()
-                    )
-                );
+                $this->messageBus->dispatch(new ShopifyAttachImageMessage(
+                    $this->config->getName(),
+                    $image->getProperty('TorqSS:ShopifyFileId'),
+                    $this->productIdToStoreId[$productId],
+                    'UNKNOWN',
+                    $image->getId()
+                ));
             }
         }
     }
@@ -695,7 +690,8 @@ class ShopifyStore extends BaseStore
         {
             $this->newImages[$object->getId()] = $image;
             $this->productIdToStoreId[$object->getId()] = $this->getStoreId($object);
-        } elseif (empty($image->getProperty('TorqSS:ShopifyProductId'))) // this not being set implies that the image has not been linked on Shopify
+        }
+        elseif( empty($image->getProperty('TorqSS:ShopifyProductId')) ) // this not being set implies that the image has not been linked on Shopify
         {
             $this->images[$object->getId()] = $image;
             $this->productIdToStoreId[$object->getId()] = $this->getStoreId($object);
@@ -728,19 +724,19 @@ class ShopifyStore extends BaseStore
         // this thumbnail setting will be used if found; configure according to Shopify requirements
         $thumbnail = $image->getThumbnail('StoreSyndicator');
 
-        if (!empty($thumbnail)) {
+        if( !empty($thumbnail) ) {
             $publicUrl = $thumbnail->getFrontendPath();
-
-            // the StoreSyndicator thumbnail will be a JPG, so make sure the filename ends with .jpg
-            if (!str_ends_with(strtolower($filename), '.jpg'))
-                $filename .= '.jpg';
+            
+           // the StoreSyndicator thumbnail will be a JPG, so make sure the filename ends with .jpg
+           if( !str_ends_with(strtolower($filename), '.jpg') )
+                $filename .= '.jpg';    
 
             // Make sure the file sent over is a thumbnail
             $filename = "thumbnail_{$filename}";
         }
 
         return $this->shopifyQueryService->createImage(
-            $publicUrl,      // the URL sent to Shopify
+            $publicUrl,      // the URL sent to Shopify 
             $filename        // the filename sent to Shopify
         );
     }
@@ -751,24 +747,25 @@ class ShopifyStore extends BaseStore
      *
      * returns true if image was successfully linked on Shopify
      */
-    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId): bool
+    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId) : bool
     {
         // If the file status is READY, we can link it to the product
-        if ($shopifyFileStatus === 'READY') {
+        if( $shopifyFileStatus === 'READY') {
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
 
-            if ($shopifyFileStatus === self::STATUS_ERROR) {
+            if( $shopifyFileStatus === self::STATUS_ERROR ) {
                 $this->applicationLogger->error("Error attaching READY ($shopifyFileStatus) image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
                     'component' => $this->configLogName,
                     null,
                 ]);
                 return false;
             }
+
         } else {
             // The file status was not ready, so let's check for an update
             $shopifyFileStatus = $this->shopifyQueryService->linkImageToProduct($shopifyFileId, $shopifyProductId);
 
-            if ($shopifyFileStatus === self::STATUS_ERROR) {
+            if( $shopifyFileStatus === self::STATUS_ERROR ) {
                 $this->applicationLogger->error("Error attaching image to product: " . $shopifyFileId . " to product: " . $shopifyProductId, [
                     'component' => $this->configLogName,
                     null,
@@ -778,8 +775,7 @@ class ShopifyStore extends BaseStore
         }
 
         $this->applicationLogger->debug(
-            "AttachImageToProduct: ({$assetId}) updated file status {$shopifyFileStatus}",
-            [
+            "AttachImageToProduct: ({$assetId}) updated file status {$shopifyFileStatus}", [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(json_encode([
                     'shopifyFileId' => $shopifyFileId,
@@ -788,16 +784,14 @@ class ShopifyStore extends BaseStore
                     'isReady' => boolval($shopifyFileStatus === 'READY'),
                     'assetId' => $assetId
                 ]))
-            ]
-        );
+            ]);
 
         // if the new $shopifyFileStatus *is* READY, we can successfully linked the image to the product
-        if (($shopifyFileStatus === 'READY') || ($shopifyFileStatus == 1))
+        if( ($shopifyFileStatus === 'READY') || ($shopifyFileStatus == 1) )
             return true;
 
         $this->applicationLogger->debug(
-            "AttachImageToProduct: ({$assetId}) status {$shopifyFileStatus}; queued for later ",
-            [
+            "AttachImageToProduct: ({$assetId}) status {$shopifyFileStatus}; queued for later ", [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(json_encode([
                     'shopifyFileId' => $shopifyFileId,
@@ -805,44 +799,18 @@ class ShopifyStore extends BaseStore
                     'shopifyFileStatus' => $shopifyFileStatus,
                     'assetId' => $assetId
                 ]))
-            ]
-        );
+            ]);
 
         // if not, we need to retry
-        $this->messageBus->dispatch(
-            $this->newDelayedShopifyAttachImageEnvelope(
-                $this->config->getName(),
-                $shopifyFileId,
-                $shopifyProductId,
-                $shopifyFileStatus,
-                $assetId
-            )
-        );
+        $this->messageBus->dispatch(new ShopifyAttachImageMessage(
+            $this->config->getName(),
+            $shopifyFileId,
+            $shopifyProductId,
+            $shopifyFileStatus,
+            $assetId
+        ));
 
         return false;
     }
 
-    public function newDelayedShopifyAttachImageEnvelope(
-        string $dataHubConfigName,
-        string $shopifyFileId,
-        string $shopifyProductId,
-        string $shopifyFileStatus,
-        int $assetId,
-    ): Envelope {
-        return new Envelope(
-            new ShopifyAttachImageMessage(
-                $dataHubConfigName,
-                $shopifyFileId,
-                $shopifyProductId,
-                $shopifyFileStatus,
-                $assetId
-            ),
-            [
-                new DelayStamp(
-                    // if website setting is not set, default to 60 seconds (DelayStamp expects milliseconds, hence the multiplication)
-                    ((int) (WebsiteSetting::getByName('ShopifyAttachImageMessageDelayInSeconds')?->getData() ?: 60)) * 1000
-                )
-            ]
-        );
-    }
 }
