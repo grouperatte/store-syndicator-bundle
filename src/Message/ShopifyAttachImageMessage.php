@@ -11,7 +11,7 @@ final class ShopifyAttachImageMessage
         public readonly string $shopifyProductId,
         public readonly string $shopifyFileStatus,
         public readonly int $assetId,
-        public int $attempts = 1,
+        public int $attempts = 0,
     ) {}
 
     public function toJson(): string
