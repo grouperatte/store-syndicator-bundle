@@ -81,6 +81,7 @@ final class ShopifyAttachImageMessageHandler
             } elseif ($message->messageRetryAttempts >= $this->shopifyStore->getMaxRetryAttempts()) {
                 $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
                 $this->asset->removeProperty('TorqSS:ShopifyProductId');
+                $this->asset->removeProperty('TorqSS:ShopifyFileStatus');
                 $this->asset->save();
 
                 $this->applicationLogger->error(
