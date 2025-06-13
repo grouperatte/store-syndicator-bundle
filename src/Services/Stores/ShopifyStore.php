@@ -819,7 +819,7 @@ class ShopifyStore extends BaseStore
                     $shopifyProductId,
                     $shopifyFileStatus,
                     $assetId,
-                    $attempts + 1
+                    $attempts
                 )
             );
 
