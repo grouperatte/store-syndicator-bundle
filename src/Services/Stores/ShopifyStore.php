@@ -808,8 +808,8 @@ class ShopifyStore extends BaseStore
             ]
         );
 
+        // if max retry attempts not reached, we need to retry
         if ($attempts < $this->getMaxRetryAttempts()) {
-            // if not and max retry attempts not reached, we need to retry
             $this->messageBus->dispatch(
                 $this->newDelayedShopifyAttachImageEnvelope(
                     $this->config->getName(),

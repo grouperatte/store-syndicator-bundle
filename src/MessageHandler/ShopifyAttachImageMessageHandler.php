@@ -13,6 +13,7 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 #[AsMessageHandler]
 final class ShopifyAttachImageMessageHandler
 {
+    private const INCREMENT = 1;
     private Configuration $dataHubConfig;
     private Asset $asset;
 
@@ -64,7 +65,7 @@ final class ShopifyAttachImageMessageHandler
                 $message->shopifyProductId,
                 $message->shopifyFileStatus,
                 $message->assetId,
-                $message->messageRetryAttempts + 1 //increment attempts by one
+                $message->messageRetryAttempts + self::INCREMENT
             )) {
                 // update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty('TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false);
@@ -78,7 +79,7 @@ final class ShopifyAttachImageMessageHandler
                         'fileObject' => new FileObject($message->toJson()),
                     ]
                 );
-            } elseif ($message->messageRetryAttempts >= $this->shopifyStore->getMaxRetryAttempts()) {
+            } elseif (($message->messageRetryAttempts + self::INCREMENT) >= $this->shopifyStore->getMaxRetryAttempts()) {
                 $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
                 $this->asset->removeProperty('TorqSS:ShopifyProductId');
                 $this->asset->removeProperty('TorqSS:ShopifyFileStatus');
