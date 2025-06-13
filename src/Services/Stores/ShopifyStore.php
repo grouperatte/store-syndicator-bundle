@@ -751,7 +751,7 @@ class ShopifyStore extends BaseStore
      *
      * returns true if image was successfully linked on Shopify
      */
-    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId, int $attempts): bool
+    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId, int $attempts = 1): bool
     {
         // If the file status is READY, we can link it to the product
         if ($shopifyFileStatus === 'READY') {
@@ -833,7 +833,7 @@ class ShopifyStore extends BaseStore
         string $shopifyProductId,
         string $shopifyFileStatus,
         int $assetId,
-        int $attempts
+        int $attempts = 1
     ): Envelope {
         return new Envelope(
             new ShopifyAttachImageMessage(
