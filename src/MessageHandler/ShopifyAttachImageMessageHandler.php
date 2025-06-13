@@ -94,7 +94,7 @@ final class ShopifyAttachImageMessageHandler
                     "Max attempts ({$this->shopifyStore->getMaxRetryAttempts()}) reached for ShopifyAttachImageMessage, properties removed",
                     [
                         'component' => $this->shopifyStore->configLogName,
-                        'fileObject' => new FileObject(json_encode($message->toJson()))
+                        'fileObject' => new FileObject($message->toJson())
                     ]
                 );
             }
