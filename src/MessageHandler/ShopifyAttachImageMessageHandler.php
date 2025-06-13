@@ -13,7 +13,6 @@ use TorqIT\StoreSyndicatorBundle\Services\Stores\ShopifyStore;
 #[AsMessageHandler]
 final class ShopifyAttachImageMessageHandler
 {
-    private const INCREMENT = 1;
     private Configuration $dataHubConfig;
     private Asset $asset;
 
@@ -59,15 +58,20 @@ final class ShopifyAttachImageMessageHandler
         );
 
         try {
+            // The current attempt number (starting from 1)
+            $currentAttempt = $message->messageRetryAttempts + 1;
+
             // attach Shopify image to Shopify Product
-            if ($shopifyFileStatus = $this->shopifyStore->attachImageToProduct(
+            $shopifyFileStatus = $this->shopifyStore->attachImageToProduct(
                 $message->shopifyFileId,
                 $message->shopifyProductId,
                 $message->shopifyFileStatus,
                 $message->assetId,
-                $message->messageRetryAttempts + self::INCREMENT
-            )) {
-                // update PIM property for ShopifyUploadStatus
+                $currentAttempt
+            );
+
+            if ($shopifyFileStatus) {
+                // Success: update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty('TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false);
                 $this->asset->setProperty('TorqSS:ShopifyProductId', 'text', $message->shopifyProductId, false, false);
                 $this->asset->save();
@@ -79,7 +83,8 @@ final class ShopifyAttachImageMessageHandler
                         'fileObject' => new FileObject($message->toJson()),
                     ]
                 );
-            } elseif (($message->messageRetryAttempts + self::INCREMENT) >= $this->shopifyStore->getMaxRetryAttempts()) {
+            } elseif ($currentAttempt >= $this->shopifyStore->getMaxRetryAttempts()) {
+                // Failed and reached max attempts: clean up properties
                 $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
                 $this->asset->removeProperty('TorqSS:ShopifyProductId');
                 $this->asset->removeProperty('TorqSS:ShopifyFileStatus');

@@ -795,32 +795,38 @@ class ShopifyStore extends BaseStore
         if (($shopifyFileStatus === 'READY') || ($shopifyFileStatus == 1))
             return true;
 
+        // If we've reached max attempts, return false without re-queueing
+        // The calling handler method will detect this and clean up properties
+        if ($attempts >= $this->getMaxRetryAttempts()) {
+            return false;
+        }
+
         $this->applicationLogger->debug(
-            "AttachImageToProduct: ({$assetId}) status {$shopifyFileStatus}; queued for later ",
+            "AttachImageToProduct: ({$assetId}) status {$shopifyFileStatus}; queued for later (attempt {$attempts}/{$this->getMaxRetryAttempts()})",
             [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(json_encode([
                     'shopifyFileId' => $shopifyFileId,
                     'shopifyProductId' => $shopifyProductId,
                     'shopifyFileStatus' => $shopifyFileStatus,
-                    'assetId' => $assetId
+                    'assetId' => $assetId,
+                    'attempt' => $attempts,
+                    'maxAttempts' => $this->getMaxRetryAttempts()
                 ]))
             ]
         );
 
-        // if max retry attempts not reached, we need to retry
-        if ($attempts < $this->getMaxRetryAttempts()) {
-            $this->messageBus->dispatch(
-                $this->newDelayedShopifyAttachImageEnvelope(
-                    $this->config->getName(),
-                    $shopifyFileId,
-                    $shopifyProductId,
-                    $shopifyFileStatus,
-                    $assetId,
-                    $attempts
-                )
-            );
-        }
+        // Queue the next attempt
+        $this->messageBus->dispatch(
+            $this->newDelayedShopifyAttachImageEnvelope(
+                $this->config->getName(),
+                $shopifyFileId,
+                $shopifyProductId,
+                $shopifyFileStatus,
+                $assetId,
+                $attempts
+            )
+        );
 
         return false;
     }
