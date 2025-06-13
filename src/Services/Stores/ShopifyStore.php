@@ -808,10 +808,8 @@ class ShopifyStore extends BaseStore
             ]
         );
 
-        if ($attempts >= $this->getMaxRetryAttempts()) {
-            return false; // if we have reached the maximum number of retry attempts, we will not retry anymore
-        } else {
-            // if not, we need to retry
+        if ($attempts <= $this->getMaxRetryAttempts()) {
+            // if not and max retry attempts not reached, we need to retry
             $this->messageBus->dispatch(
                 $this->newDelayedShopifyAttachImageEnvelope(
                     $this->config->getName(),
@@ -822,9 +820,9 @@ class ShopifyStore extends BaseStore
                     $attempts
                 )
             );
-
-            return false;
         }
+
+        return false;
     }
 
     public function newDelayedShopifyAttachImageEnvelope(
