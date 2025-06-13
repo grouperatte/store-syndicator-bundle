@@ -11,7 +11,7 @@ final class ShopifyAttachImageMessage
         public readonly string $shopifyProductId,
         public readonly string $shopifyFileStatus,
         public readonly int $assetId,
-        public int $attempts = 0,
+        public int $messageRetryAttempts = 0,
     ) {}
 
     public function toJson(): string
@@ -21,7 +21,8 @@ final class ShopifyAttachImageMessage
             'shopifyFileId' => $this->shopifyFileId,
             'shopifyProductId' => $this->shopifyProductId,
             'shopifyFileStatus' => $this->shopifyFileStatus,
-            'assetId' => $this->assetId
+            'assetId' => $this->assetId,
+            'messageRetryAttempts' => $this->messageRetryAttempts
         ]);
     }
 }

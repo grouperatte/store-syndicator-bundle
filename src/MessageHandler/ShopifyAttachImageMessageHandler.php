@@ -64,7 +64,7 @@ final class ShopifyAttachImageMessageHandler
                 $message->shopifyProductId,
                 $message->shopifyFileStatus,
                 $message->assetId,
-                $message->attempts + 1 //increment attempts by one
+                $message->messageRetryAttempts + 1 //increment attempts by one
             )) {
                 // update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty('TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false);
@@ -78,7 +78,7 @@ final class ShopifyAttachImageMessageHandler
                         'fileObject' => new FileObject($message->toJson()),
                     ]
                 );
-            } elseif ($message->attempts >= $this->shopifyStore->getMaxRetryAttempts()) {
+            } elseif ($message->messageRetryAttempts >= $this->shopifyStore->getMaxRetryAttempts()) {
                 $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
                 $this->asset->removeProperty('TorqSS:ShopifyProductId');
                 $this->asset->save();
