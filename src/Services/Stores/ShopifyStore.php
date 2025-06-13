@@ -833,7 +833,7 @@ class ShopifyStore extends BaseStore
         string $shopifyProductId,
         string $shopifyFileStatus,
         int $assetId,
-        int $attempts = 1
+        int $attempts
     ): Envelope {
         return new Envelope(
             new ShopifyAttachImageMessage(
