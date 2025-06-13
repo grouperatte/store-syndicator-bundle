@@ -751,7 +751,7 @@ class ShopifyStore extends BaseStore
      *
      * returns true if image was successfully linked on Shopify
      */
-    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId): bool
+    public function attachImageToProduct(string $shopifyFileId, string $shopifyProductId, string $shopifyFileStatus, int $assetId, int $attempts = 1): bool
     {
         // If the file status is READY, we can link it to the product
         if ($shopifyFileStatus === 'READY') {
@@ -795,27 +795,36 @@ class ShopifyStore extends BaseStore
         if (($shopifyFileStatus === 'READY') || ($shopifyFileStatus == 1))
             return true;
 
+        // If we've reached max attempts, return false without re-queueing
+        // The calling handler method will detect this and clean up properties
+        if ($attempts >= $this->getMaxRetryAttempts()) {
+            return false;
+        }
+
         $this->applicationLogger->debug(
-            "AttachImageToProduct: ({$assetId}) status {$shopifyFileStatus}; queued for later ",
+            "AttachImageToProduct: ({$assetId}) status {$shopifyFileStatus}; queued for later (attempt {$attempts}/{$this->getMaxRetryAttempts()})",
             [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(json_encode([
                     'shopifyFileId' => $shopifyFileId,
                     'shopifyProductId' => $shopifyProductId,
                     'shopifyFileStatus' => $shopifyFileStatus,
-                    'assetId' => $assetId
+                    'assetId' => $assetId,
+                    'attempt' => $attempts,
+                    'maxAttempts' => $this->getMaxRetryAttempts()
                 ]))
             ]
         );
 
-        // if not, we need to retry
+        // Queue the next attempt
         $this->messageBus->dispatch(
             $this->newDelayedShopifyAttachImageEnvelope(
                 $this->config->getName(),
                 $shopifyFileId,
                 $shopifyProductId,
                 $shopifyFileStatus,
-                $assetId
+                $assetId,
+                $attempts
             )
         );
 
@@ -828,6 +837,7 @@ class ShopifyStore extends BaseStore
         string $shopifyProductId,
         string $shopifyFileStatus,
         int $assetId,
+        int $attempts = 1
     ): Envelope {
         return new Envelope(
             new ShopifyAttachImageMessage(
@@ -835,7 +845,8 @@ class ShopifyStore extends BaseStore
                 $shopifyFileId,
                 $shopifyProductId,
                 $shopifyFileStatus,
-                $assetId
+                $assetId,
+                $attempts
             ),
             [
                 new DelayStamp(
@@ -844,5 +855,10 @@ class ShopifyStore extends BaseStore
                 )
             ]
         );
+    }
+
+    public function getMaxRetryAttempts(): int
+    {
+        return (int) WebsiteSetting::getByName('ShopifyAttachImageMessageMaxRetryAttempts')?->getData() ?: 10;
     }
 }
