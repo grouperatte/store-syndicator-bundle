@@ -122,6 +122,7 @@ final class ShopifyUploadImageMessageHandler
                     ['component' => $this->shopifyStore->configLogName]
                 );
 
+                // since it is not ready right now, process this later
                 $this->messageBus->dispatch(
                     $this->shopifyStore->newDelayedShopifyAttachImageEnvelope(
                         $message->dataHubConfigName,
