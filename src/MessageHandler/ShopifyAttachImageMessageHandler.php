@@ -78,7 +78,7 @@ final class ShopifyAttachImageMessageHandler
                         'fileObject' => new FileObject($message->toJson()),
                     ]
                 );
-            } elseif ($message->attempts >= $this->shopifyStore->getMaxRetryAttempts()) {
+            } elseif ($message->attempts > $this->shopifyStore->getMaxRetryAttempts()) {
                 $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
                 $this->asset->removeProperty('TorqSS:ShopifyProductId');
                 $this->asset->save();
