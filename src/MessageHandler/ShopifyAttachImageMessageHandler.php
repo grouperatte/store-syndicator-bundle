@@ -79,17 +79,17 @@ final class ShopifyAttachImageMessageHandler
                     ]
                 );
             } elseif ($message->attempts >= $this->shopifyStore->getMaxRetryAttempts()) {
+                $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
+                $this->asset->removeProperty('TorqSS:ShopifyProductId');
+                $this->asset->save();
+
                 $this->applicationLogger->error(
-                    "Max attempts ({$this->shopifyStore->getMaxRetryAttempts()}) reached for ShopifyAttachImageMessage, removing properties",
+                    "Max attempts ({$this->shopifyStore->getMaxRetryAttempts()}) reached for ShopifyAttachImageMessage, properties removed",
                     [
                         'component' => $this->shopifyStore->configLogName,
                         'fileObject' => new FileObject(json_encode($message->toJson()))
                     ]
                 );
-
-                $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
-                $this->asset->removeProperty('TorqSS:ShopifyProductId');
-                $this->asset->save();
             }
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(
