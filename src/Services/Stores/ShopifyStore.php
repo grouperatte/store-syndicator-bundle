@@ -726,7 +726,7 @@ class ShopifyStore extends BaseStore
         $filename = $image->getId() . '-' . $image->getFilename();
 
         // this thumbnail setting will be used if found; configure according to Shopify requirements
-        $thumbnail = $image->getThumbnail('StoreSyndicator');
+        $thumbnail = $image->getThumbnail('StoreSyndicator', false);
 
         if (!empty($thumbnail)) {
             $publicUrl = $thumbnail->getFrontendPath();
