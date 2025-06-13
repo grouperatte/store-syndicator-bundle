@@ -64,7 +64,7 @@ final class ShopifyAttachImageMessageHandler
                 $message->shopifyProductId,
                 $message->shopifyFileStatus,
                 $message->assetId,
-                $message->attempts + 1
+                $message->attempts + 1 //increment attempts by one
             )) {
                 // update PIM property for ShopifyUploadStatus
                 $this->asset->setProperty('TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_DONE, false, false);
