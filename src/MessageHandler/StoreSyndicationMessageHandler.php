@@ -24,7 +24,9 @@ final class StoreSyndicationMessageHandler
     {
         $this->dataHubConfig = Configuration::getByName($message->dataHubConfigName);
 
-        $method = str_contains($message->dataHubConfigName, "Stock") ? 'pushStock' : 'export';
+        // TODO: Make sure we can use the pushStock method which is a very much more slim version of the export, right now, it does not work because the linking process cannot be executed safely.
+        // $method = str_contins($message->dataHubConfigName, "Stock") ? 'pushStock' : 'export';
+        $method = "export";
         
         try {
             $this->executionService->$method($this->dataHubConfig);
