@@ -422,9 +422,10 @@ class ShopifyStore extends BaseStore
 
         if (isset($fields['base variant']['stock'])) {
             $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     public function commit()

@@ -23,9 +23,11 @@ final class StoreSyndicationMessageHandler
     public function __invoke(StoreSyndicationMessage $message): void
     {
         $this->dataHubConfig = Configuration::getByName($message->dataHubConfigName);
+
+        $method = str_contains($message->dataHubConfigName, "Stock") ? 'pushStock' : 'export';
         
         try {
-            $this->executionService->export($this->dataHubConfig);
+            $this->executionService->$method($this->dataHubConfig);
 
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(
