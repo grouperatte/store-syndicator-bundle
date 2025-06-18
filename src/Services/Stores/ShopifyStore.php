@@ -738,6 +738,15 @@ class ShopifyStore extends BaseStore
             // Make sure the file sent over is a thumbnail
             $filename = "thumbnail_{$filename}";
         }
+        else {
+            $this->applicationLogger->error("Asset {$image->getId()} - {$filename} was unable to use a thumbnail as requested", [
+                'component' => $this->configLogName,
+                'fileObject' => new FileObject(implode("\r\n", [
+                    "thumbnail: " . print_r($thumbnail, true), 
+                    "asset: " . print_r($image, true)
+                ])),
+            ]);
+        }
 
         return $this->shopifyQueryService->createImage(
             $publicUrl,      // the URL sent to Shopify

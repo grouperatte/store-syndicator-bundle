@@ -12,7 +12,6 @@ class OnAssetSaveListener
     {
         $asset = $event->getAsset();
         
-        $asset->removeProperty('TorqSS:ShopifyFileId');
         $asset->removeProperty('TorqSS:ShopifyUploadStatus');
         $asset->removeProperty('TorqSS:ShopifyFileStatus');
     }
