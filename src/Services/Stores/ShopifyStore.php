@@ -269,11 +269,10 @@ class ShopifyStore extends BaseStore
         $graphQLInput = [];
 
         if (isset($fields['base variant'])) $this->processBaseVariantData($fields['base variant'], $graphQLInput);
+
         $inventoryId = $this->getStoreInventoryId($child);
-        if($child->getInventoryModificationDate()->getTimestamp() > $this->getStoreLastUpdate($child)) {
-            if (isset($fields['base variant']['stock']) && $inventoryId != null) {
-                $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
-            }
+        if (isset($fields['base variant']['stock']) && $inventoryId != null && $child->getInventoryModificationDate()?->getTimestamp() > $this->getStoreLastUpdate($child)) {
+            $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
         }
         if (!isset($graphQLInput["optionValues"])) {
             $graphQLInput["optionValues"]["name"] = $child->getKey();
