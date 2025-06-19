@@ -65,6 +65,12 @@ abstract class BaseStore implements StoreInterface
         $object->save();
     }
 
+    function setStoreInventoryId(Concrete $object, string $id)
+    {
+        $object->setProperty($this->remoteInventoryIdProperty, "text", $id);
+        $object->save();
+    }
+
     public function getAttributes(Concrete $object): array
     {
         $attributeMap = $this->config->getConfiguration()["attributeMap"];

@@ -510,7 +510,8 @@ class ShopifyStore extends BaseStore
                 $idMappings = $this->shopifyQueryService->createBulkVariants($createVariantsArrays);
                 foreach ($idMappings as $pimId => $shopifyId) {
                     if ($obj = Concrete::getById($pimId)) {
-                        $this->setStoreId($obj, $shopifyId);
+                        $this->setStoreId($obj, $shopifyId['id']);
+                        $this->setStoreInventoryId($obj, $shopifyId['inventoryId']);
                     } else {
                         $this->applicationLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
                             'component' => $this->configLogName,

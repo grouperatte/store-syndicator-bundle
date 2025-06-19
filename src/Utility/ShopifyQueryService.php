@@ -283,7 +283,10 @@ class ShopifyQueryService
 
         foreach ( ($result["data"]["productVariantsBulkCreate"]["productVariants"] ?: []) as $variant) {
             if (isset($variant["metafield"]["value"])) {
-                $existingIdMappings[$variant["metafield"]["value"]] = $variant["id"];
+                $existingIdMappings[$variant["metafield"]["value"]] = [
+                    "id" => $variant["id"],
+                    "inventoryId" => $variant["inventoryItem"]["id"]
+                ];
             } else {
                 $this->customLogLogger->error("Error Linking Created Variants: no Pimcore Id found in metafields so a published variant is now unlinked", ['component' => $this->configLogName]);
             }
