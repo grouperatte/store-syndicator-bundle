@@ -64,11 +64,20 @@ class ExecutionService
 
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
         $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
+        
+        $isStocksExport = str_contains($this->configLogName, 'Stock');
 
         $this->applicationLogger->info("*Starting import*", [
             'component' => $this->configLogName,
             null,
         ]);
+
+        if($this->isStocksExport) {        
+            $this->applicationLogger->info("*THIS IS A STOCKS ONLY EXPORT*", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+        }
         Cache::clearAll();
         $this->applicationLogger->info("Cleared pimcore data cache", [
             'component' => $this->configLogName,

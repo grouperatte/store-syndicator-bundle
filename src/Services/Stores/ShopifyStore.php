@@ -38,6 +38,8 @@ class ShopifyStore extends BaseStore
     private array $productIdToStoreId;
     public string $configLogName;
 
+    public bool $isStocksExport = false;
+
     // Assets in PIM are tagged with this status based on the next stage of Shopify Syndication required
     public const STATUS_UPLOAD = 'upload';
     public const STATUS_ATTACH = 'attach';
@@ -64,6 +66,8 @@ class ShopifyStore extends BaseStore
         $configData = $this->config->getConfiguration();
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
 
+        $this->isStocksExport = str_contains($this->configLogName, 'Stock');
+
         $authenticator = ShopifyAuthenticator::getAuthenticatorFromConfig($config);
         $this->shopifyQueryService = new ShopifyQueryService($authenticator, $this->applicationLogger, $this->configLogName);
 
@@ -88,6 +92,10 @@ class ShopifyStore extends BaseStore
 
     public function createProduct(Concrete $object): void
     {
+        if($this->isStocksExport) {
+            return;
+        }
+
         $fields = $this->getAttributes($object);
         $graphQLInput = [];
 
@@ -125,6 +133,10 @@ class ShopifyStore extends BaseStore
 
     public function updateProduct(Concrete $object): void
     {
+        if($this->isStocksExport) {
+            return;
+        }
+
         $graphQLInput = [];
 
         $fields = $this->getAttributes($object);
@@ -181,6 +193,10 @@ class ShopifyStore extends BaseStore
 
     public function createVariant(Concrete $parent, Concrete $child): void
     {
+        if($this->isStocksExport) {
+            return;
+        }
+
         $graphQLInput = [];
         $fields = $this->getAttributes($child);
         if (isset($fields['variant metafields'])) {
@@ -224,7 +240,6 @@ class ShopifyStore extends BaseStore
 
     public function updateVariant(Concrete $parent, Concrete $child): bool
     {
-
         //Skip if no new changes
         if (intval($child->getProperty($this->remoteLastUpdatedProperty)) > $child->getModificationDate()) {
             return false;
@@ -437,7 +452,7 @@ class ShopifyStore extends BaseStore
             null,
         ]);
 
-        if (!empty($this->createProductArrays)) {
+        if (!$this->isStocksExport && !empty($this->createProductArrays)) {
             //create unmade products by pushing messages to queue for asynchronous handling
             try {
                 if (count($this->createProductArrays) > 0) {
@@ -468,7 +483,7 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-        if (!empty($this->updateProductArrays)) {
+        if (!$this->isStocksExport && !empty($this->updateProductArrays)) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutation to update " . count($this->updateProductArrays) . " products.", [
                     'component' => $this->configLogName,
@@ -491,7 +506,7 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-        if ($this->createVariantsArrays) {
+        if (!$this->isStocksExport && $this->createVariantsArrays) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutation to create variants", [
                     'component' => $this->configLogName,
@@ -533,7 +548,7 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-        if ($this->updateVariantsArrays) {
+        if (!$this->isStocksExport && $this->updateVariantsArrays) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutation to update variants", [
                     'component' => $this->configLogName,
@@ -562,7 +577,7 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-        if ($this->metafieldSetArrays) {
+        if (!$this->isStocksExport && $this->metafieldSetArrays) {
             try {
                 $this->applicationLogger->info("Start of Shopify mutations to update metafields", [
                     'component' => $this->configLogName,
@@ -602,7 +617,7 @@ class ShopifyStore extends BaseStore
                 ]);
             }
         }
-        if ($this->addProdsToStore) {
+        if (!$this->isStocksExport && $this->addProdsToStore) {
             $this->applicationLogger->info("adding products to stores", [
                 'component' => $this->configLogName,
                 null,
@@ -621,7 +636,7 @@ class ShopifyStore extends BaseStore
             $this->shopifyQueryService->addProductsToStore($inputArray);
             $inputArray = [];
         }
-        if ($this->newImages) {
+        if (!$this->isStocksExport && $this->newImages) {
             $this->applicationLogger->debug('Populating job queue to upload ' . count($this->newImages) . ' new images', [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(json_encode(['newImagesKeys' => array_keys($this->newImages), 'productIdToStoreId' => $this->productIdToStoreId])),
@@ -642,7 +657,7 @@ class ShopifyStore extends BaseStore
             }
         }
 
-        if ($this->images) {
+        if (!$this->isStocksExport && $this->images) {
             $this->applicationLogger->debug('Populating job queue to re-attach ' . count($this->images) . ' images', [
                 'component' => $this->configLogName,
                 null,
