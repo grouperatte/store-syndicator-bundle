@@ -31,6 +31,7 @@ class ExecutionService
     private int $totalVariantsToCreate;
     private int $totalVariantsToUpdate;
     private int $totalStocksToUpdate;
+    private bool $isStocksExport;
 
     private BaseStore $storeInterface;
 
@@ -65,7 +66,7 @@ class ExecutionService
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
         $db->executeStatement('Delete from application_logs where component = ?', [$this->configLogName]);
         
-        $isStocksExport = str_contains($this->configLogName, 'Stock');
+        $this->isStocksExport = str_contains($this->configLogName, 'Stock');
 
         $this->applicationLogger->info("*Starting import*", [
             'component' => $this->configLogName,
