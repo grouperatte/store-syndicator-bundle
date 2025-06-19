@@ -165,7 +165,7 @@ class ShopifyStore extends BaseStore
             unset($fields['metafields']);
         }
 
-        $this->processBaseProductData($fields['base product'], $graphQLInput);
+        $this->processBaseProductData($fields['base product'] ?? [], $graphQLInput);
 
         if (isset($fields['image'])) {
             foreach ($fields['image'] as $image) {
@@ -270,8 +270,10 @@ class ShopifyStore extends BaseStore
 
         if (isset($fields['base variant'])) $this->processBaseVariantData($fields['base variant'], $graphQLInput);
         $inventoryId = $this->getStoreInventoryId($child);
-        if (isset($fields['base variant']['stock']) && $inventoryId != null) {
-            $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
+        if($child->getInventoryModificationDate()->getTimestamp() > $this->getStoreLastUpdate($child)) {
+            if (isset($fields['base variant']['stock']) && $inventoryId != null) {
+                $this->updateStock[$inventoryId] = $fields['base variant']['stock'][0];
+            }
         }
         if (!isset($graphQLInput["optionValues"])) {
             $graphQLInput["optionValues"]["name"] = $child->getKey();
@@ -279,6 +281,7 @@ class ShopifyStore extends BaseStore
         }
 
         $graphQLInput["id"] = $remoteId;
+        $graphQLInput["pimcoreId"] = $child->getId();
 
         $parentRemoteId = $this->getStoreId($parent);
 
@@ -501,7 +504,7 @@ class ShopifyStore extends BaseStore
                     if ($parent = Concrete::getById($index)) {
                         $createVariantsArrays[] = ['productId' => $this->getStoreId($parent), 'variants' => $variant];
                     } else {
-                        $this->applicationLogger->error("Error varient's parent does not have a shopify Id. Pimcore id: " . $index, [
+                        $this->applicationLogger->error("Error variant's parent does not have a shopify Id. Pimcore id: " . $index, [
                             'component' => $this->configLogName,
                             null,
                         ]);
@@ -512,6 +515,7 @@ class ShopifyStore extends BaseStore
                     if ($obj = Concrete::getById($pimId)) {
                         $this->setStoreId($obj, $shopifyId['id']);
                         $this->setStoreInventoryId($obj, $shopifyId['inventoryId']);
+                        $this->setStoreLastUpdate($obj, strval(time()));
                     } else {
                         $this->applicationLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
                             'component' => $this->configLogName,
@@ -536,7 +540,18 @@ class ShopifyStore extends BaseStore
                     'component' => $this->configLogName,
                     null,
                 ]);
-                $resultFile = $this->shopifyQueryService->updateBulkVariants($this->updateVariantsArrays);
+                //updating variantCreate mapping to insert lastUpdate after update calls
+                $this->shopifyQueryService->updateBulkVariants($this->updateVariantsArrays);
+                foreach ($this->updateVariantsArrays as $index => $variant) {
+                    if ($obj = Concrete::getById($variant[0]['pimcoreId'])) {
+                        $this->setStoreLastUpdate($obj, strval(time()));
+                    } else {
+                        $this->applicationLogger->error("Error variant does not have a shopify Id. Pimcore id: " . $variant[0]['pimcoreId'], [
+                            'component' => $this->configLogName,
+                            null,
+                        ]);
+                    }
+                }
                 $this->applicationLogger->info("Shopify mutations to update variants have been submitted", [
                     'component' => $this->configLogName,
                     null,
