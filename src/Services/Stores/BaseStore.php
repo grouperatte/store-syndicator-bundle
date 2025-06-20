@@ -67,19 +67,16 @@ abstract class BaseStore implements StoreInterface
     function setStoreId(AbstractElement $object, string $id)
     {
         $object->setProperty($this->propertyName, "text", $id);
-        $object->save();
     }
 
     function setStoreInventoryId(Concrete $object, string $id)
     {
         $object->setProperty($this->remoteInventoryIdProperty, "text", $id);
-        $object->save();
     }
 
     function setStoreLastUpdate(Concrete $object, string $id)
     {
         $object->setProperty($this->remoteLastUpdatedProperty, "text", $id);
-        $object->save();
     }
 
     public function getAttributes(Concrete $object): array

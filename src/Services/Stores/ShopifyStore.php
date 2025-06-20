@@ -464,6 +464,7 @@ class ShopifyStore extends BaseStore
                     foreach ($idMappings as $pimId => $shopifyId) {
                         if ($obj = Concrete::getById($pimId)) {
                             $this->setStoreId($obj, $shopifyId);
+                            $obj->save();
                         } else {
                             $this->applicationLogger->error("Error linking remote product to local product. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
                                 'component' => $this->configLogName,
@@ -530,6 +531,7 @@ class ShopifyStore extends BaseStore
                         $this->setStoreId($obj, $shopifyId['id']);
                         $this->setStoreInventoryId($obj, $shopifyId['inventoryId']);
                         $this->setStoreLastUpdate($obj, strval(time()));
+                        $obj->save();
                     } else {
                         $this->applicationLogger->error("Error linking remote variant to local variant. Pimcore id: " . $pimId . " Shopify id: " . $shopifyId, [
                             'component' => $this->configLogName,
@@ -559,6 +561,7 @@ class ShopifyStore extends BaseStore
                 foreach ($this->updateVariantsArrays as $index => $variant) {
                     if ($obj = Concrete::getById($variant[0]['pimcoreId'])) {
                         $this->setStoreLastUpdate($obj, strval(time()));
+                        $obj->save();
                     } else {
                         $this->applicationLogger->error("Error variant does not have a shopify Id. Pimcore id: " . $variant[0]['pimcoreId'], [
                             'component' => $this->configLogName,
