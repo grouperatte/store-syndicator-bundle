@@ -49,9 +49,9 @@ class ShopifyStore extends BaseStore
 
     public function __construct(
         private ConfigurationRepository $configurationRepository,
-        private ConfigurationService $configurationService,
-        private ApplicationLogger $applicationLogger,
-        private MessageBusInterface $messageBus,
+        private ConfigurationService    $configurationService,
+        protected ApplicationLogger     $applicationLogger,
+        private MessageBusInterface     $messageBus,
     ) {}
 
     public function setup(Configuration $config, bool $minimal = false)

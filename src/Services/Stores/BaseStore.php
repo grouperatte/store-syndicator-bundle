@@ -141,8 +141,17 @@ abstract class BaseStore implements StoreInterface
         } else {
             $fieldVal = $rootField->$getter();
         }
+
         if (is_array($fieldVal)) {
-            return implode('|', $fieldVal);
+            if (is_array($fieldVal[0])) {
+                $values = [];
+                foreach ($fieldVal as $val) {
+                    $values[] = $val['Tag']->getData();
+                }
+                return $values;
+            } else {
+                return implode('|', $fieldVal);
+            }
         } elseif (is_iterable($fieldVal)) { //this would be like manytomany fields
             $vals = [];
             foreach ($fieldVal as $singleVal) {
