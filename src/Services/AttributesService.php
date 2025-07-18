@@ -38,6 +38,8 @@ class AttributesService
         "vendor",
         "tags", //array
         "status", // "ACTIVE" "ARCHIVED" or "DRAFT"
+        "seoTitle", //seo.title
+        "seoDescription", //seo.description
     ];
 
     static array $fieldTypes = [

@@ -317,6 +317,12 @@ class ShopifyStore extends BaseStore
             } elseif ($field === 'tags') {
                 $graphQLInput[$field] = $value;
                 continue;
+            } elseif ($field === 'seoTitle') {
+                $graphQLInput['seo']['title'] = $value[0] ?: '';
+                continue;
+            } elseif ($field === 'seoDescription') {
+                $graphQLInput['seo']['description'] = $value[0] ?: '';
+                continue;
             }
             $graphQLInput[$field] = $value[0];
         }
