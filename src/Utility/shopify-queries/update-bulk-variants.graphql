@@ -1,5 +1,17 @@
-mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-  productVariantsBulkUpdate(allowPartialUpdates: true, productId: $productId, variants: $variants) {
+mutation productVariantsBulkUpdate(
+  $productId: ID!
+  $variants: [ProductVariantsBulkInput!]!
+) {
+  productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+    product {
+      id
+    }
+    productVariants {
+      id
+      metafield(namespace: "custom", key: "pimcore_id") {
+        value
+      }
+    }
     userErrors {
       field
       message
