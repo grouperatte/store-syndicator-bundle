@@ -37,6 +37,8 @@ class ShopifyStore extends BaseStore
     private array $images; //all images in this export and their referencing products
     private array $productIdToStoreId;
     public string $configLogName;
+    public string $propertyName;
+    public string $propertyNamePrefix;
 
     public bool $isStocksExport = false;
 
@@ -59,9 +61,10 @@ class ShopifyStore extends BaseStore
         $this->config = $config;
         $remoteStoreName = $this->configurationService->getStoreName($config);
 
-        $this->propertyName = "TorqSS:" . $remoteStoreName . ":shopifyId";
-        $this->remoteLastUpdatedProperty = "TorqSS:" . $remoteStoreName . ":lastUpdated";
-        $this->remoteInventoryIdProperty = "TorqSS:" . $remoteStoreName . ":inventoryId";
+        $this->propertyNamePrefix = "TorqSS:{$remoteStoreName}:";
+        $this->propertyName = $this->propertyNamePrefix . 'shopifyId';
+        $this->remoteLastUpdatedProperty = $this->propertyNamePrefix . ':lastUpdated';
+        $this->remoteInventoryIdProperty = $this->propertyNamePrefix . ':inventoryId';
 
         $configData = $this->config->getConfiguration();
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
@@ -265,6 +268,7 @@ class ShopifyStore extends BaseStore
                 "ownerId" => $remoteId
             ]
         ];
+
         if (isset($fields['variant metafields'])) {
             foreach ($fields['variant metafields'] as $attribute) {
                 $metafield = $this->createMetafield($attribute, $this->metafieldTypeDefinitions["variant"]);
@@ -281,7 +285,23 @@ class ShopifyStore extends BaseStore
             $this->metafieldSetArrays[] = $batchArray;
         }
 
-        $graphQLInput = [];
+        $graphQLInput = [
+            "metafields" => [
+                [
+                    "namespace" => "custom",
+                    "key" => "last_updated",
+                    "type" => "single_line_text_field",
+                    "value" => strval(time()),
+                ],
+                [
+                    "namespace" => "custom",
+                    "key" => "pimcore_id",
+                    "type" => "single_line_text_field",
+                    "value" => strval($child->getId()),
+                ]
+
+            ]
+        ];
 
         if (isset($fields['base variant'])) $this->processBaseVariantData($fields['base variant'], $graphQLInput);
 
@@ -296,6 +316,14 @@ class ShopifyStore extends BaseStore
 
         $graphQLInput["id"] = $remoteId;
         $graphQLInput["pimcoreId"] = $child->getId();
+
+
+        // avoid setting these fields to empty string because in the Shopify API they are typed as "money"
+        foreach (['price', 'compareAtPrice'] as $moneyField) {
+            if (isset($graphQLInput[$moneyField]) && floatval($graphQLInput[$moneyField]) <= 0) {
+                unset($graphQLInput[$moneyField]);
+            }
+        }
 
         $parentRemoteId = $this->getStoreId($parent);
 
@@ -654,7 +682,7 @@ class ShopifyStore extends BaseStore
             /** @var Asset $image  */
             foreach ($this->newImages as $productId => $image) {
 
-                $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
+                $image->setProperty($this->propertyNamePrefix . 'ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
                 $image->save();
 
                 $this->messageBus->dispatch(new ShopifyUploadImageMessage(
@@ -673,12 +701,12 @@ class ShopifyStore extends BaseStore
             ]);
 
             foreach ($this->images as $productId => $image) {
-                $image->setProperty('TorqSS:ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
+                $image->setProperty($this->propertyNamePrefix . 'ShopifyUploadStatus', 'text', self::STATUS_UPLOAD, false, false);
 
                 $this->messageBus->dispatch(
                     $this->newDelayedShopifyAttachImageEnvelope(
                         $this->config->getName(),
-                        $image->getProperty('TorqSS:ShopifyFileId'),
+                        $image->getProperty($this->propertyNamePrefix . 'ShopifyFileId'),
                         $this->productIdToStoreId[$productId],
                         'UNKNOWN',
                         $image->getId()
@@ -729,13 +757,13 @@ class ShopifyStore extends BaseStore
             return;
         }
 
-        $shopifyFileId = $image->getProperty('TorqSS:ShopifyFileId');
+        $shopifyFileId = $image->getProperty($this->propertyNamePrefix . 'ShopifyFileId');
 
         if (!$shopifyFileId)   // this not being set implies the image has not been uploaded to Shopify
         {
             $this->newImages[$object->getId()] = $image;
             $this->productIdToStoreId[$object->getId()] = $this->getStoreId($object);
-        } elseif (empty($image->getProperty('TorqSS:ShopifyProductId'))) // this not being set implies that the image has not been linked on Shopify
+        } elseif (empty($image->getProperty($this->propertyNamePrefix . 'ShopifyProductId'))) // this not being set implies that the image has not been linked on Shopify
         {
             $this->images[$object->getId()] = $image;
             $this->productIdToStoreId[$object->getId()] = $this->getStoreId($object);
