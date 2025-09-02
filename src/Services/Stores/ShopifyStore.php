@@ -315,7 +315,7 @@ class ShopifyStore extends BaseStore
         }
 
         $graphQLInput["id"] = $remoteId;
-        $graphQLInput["pimcoreId"] = $child->getId();
+        // $graphQLInput["pimcoreId"] = $child->getId();
 
 
         // avoid setting these fields to empty string because in the Shopify API they are typed as "money"
@@ -592,17 +592,17 @@ class ShopifyStore extends BaseStore
                 ]);
                 //updating variantCreate mapping to insert lastUpdate after update calls
                 $this->shopifyQueryService->updateBulkVariants($this->updateVariantsArrays);
-                foreach ($this->updateVariantsArrays as $index => $variant) {
-                    if ($obj = Concrete::getById($variant[0]['pimcoreId'])) {
-                        $this->setStoreLastUpdate($obj, strval(time()));
-                        $obj->save();
-                    } else {
-                        $this->applicationLogger->error("Error variant does not have a shopify Id. Pimcore id: " . $variant[0]['pimcoreId'], [
-                            'component' => $this->configLogName,
-                            null,
-                        ]);
-                    }
-                }
+                // foreach ($this->updateVariantsArrays as $index => $variant) {
+                // if ($obj = Concrete::getById($variant[0]['pimcoreId'])) {
+                // $this->setStoreLastUpdate($obj, strval(time()));
+                // $obj->save();
+                // } else {
+                // $this->applicationLogger->error("Error variant does not have a shopify Id. Pimcore id: " . $variant[0]['pimcoreId'], [
+                // 'component' => $this->configLogName,
+                // null,
+                // ]);
+                // }
+                // }
                 $this->applicationLogger->info("Shopify mutations to update variants have been submitted", [
                     'component' => $this->configLogName,
                     null,
