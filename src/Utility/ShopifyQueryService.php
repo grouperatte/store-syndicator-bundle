@@ -331,6 +331,7 @@ class ShopifyQueryService
         $remoteFileKeys = $this->uploadFiles([["filename" => $filename, "resource" => "BULK_MUTATION_VARIABLES"]]);
         $remoteFileKey = $remoteFileKeys[$filename]["key"];
         $product_set_store_query = ShopifyGraphqlHelperService::buildSetProductStoreIdQuery($remoteFileKey);
+        $this->waitForBulkOperationToComplete(); // allows any previous operation time to complete before proceeding
         $result = $this->runQuery($product_set_store_query);
 
         if (!empty($result['data']['bulkOperationRunMutation']['bulkOperation'])) {
@@ -745,5 +746,150 @@ class ShopifyQueryService
         }
 
         return 'NO_STATUS_RETURNED';
+    }
+
+    /* utility function to determine if any bulk operation is running */
+    private function isAnyBulkOperationRunning(): bool
+    {
+        $query = $query = '
+            query {
+                currentBulkOperation {
+                    id
+                    status
+                }
+            }
+        ';
+        $response = $this->runQuery($query);
+
+        return isset($response['data']['currentBulkOperation'])
+            && $response['data']['currentBulkOperation'] !== null
+            && $response['data']['currentBulkOperation']['status'] === 'RUNNING';
+    }
+
+    /* does not return until no bulk operation is running */
+    private function waitForBulkOperationToComplete(): void
+    {
+        while ($this->isAnyBulkOperationRunning()) {
+            $this->customLogLogger->info('Waiting for existing bulk operation to complete...', ['component' => $this->configLogName]);
+            sleep(5); // Wait 5 seconds before checking again
+        }
+    }
+
+    /**
+     * Check if there is currently a bulk operation running for this shop
+     * 
+     * @return array Returns array with 'isRunning', 'status', 'id', and other operation details
+     */
+    public function checkBulkOperation(): array
+    {
+        $query = '
+            query {
+                currentBulkOperation {
+                    id
+                    status
+                    errorCode
+                    createdAt
+                    completedAt
+                    objectCount
+                    type
+                }
+            }
+        ';
+
+        try {
+            $response = $this->runQuery($query);
+
+            if (isset($response['data']['currentBulkOperation']) && $response['data']['currentBulkOperation'] !== null) {
+                $operation = $response['data']['currentBulkOperation'];
+                return [
+                    'isRunning' => in_array($operation['status'], ['CREATED', 'RUNNING']),
+                    'status' => $operation['status'],
+                    'id' => $operation['id'],
+                    'errorCode' => $operation['errorCode'],
+                    'createdAt' => $operation['createdAt'],
+                    'completedAt' => $operation['completedAt'],
+                    'type' => $operation['type'],
+                ];
+            }
+
+            return [
+                'isRunning' => false,
+                'status' => 'NONE',
+                'id' => null
+            ];
+        } catch (Exception $e) {
+            $this->customLogLogger->error('Error checking bulk operation: ' . $e->getMessage(), ['component' => $this->configLogName]);
+            return [
+                'isRunning' => false,
+                'status' => 'ERROR',
+                'id' => null,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Cancel a running bulk operation by its ID
+     * 
+     * @param string $operationId The ID of the bulk operation to cancel
+     * @return array Returns result of the cancellation attempt
+     */
+    public function cancelBulkOperation(string $operationId): array
+    {
+        $mutation = '
+            mutation bulkOperationCancel($id: ID!) {
+                bulkOperationCancel(id: $id) {
+                    bulkOperation {
+                        id
+                        status
+                        errorCode
+                    }
+                    userErrors {
+                        field
+                        message
+                    }
+                }
+            }
+        ';
+
+        $variables = [
+            'id' => $operationId
+        ];
+
+        try {
+            $response = $this->runQuery($mutation, $variables);
+
+            if (isset($response['data']['bulkOperationCancel'])) {
+                $result = $response['data']['bulkOperationCancel'];
+
+                if (!empty($result['userErrors'])) {
+                    $errors = array_map(fn($error) => $error['message'], $result['userErrors']);
+                    return [
+                        'success' => false,
+                        'errors' => $errors,
+                        'operation' => $result['bulkOperation'] ?? null
+                    ];
+                }
+
+                return [
+                    'success' => true,
+                    'operation' => $result['bulkOperation'],
+                    'message' => 'Bulk operation cancelled successfully'
+                ];
+            }
+
+            return [
+                'success' => false,
+                'errors' => ['Unexpected response format'],
+                'response' => $response
+            ];
+        } catch (Exception $e) {
+            $this->customLogLogger->error('Error cancelling bulk operation: ' . $e->getMessage(), ['component' => $this->configLogName]);
+            return [
+                'success' => false,
+                'errors' => [$e->getMessage()],
+                'operation' => null
+            ];
+        }
     }
 }
