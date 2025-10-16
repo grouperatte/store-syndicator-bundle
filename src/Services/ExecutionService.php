@@ -68,17 +68,20 @@ class ExecutionService
         
         $this->isStocksExport = str_contains($this->configLogName, 'Stock');
 
+        if($this->isStocksExport) {        
+            $this->applicationLogger->info("*THIS IS A STOCKS ONLY EXPORT (DETECTED BY CONFIG NAME)*", [
+                'component' => $this->configLogName,
+                null,
+            ]);
+            $this->pushStock($config);
+            
+            return;
+        }
+
         $this->applicationLogger->info("*Starting import*", [
             'component' => $this->configLogName,
             null,
         ]);
-
-        if($this->isStocksExport) {        
-            $this->applicationLogger->info("*THIS IS A STOCKS ONLY EXPORT*", [
-                'component' => $this->configLogName,
-                null,
-            ]);
-        }
         Cache::clearAll();
         $this->applicationLogger->info("Cleared pimcore data cache", [
             'component' => $this->configLogName,
