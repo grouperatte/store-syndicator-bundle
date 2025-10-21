@@ -63,8 +63,8 @@ class ShopifyStore extends BaseStore
 
         $this->propertyNamePrefix = "TorqSS:{$remoteStoreName}:";
         $this->propertyName = $this->propertyNamePrefix . 'shopifyId';
-        $this->remoteLastUpdatedProperty = $this->propertyNamePrefix . ':lastUpdated';
-        $this->remoteInventoryIdProperty = $this->propertyNamePrefix . ':inventoryId';
+        $this->remoteLastUpdatedProperty = $this->propertyNamePrefix . 'lastUpdated';
+        $this->remoteInventoryIdProperty = $this->propertyNamePrefix . 'inventoryId';
 
         $configData = $this->config->getConfiguration();
         $this->configLogName = 'STORE_SYNDICATOR ' . $configData["general"]["name"];
@@ -95,7 +95,7 @@ class ShopifyStore extends BaseStore
 
     public function createProduct(Concrete $object): void
     {
-        if($this->isStocksExport) {
+        if ($this->isStocksExport) {
             return;
         }
 
@@ -136,7 +136,7 @@ class ShopifyStore extends BaseStore
 
     public function updateProduct(Concrete $object): void
     {
-        if($this->isStocksExport) {
+        if ($this->isStocksExport) {
             return;
         }
 
@@ -196,7 +196,7 @@ class ShopifyStore extends BaseStore
 
     public function createVariant(Concrete $parent, Concrete $child): void
     {
-        if($this->isStocksExport) {
+        if ($this->isStocksExport) {
             return;
         }
 
@@ -805,12 +805,11 @@ class ShopifyStore extends BaseStore
 
             // Make sure the file sent over is a thumbnail
             $filename = "thumbnail_{$filename}";
-        }
-        else {
+        } else {
             $this->applicationLogger->error("Asset {$image->getId()} - {$filename} was unable to use a thumbnail as requested", [
                 'component' => $this->configLogName,
                 'fileObject' => new FileObject(implode("\r\n", [
-                    "thumbnail: " . print_r($thumbnail, true), 
+                    "thumbnail: " . print_r($thumbnail, true),
                     "asset: " . print_r($image, true)
                 ])),
             ]);
