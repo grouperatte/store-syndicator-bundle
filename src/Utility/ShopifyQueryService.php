@@ -592,7 +592,7 @@ class ShopifyQueryService
             $response = json_decode($response, true);
             if (json_last_error() === JSON_ERROR_NONE) {
 
-                if ($response['data'] && $response['data']["node"] && $response['data']["node"]["status"] != "RUNNING" && $response['data']["node"]["status"] != "CREATED") {
+                if ($response['data'] && $response['data']["node"] && ($response['data']["node"]["status"] != "RUNNING") && ($response['data']["node"]["status"] != "CREATED")) {
                     if ($response['data']["node"]["status"] !== "COMPLETED") {
                         $this->customLogLogger->error("Bulk operation failed with status: " . ($response['data']["node"]["status"] ?? "<unknown>") . " and errors: " . json_encode($response['data']["node"]["errorCode"] ?? "<unknown>"), ['component' => $this->configLogName]);
                     }
