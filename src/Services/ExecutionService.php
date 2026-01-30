@@ -111,10 +111,10 @@ class ExecutionService
         ]);
         foreach ($productsAndVariants as $product) {
             if (count($productVariants[$product->getId()]) <= 0) {
-                $this->applicationLogger->debug("Product " .  $product->getKey() . " has no variants, skipping syndication", [
-                    'component' => $this->configLogName,
-                    'relatedObject' => $product,
-                ]);
+//                $this->applicationLogger->debug("Product " .  $product->getKey() . " has no variants, skipping syndication", [
+//                    'component' => $this->configLogName,
+//                    'relatedObject' => $product,
+//                ]);
                 continue;
             }
             $this->process($product, $productVariants[$product->getId()]);

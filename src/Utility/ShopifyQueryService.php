@@ -446,11 +446,11 @@ class ShopifyQueryService
      **/
     private function runQuery($query, $variables = null, ?AbstractObject $relatedObject =null): array|string|null
     {
-        $this->customLogLogger->debug('Sending GraphQL query:', [
-            'component' => $this->configLogName,
-            'fileObject' => new FileObject(json_encode(['query' => $query, 'variables' => $variables])),
-            'relatedObject' => $relatedObject,
-        ]);
+//        $this->customLogLogger->debug('Sending GraphQL query:', [
+//            'component' => $this->configLogName,
+//            'fileObject' => new FileObject(json_encode(['query' => $query, 'variables' => $variables])),
+//            'relatedObject' => $relatedObject,
+//        ]);
 
         try {
             if ($variables) {
@@ -460,17 +460,17 @@ class ShopifyQueryService
             }
 
             $response = $response->getDecodedBody();
-            $this->customLogLogger->debug('Shopify response payload:', [
-                'component' => $this->configLogName,
-                'fileObject' => new FileObject(json_encode($response))
-            ]);
+//            $this->customLogLogger->debug('Shopify response payload:', [
+//                'component' => $this->configLogName,
+//                'fileObject' => new FileObject(json_encode($response))
+//            ]);
 
         } catch (SyntaxError $e) {
-            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
+//            $this->customLogLogger->error("Syntax Error" . $e->getMessage() . "\nFile: " . $e->getFile() . "\nLine: " . $e->getLine() . "\nTrace: " . $e->getTraceAsString(), ['component' => $this->configLogName]);
             return null;
         }
         if (array_key_exists('data', $response) && array_key_exists('bulkOperationRunMutation', $response['data']) && count($response['data']['bulkOperationRunMutation']['userErrors']) > 0) {
-            $this->customLogLogger->error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']), ['component' => $this->configLogName]);
+//            $this->customLogLogger->error("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']), ['component' => $this->configLogName]);
             throw new Exception("error thrown by shopify on query:\n$query" . "\nerror: " . json_encode($response['data']['bulkOperationRunMutation']['userErrors']));
         }
         return $response;
@@ -593,9 +593,9 @@ class ShopifyQueryService
             if (json_last_error() === JSON_ERROR_NONE) {
 
                 if ($response['data'] && $response['data']["node"] && ($response['data']["node"]["status"] != "RUNNING") && ($response['data']["node"]["status"] != "CREATED")) {
-                    if ($response['data']["node"]["status"] !== "COMPLETED") {
-                        $this->customLogLogger->error("Bulk operation failed with status: " . ($response['data']["node"]["status"] ?? "<unknown>") . " and errors: " . json_encode($response['data']["node"]["errorCode"] ?? "<unknown>"), ['component' => $this->configLogName]);
-                    }
+//                    if ($response['data']["node"]["status"] !== "COMPLETED") {
+//                        $this->customLogLogger->error("Bulk operation failed with status: " . ($response['data']["node"]["status"] ?? "<unknown>") . " and errors: " . json_encode($response['data']["node"]["errorCode"] ?? "<unknown>"), ['component' => $this->configLogName]);
+//                    }
                     return $response['data']["node"];
                 }
             }

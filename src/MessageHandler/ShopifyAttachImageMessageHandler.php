@@ -27,24 +27,24 @@ final class ShopifyAttachImageMessageHandler
         $this->shopifyStore->setup($this->dataHubConfig, true);
         $this->asset = Asset::getById($message->assetId);
         if (!$this->asset instanceof Asset) {
-            $this->applicationLogger->error(
-                "ShopifyAttachImageMessageHandler: Asset not found ({$message->assetId})",
-                [
-                    'component' => $this->shopifyStore->configLogName,
-                    'fileObject' => new FileObject($message->toJson()),
-                ]
-            );
+//            $this->applicationLogger->error(
+//                "ShopifyAttachImageMessageHandler: Asset not found ({$message->assetId})",
+//                [
+//                    'component' => $this->shopifyStore->configLogName,
+//                    'fileObject' => new FileObject($message->toJson()),
+//                ]
+//            );
             return;
         }
 
         if (empty($message->shopifyFileId) || empty($message->shopifyProductId)) {
-            $this->applicationLogger->error(
-                "ShopifyAttachImageMessageHandler: Missing ShopifyFileId or ShopifyProductId ({$message->assetId})",
-                [
-                    'component' => $this->shopifyStore->configLogName,
-                    'fileObject' => new FileObject($message->toJson()),
-                ]
-            );
+//            $this->applicationLogger->error(
+//                "ShopifyAttachImageMessageHandler: Missing ShopifyFileId or ShopifyProductId ({$message->assetId})",
+//                [
+//                    'component' => $this->shopifyStore->configLogName,
+//                    'fileObject' => new FileObject($message->toJson()),
+//                ]
+//            );
             return;
         }
 
@@ -76,13 +76,13 @@ final class ShopifyAttachImageMessageHandler
                 $this->asset->setProperty('TorqSS:ShopifyProductId', 'text', $message->shopifyProductId, false, false);
                 $this->asset->save();
 
-                $this->applicationLogger->debug(
-                    "ShopifyAttachImageMessageHandler: Attached ({$message->assetId})",
-                    [
-                        'component' => $this->shopifyStore->configLogName,
-                        'fileObject' => new FileObject($message->toJson()),
-                    ]
-                );
+//                $this->applicationLogger->debug(
+//                    "ShopifyAttachImageMessageHandler: Attached ({$message->assetId})",
+//                    [
+//                        'component' => $this->shopifyStore->configLogName,
+//                        'fileObject' => new FileObject($message->toJson()),
+//                    ]
+//                );
             } elseif ($currentAttempt >= $this->shopifyStore->getMaxRetryAttempts()) {
                 // Failed and reached max attempts: clean up properties
                 $this->asset->removeProperty('TorqSS:ShopifyUploadStatus');
@@ -90,13 +90,13 @@ final class ShopifyAttachImageMessageHandler
                 $this->asset->removeProperty('TorqSS:ShopifyFileStatus');
                 $this->asset->save();
 
-                $this->applicationLogger->error(
-                    "Max attempts ({$this->shopifyStore->getMaxRetryAttempts()}) reached for ShopifyAttachImageMessage, properties removed",
-                    [
-                        'component' => $this->shopifyStore->configLogName,
-                        'fileObject' => new FileObject($message->toJson())
-                    ]
-                );
+//                $this->applicationLogger->error(
+//                    "Max attempts ({$this->shopifyStore->getMaxRetryAttempts()}) reached for ShopifyAttachImageMessage, properties removed",
+//                    [
+//                        'component' => $this->shopifyStore->configLogName,
+//                        'fileObject' => new FileObject($message->toJson())
+//                    ]
+//                );
             }
         } catch (\Throwable $e) {
             $this->applicationLogger->logException(

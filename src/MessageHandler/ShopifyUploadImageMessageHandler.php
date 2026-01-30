@@ -32,23 +32,23 @@ final class ShopifyUploadImageMessageHandler
 
         $this->asset = Asset::getById($message->assetId);
         if (!$this->asset instanceof Asset) {
-            $this->applicationLogger->error(
-                "ShopifyUploadImageMessageHandler: Asset not found ({$message->assetId})",
-                [
-                    'component' => $this->shopifyStore->configLogName
-                ]
-            );
+//            $this->applicationLogger->error(
+//                "ShopifyUploadImageMessageHandler: Asset not found ({$message->assetId})",
+//                [
+//                    'component' => $this->shopifyStore->configLogName
+//                ]
+//            );
             return;
         }
 
-        $this->applicationLogger->debug(
-            "ShopifyUploadImageMessageHandler: Processing upload for asset ({$message->assetId})",
-            [
-                'component' => $this->shopifyStore->configLogName,
-                'relatedObject' => $this->asset,
-                'fileObject' => new FileObject($message->toJson())
-            ]
-        );
+//        $this->applicationLogger->debug(
+//            "ShopifyUploadImageMessageHandler: Processing upload for asset ({$message->assetId})",
+//            [
+//                'component' => $this->shopifyStore->configLogName,
+//                'relatedObject' => $this->asset,
+//                'fileObject' => new FileObject($message->toJson())
+//            ]
+//        );
 
         $shopifyProductId = $message->shopifyProductId;
 
@@ -62,13 +62,13 @@ final class ShopifyUploadImageMessageHandler
         }
 
         if (empty($shopifyProductId)) {
-            $this->applicationLogger->error(
-                "ShopifyUploadImageMessageHandler: ShopifyProductId not found for asset ({$message->assetId})",
-                [
-                    'component' => $this->shopifyStore->configLogName,
-                    'fileObject' => new FileObject($message->toJson()),
-                ]
-            );
+//            $this->applicationLogger->error(
+//                "ShopifyUploadImageMessageHandler: ShopifyProductId not found for asset ({$message->assetId})",
+//                [
+//                    'component' => $this->shopifyStore->configLogName,
+//                    'fileObject' => new FileObject($message->toJson()),
+//                ]
+//            );
             return;
         }
 
@@ -76,20 +76,20 @@ final class ShopifyUploadImageMessageHandler
 
             // send fileCreate request to Shopify
             list($shopifyFileStatus, $shopifyFileId) = $this->shopifyStore->createImage($this->asset);
-            $this->applicationLogger->debug(
-                "ShopifyUploadImageMessageHandler: Upload result ({$message->assetId}) $shopifyFileId / $shopifyFileStatus",
-                ['component' => $this->shopifyStore->configLogName]
-            );
+//            $this->applicationLogger->debug(
+//                "ShopifyUploadImageMessageHandler: Upload result ({$message->assetId}) $shopifyFileId / $shopifyFileStatus",
+//                ['component' => $this->shopifyStore->configLogName]
+//            );
 
 
             // if these are empty, we cannot continue
             if (empty($shopifyFileId)) {
-                $this->applicationLogger->error(
-                    "ShopifyUploadImageMessageHandler: Upload failed; missing ShopifyFileId ({$message->assetId})",
-                    [
-                        'component' => $this->shopifyStore->configLogName
-                    ]
-                );
+//                $this->applicationLogger->error(
+//                    "ShopifyUploadImageMessageHandler: Upload failed; missing ShopifyFileId ({$message->assetId})",
+//                    [
+//                        'component' => $this->shopifyStore->configLogName
+//                    ]
+//                );
                 $this->asset->setProperty('TorqSS:ShopifyUploadStatus', 'text', ShopifyStore::STATUS_ERROR, false, false);
                 $this->asset->save();
                 return;
@@ -105,10 +105,10 @@ final class ShopifyUploadImageMessageHandler
 
             if ($shopifyFileStatus === 'READY') // returned from Shopify and we can only link if READY
             {
-                $this->applicationLogger->debug(
-                    "ShopifyUploadImageMessageHandler: Attaching now ({$message->assetId})",
-                    ['component' => $this->shopifyStore->configLogName]
-                );
+//                $this->applicationLogger->debug(
+//                    "ShopifyUploadImageMessageHandler: Attaching now ({$message->assetId})",
+//                    ['component' => $this->shopifyStore->configLogName]
+//                );
 
                 // attach Shopify image to Shopify Product
                 if ($this->shopifyStore->attachImageToProduct($shopifyFileId, $message->shopifyProductId, $shopifyFileStatus, $message->assetId)) {
@@ -117,10 +117,10 @@ final class ShopifyUploadImageMessageHandler
                     $this->asset->save();
                 }
             } else {
-                $this->applicationLogger->debug(
-                    "ShopifyUploadImageMessageHandler: Attaching later ({$message->assetId})",
-                    ['component' => $this->shopifyStore->configLogName]
-                );
+//                $this->applicationLogger->debug(
+//                    "ShopifyUploadImageMessageHandler: Attaching later ({$message->assetId})",
+//                    ['component' => $this->shopifyStore->configLogName]
+//                );
 
                 // since it is not ready right now, process this later
                 $this->messageBus->dispatch(
