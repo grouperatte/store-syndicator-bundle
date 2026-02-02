@@ -152,7 +152,7 @@ abstract class BaseStore implements StoreInterface
             } else {
                 return implode('|', $fieldVal);
             }
-        } elseif (is_iterable($fieldVal)) { //this would be like manytomany fields
+        } elseif (is_iterable($fieldVal)) {
             $vals = [];
             foreach ($fieldVal as $singleVal) {
                 if ($singleVal && is_object($singleVal) && method_exists($singleVal, "get" . $fieldPath[0])) {
